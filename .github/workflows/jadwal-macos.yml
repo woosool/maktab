@@ -4,7 +4,6 @@ name: Jadwal macOS
 on:
   push:
     branches: [main]
-    tags: ["jadwal-v*"]
     paths: ["jadwal/**", "sard/**", "qalam/**", "kit/**"]
   pull_request:
     paths: ["jadwal/**", "sard/**", "qalam/**", "kit/**"]
@@ -19,6 +18,4 @@ jobs:
     with:
       dir: jadwal
       platform: macos
-      name: Jadwal
       slug: jadwal
-      release-tag: ${{ startsWith(github.ref, 'refs/tags/jadwal-v') && github.ref_name || '' }}

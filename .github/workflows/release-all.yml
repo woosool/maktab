@@ -1,15 +1,13 @@
-# Build and release all three apps on every platform at once. Each app gets its own release
-# (qalam-v<version>, sard-v<version>, jadwal-v<version>) with its own update.json, exactly as
-# its own workflow would publish it. Run it by hand with a version, or push a tag "v<version>".
-name: Release all
+# Build Qalam, Jadwal and Sard, then publish one combined download for each platform.
+name: Maktab release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["maktab-v*"]
   workflow_dispatch:
     inputs:
       version:
-        description: Version to release (e.g. 1.2.0); each app's app/Cargo.toml should match.
+        description: Release version; must match all three app versions.
         required: true
         type: string
 
@@ -17,49 +15,195 @@ jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.v.outputs.version }}
+      version: ${{ steps.version.outputs.value }}
     steps:
-      - id: v
+      - uses: actions/checkout@v4
+      - id: version
         env:
-          INPUT: ${{ inputs.version }}
-          REF: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          v=${INPUT:-${REF#v}}
-          v=${v#v}
-          echo "version=$v" >> "$GITHUB_OUTPUT"
+          qalam=$(sh qalam/tools/version.sh)
+          jadwal=$(sh jadwal/tools/version.sh)
+          sard=$(sh sard/tools/version.sh)
+          if [ "$qalam" != "$jadwal" ] || [ "$qalam" != "$sard" ]; then
+            echo "::error::Qalam ($qalam), Jadwal ($jadwal), and Sard ($sard) must use the same release version."
+            exit 1
+          fi
+          version=${INPUT_VERSION:-${REF_NAME#maktab-v}}
+          if [ "$version" != "$qalam" ]; then
+            echo "::error::Requested version $version does not match app version $qalam."
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
 
   qalam:
     needs: version
     uses: ./.github/workflows/build-app.yml
     permissions:
-      contents: write
+      contents: read
     secrets: inherit
     with:
       dir: qalam
-      name: Qalam
+      platform: all
       slug: qalam
-      release-tag: qalam-v${{ needs.version.outputs.version }}
-
-  sard:
-    needs: version
-    uses: ./.github/workflows/build-app.yml
-    permissions:
-      contents: write
-    secrets: inherit
-    with:
-      dir: sard
-      name: Sard
-      slug: sard
-      release-tag: sard-v${{ needs.version.outputs.version }}
 
   jadwal:
     needs: version
     uses: ./.github/workflows/build-app.yml
     permissions:
-      contents: write
+      contents: read
     secrets: inherit
     with:
       dir: jadwal
-      name: Jadwal
+      platform: all
       slug: jadwal
-      release-tag: jadwal-v${{ needs.version.outputs.version }}
+
+  sard:
+    needs: version
+    uses: ./.github/workflows/build-app.yml
+    permissions:
+      contents: read
+    secrets: inherit
+    with:
+      dir: sard
+      platform: all
+      slug: sard
+
+  package-macos:
+    needs: [version, qalam, jadwal, sard]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [aarch64, x86_64]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: qalam-macos-${{ matrix.arch }}
+          path: packages/Qalam
+      - uses: actions/download-artifact@v4
+        with:
+          name: jadwal-macos-${{ matrix.arch }}
+          path: packages/Jadwal
+      - uses: actions/download-artifact@v4
+        with:
+          name: sard-macos-${{ matrix.arch }}
+          path: packages/Sard
+      - name: Bundle all macOS apps
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          archive="Maktab-${VERSION}-macos-${ARCH}.zip"
+          zip -qr "$archive" packages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maktab-macos-${{ matrix.arch }}
+          path: Maktab-*.zip
+
+  package-windows:
+    needs: [version, qalam, jadwal, sard]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: qalam-windows-x86_64
+          path: packages/Qalam
+      - uses: actions/download-artifact@v4
+        with:
+          name: jadwal-windows-x86_64
+          path: packages/Jadwal
+      - uses: actions/download-artifact@v4
+        with:
+          name: sard-windows-x86_64
+          path: packages/Sard
+      - name: Bundle all Windows apps
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: zip -qr "Maktab-${VERSION}-windows-x86_64.zip" packages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maktab-windows-x86_64
+          path: Maktab-*.zip
+
+  package-linux:
+    needs: [version, qalam, jadwal, sard]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: qalam-linux-${{ matrix.arch }}
+          path: packages/Qalam
+      - uses: actions/download-artifact@v4
+        with:
+          name: jadwal-linux-${{ matrix.arch }}
+          path: packages/Jadwal
+      - uses: actions/download-artifact@v4
+        with:
+          name: sard-linux-${{ matrix.arch }}
+          path: packages/Sard
+      - name: Bundle all Linux apps
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: tar -czf "Maktab-${VERSION}-linux-${ARCH}.tar.gz" packages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maktab-linux-${{ matrix.arch }}
+          path: Maktab-*.tar.gz
+
+  publish:
+    needs: [version, package-macos, package-windows, package-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: maktab-*
+          path: release
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qalam-*
+          path: qalam/dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: jadwal-*
+          path: jadwal/dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sard-*
+          path: sard/dist
+          merge-multiple: true
+      - name: Prepare app update assets
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          base_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/maktab-v${VERSION}"
+          for app in qalam jadwal sard; do
+            python3 "$app/tools/manifest.py" "$base_url"
+            cp "$app"/dist/*.zip release/
+            cp "$app/dist/update.json" "release/${app}-update.json"
+          done
+      - name: Checksums
+        working-directory: release
+        run: |
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/SHA256SUMS.txt"
+          mv "$RUNNER_TEMP/SHA256SUMS.txt" SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: maktab-v${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          files: release/*
+          overwrite_files: true
+          generate_release_notes: true
+          body: |
+            Each platform bundle contains installers for Qalam, Jadwal, and Sard.
+            The individual ZIPs and app-specific update manifests are also included for in-app updates.

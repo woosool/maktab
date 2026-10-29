@@ -1,6 +1,5 @@
 # Reusable build for one woffice app: macOS (Apple silicon, Intel), Windows x64 and Linux
-# (x86_64, arm64). Platform-specific workflows publish artifacts and merge them into the app's
-# GitHub release. Called by the per-app workflows and release-all.yml.
+# (x86_64, arm64). Uploads platform artifacts for per-app builds or the Maktab release workflow.
 #
 # Optional secrets (each step is skipped when its secret is missing):
 #   MACOS_CODESIGN_IDENTITY      "Developer ID Application: …" (Qalam's existing secret)
@@ -21,19 +20,10 @@ on:
         required: false
         type: string
         default: all
-      name:
-        description: The app's name as in its package names (Qalam, Sard, Jadwal).
-        required: true
-        type: string
       slug:
         description: Lower-case name used for artifacts and binaries (qalam, sard, jadwal).
         required: true
         type: string
-      release-tag:
-        description: Publish a GitHub release under this tag (e.g. qalam-v1.2.0); empty builds only.
-        required: false
-        type: string
-        default: ""
 
 env:
   CARGO_TERM_COLOR: always
@@ -174,78 +164,3 @@ jobs:
             ${{ inputs.dir }}/dist/*.zip
             ${{ inputs.dir }}/dist/*.deb
             ${{ inputs.dir }}/dist/*.AppImage
-
-  release:
-    if: >-
-      always() &&
-      inputs.release-tag != '' &&
-      (needs.macos.result == 'success' || needs.windows.result == 'success' || needs.linux.result == 'success')
-    needs: [macos, windows, linux]
-    runs-on: ubuntu-latest
-    concurrency:
-      group: release-${{ inputs.release-tag }}
-      cancel-in-progress: false
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Restore previously published release assets
-        uses: actions/github-script@v7
-        env:
-          RELEASE_TAG: ${{ inputs.release-tag }}
-          DIST_DIR: ${{ inputs.dir }}/dist
-        with:
-          script: |
-            const fs = require("fs");
-            const path = require("path");
-            const { owner, repo } = context.repo;
-            let release;
-            try {
-              ({ data: release } = await github.rest.repos.getReleaseByTag({
-                owner, repo, tag: process.env.RELEASE_TAG
-              }));
-            } catch (error) {
-              if (error.status === 404) {
-                core.info(`No existing release for ${process.env.RELEASE_TAG}; creating it.`);
-                return;
-              }
-              throw error;
-            }
-            const dist = path.resolve(process.env.DIST_DIR);
-            fs.mkdirSync(dist, { recursive: true });
-            for (const asset of release.assets) {
-              if (path.basename(asset.name) !== asset.name) {
-                throw new Error(`Unexpected release asset name: ${asset.name}`);
-              }
-              const { data } = await github.rest.repos.getReleaseAsset({
-                owner, repo, asset_id: asset.id,
-                headers: { accept: "application/octet-stream" }
-              });
-              fs.writeFileSync(path.join(dist, asset.name), Buffer.from(data));
-            }
-      - uses: actions/download-artifact@v4
-        with:
-          path: ${{ inputs.dir }}/dist
-          pattern: ${{ inputs.slug }}-*
-          merge-multiple: true
-      - name: Check version
-        env:
-          TAG: ${{ inputs.release-tag }}
-        run: |
-          v=$(sh ${{ inputs.dir }}/tools/version.sh)
-          [ "${TAG#*-v}" = "$v" ] || echo "::warning::Tag $TAG doesn't match ${{ inputs.dir }}/app/Cargo.toml version $v; update.json will say $v."
-      - name: Update manifest
-        run: python3 ${{ inputs.dir }}/tools/manifest.py "https://github.com/${{ github.repository }}/releases/download/${{ inputs.release-tag }}"
-      - name: Checksums
-        working-directory: ${{ inputs.dir }}/dist
-        run: |
-          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -printf '%f\n' | sort | xargs sha256sum > "$RUNNER_TEMP/sums"
-          mv "$RUNNER_TEMP/sums" SHA256SUMS.txt
-          cat SHA256SUMS.txt
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.release-tag }}
-          target_commitish: ${{ github.sha }}
-          files: ${{ inputs.dir }}/dist/*
-          overwrite_files: true
-          generate_release_notes: true

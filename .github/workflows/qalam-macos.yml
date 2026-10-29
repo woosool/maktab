@@ -4,7 +4,6 @@ name: Qalam macOS
 on:
   push:
     branches: [main]
-    tags: ["qalam-v*"]
     paths: ["qalam/**", "kit/**"]
   pull_request:
     paths: ["qalam/**", "kit/**"]
@@ -19,6 +18,4 @@ jobs:
     with:
       dir: qalam
       platform: macos
-      name: Qalam
       slug: qalam
-      release-tag: ${{ startsWith(github.ref, 'refs/tags/qalam-v') && github.ref_name || '' }}
