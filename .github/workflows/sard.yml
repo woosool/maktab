@@ -7,9 +7,9 @@ on:
   push:
     branches: [main]
     tags: ["sard-v*"]
-    paths: ["slides/**", "word/**", "kit/**", ".github/workflows/sard.yml", ".github/workflows/build-app.yml"]
+    paths: ["sard/**", "qalam/**", "kit/**", ".github/workflows/sard.yml", ".github/workflows/build-app.yml"]
   pull_request:
-    paths: ["slides/**", "word/**", "kit/**"]
+    paths: ["sard/**", "qalam/**", "kit/**"]
   workflow_dispatch:
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
       contents: write
     secrets: inherit
     with:
-      dir: slides
+      dir: sard
       name: Sard
       slug: sard
       release-tag: ${{ startsWith(github.ref, 'refs/tags/sard-v') && github.ref_name || '' }}

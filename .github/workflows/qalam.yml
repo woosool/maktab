@@ -7,9 +7,9 @@ on:
   push:
     branches: [main]
     tags: ["qalam-v*"]
-    paths: ["word/**", "kit/**", ".github/workflows/qalam.yml", ".github/workflows/build-app.yml"]
+    paths: ["qalam/**", "kit/**", ".github/workflows/qalam.yml", ".github/workflows/build-app.yml"]
   pull_request:
-    paths: ["word/**", "kit/**"]
+    paths: ["qalam/**", "kit/**"]
   workflow_dispatch:
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
       contents: write
     secrets: inherit
     with:
-      dir: word
+      dir: qalam
       name: Qalam
       slug: qalam
       release-tag: ${{ startsWith(github.ref, 'refs/tags/qalam-v') && github.ref_name || '' }}

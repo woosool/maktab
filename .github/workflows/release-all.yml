@@ -35,7 +35,7 @@ jobs:
       contents: write
     secrets: inherit
     with:
-      dir: word
+      dir: qalam
       name: Qalam
       slug: qalam
       release-tag: qalam-v${{ needs.version.outputs.version }}
@@ -47,7 +47,7 @@ jobs:
       contents: write
     secrets: inherit
     with:
-      dir: slides
+      dir: sard
       name: Sard
       slug: sard
       release-tag: sard-v${{ needs.version.outputs.version }}
@@ -59,7 +59,7 @@ jobs:
       contents: write
     secrets: inherit
     with:
-      dir: sheet
+      dir: jadwal
       name: Jadwal
       slug: jadwal
       release-tag: jadwal-v${{ needs.version.outputs.version }}

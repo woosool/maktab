@@ -326,7 +326,7 @@ pub fn dialogs(app: &mut SlidesApp, ctx: &egui::Context) {
                 ui.label(RichText::new(tr("Released under the MIT License.")).strong());
                 ui.label(RichText::new("Copyright © 2026 Woosool").small());
                 egui::CollapsingHeader::new(tr("License")).show(ui, |ui| {
-                    egui::ScrollArea::vertical().max_height(180.0).show(ui, |ui| ui.label(RichText::new(include_str!("../../../word/LICENSE")).small().monospace()));
+                    egui::ScrollArea::vertical().max_height(180.0).show(ui, |ui| ui.label(RichText::new(include_str!("../../../qalam/LICENSE")).small().monospace()));
                 });
                 ui.add_space(6.0);
                 ui.weak(tr("Fonts: Noto Sans, Carlito, Caladea (OFL / Apache-2.0), Liberation (OFL)."));

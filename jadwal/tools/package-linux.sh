@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 VERSION=$(sh tools/version.sh)
 ARCH=$(uname -m)
 DEBARCH=$( [ "$ARCH" = aarch64 ] && echo arm64 || echo amd64 )
-SHARED=../word/assets   # fonts, dictionary, translations and themes are shared with Qalam
+SHARED=../qalam/assets   # fonts, dictionary, translations and themes are shared with Qalam
 cargo build --release -p sheet-app --bin jadwal
 mkdir -p dist
 base="dist/Jadwal-$VERSION-linux-$ARCH"

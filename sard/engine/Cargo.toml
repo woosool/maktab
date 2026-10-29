@@ -8,7 +8,7 @@ description = "PowerPoint (.pptx) documents: a lossless package model, theme and
 [dependencies]
 quick-xml = { version = "0.37", default-features = false }
 zip = { version = "2", default-features = false, features = ["deflate"] }
-word-engine = { version = "0.1.0", path = "../../word/engine" }
+word-engine = { version = "0.1.0", path = "../../qalam/engine" }
 tiny-skia = "0.11"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
 ttf-parser = "0.25.1"

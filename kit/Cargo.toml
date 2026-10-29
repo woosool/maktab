@@ -10,7 +10,7 @@ resvg = "0.48.1"
 serde_json = "1.0.154"
 unicode-bidi = "0.3.18"
 woffice-translate = { version = "0.1.0", path = "../translate" }
-word-engine = { version = "0.1.0", path = "../word/engine" }
+word-engine = { version = "0.1.0", path = "../qalam/engine" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

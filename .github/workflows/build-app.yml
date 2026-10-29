@@ -14,7 +14,7 @@ on:
   workflow_call:
     inputs:
       dir:
-        description: The app's folder (word, slides or sheet).
+        description: The app's folder (qalam, sard or jadwal).
         required: true
         type: string
       name:

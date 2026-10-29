@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 ARCH=${1:-$(uname -m | sed 's/arm64/aarch64/')}
 TARGET="$ARCH-apple-darwin"
 VERSION=$(sh tools/version.sh)
-SHARED=../word/assets   # fonts, dictionary, translations and themes are shared with Qalam
+SHARED=../qalam/assets   # fonts, dictionary, translations and themes are shared with Qalam
 # A native build goes to target/release (shared with local builds); a cross build to target/<triple>.
 HOST=$(uname -m | sed 's/arm64/aarch64/')-apple-darwin
 if [ "$TARGET" = "$HOST" ]; then OUT=target/release; TFLAG=""; else OUT="target/$TARGET/release"; TFLAG="--target $TARGET"; rustup target add "$TARGET" >/dev/null 2>&1 || true; fi

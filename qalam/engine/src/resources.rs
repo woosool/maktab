@@ -1,7 +1,7 @@
 //! Bundled resources (fonts, the spelling dictionary) live in files beside the program rather
 //! than inside it, which keeps the executable small. They're looked up in, in order:
 //! `WORD_RESOURCES`, `resources/` next to the executable, the macOS bundle's `Resources/`,
-//! `../share/word/` (Linux installs), and the repository's `assets/` (development and tests).
+//! `../share/qalam/` (Linux installs), and the repository's `assets/` (development and tests).
 //! With the `embed-assets` feature they're compiled in instead.
 
 use std::path::PathBuf;
@@ -13,7 +13,6 @@ fn candidates() -> Vec<PathBuf> {
         out.push(exe.join("resources"));
         out.push(exe.join("../Resources"));
         out.push(exe.join("../share/qalam"));
-        out.push(exe.join("../share/word"));
     }
     out.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets")));
     out

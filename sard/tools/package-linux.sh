@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 VERSION=$(sh tools/version.sh)
 ARCH=$(uname -m)
 DEBARCH=$( [ "$ARCH" = aarch64 ] && echo arm64 || echo amd64 )
-SHARED=../word/assets   # fonts, dictionary, translations and themes are shared with Qalam
+SHARED=../qalam/assets   # fonts, dictionary, translations and themes are shared with Qalam
 cargo build --release -p slides-app --bin sard
 mkdir -p dist
 base="dist/Sard-$VERSION-linux-$ARCH"
