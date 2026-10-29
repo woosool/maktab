@@ -90,7 +90,7 @@ impl Presentation {
 mod tests {
     use super::*;
 
-    fn caladea() -> Vec<u8> { std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../word/assets/fonts/Caladea-Regular.ttf")).unwrap() }
+    fn caladea() -> Vec<u8> { std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../qalam/assets/fonts/Caladea-Regular.ttf")).unwrap() }
 
     #[test]
     fn embedded_fonts_are_read_and_used() {
