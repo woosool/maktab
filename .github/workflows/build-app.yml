@@ -1,7 +1,6 @@
 # Reusable build for one woffice app: macOS (Apple silicon, Intel), Windows x64 and Linux
-# (x86_64, arm64). Uploads the packages as artifacts named <slug>-<os>-<arch>; with a release tag
-# it also publishes a GitHub release with the installers, update.json and SHA256SUMS.txt.
-# Called by qalam.yml, sard.yml, jadwal.yml and release-all.yml.
+# (x86_64, arm64). Platform-specific workflows publish artifacts and merge them into the app's
+# GitHub release. Called by the per-app workflows and release-all.yml.
 #
 # Optional secrets (each step is skipped when its secret is missing):
 #   MACOS_CODESIGN_IDENTITY      "Developer ID Application: …" (Qalam's existing secret)
@@ -18,7 +17,7 @@ on:
         required: true
         type: string
       platform:
-        description: Which platforms to build.
+        description: Platform group to build.
         required: false
         type: string
         default: all
@@ -97,7 +96,7 @@ jobs:
             ${{ inputs.dir }}/dist/*.zip
 
   windows:
-    if: inputs.platform == 'all'
+    if: inputs.platform == 'all' || inputs.platform == 'windows-linux'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -132,7 +131,7 @@ jobs:
             ${{ inputs.dir }}/dist/*.zip
 
   linux:
-    if: inputs.platform == 'all'
+    if: inputs.platform == 'all' || inputs.platform == 'windows-linux'
     strategy:
       matrix:
         include:
@@ -177,13 +176,53 @@ jobs:
             ${{ inputs.dir }}/dist/*.AppImage
 
   release:
-    if: inputs.release-tag != ''
+    if: >-
+      always() &&
+      inputs.release-tag != '' &&
+      (needs.macos.result == 'success' || needs.windows.result == 'success' || needs.linux.result == 'success')
     needs: [macos, windows, linux]
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ inputs.release-tag }}
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Restore previously published release assets
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
+          DIST_DIR: ${{ inputs.dir }}/dist
+        with:
+          script: |
+            const fs = require("fs");
+            const path = require("path");
+            const { owner, repo } = context.repo;
+            let release;
+            try {
+              ({ data: release } = await github.rest.repos.getReleaseByTag({
+                owner, repo, tag: process.env.RELEASE_TAG
+              }));
+            } catch (error) {
+              if (error.status === 404) {
+                core.info(`No existing release for ${process.env.RELEASE_TAG}; creating it.`);
+                return;
+              }
+              throw error;
+            }
+            const dist = path.resolve(process.env.DIST_DIR);
+            fs.mkdirSync(dist, { recursive: true });
+            for (const asset of release.assets) {
+              if (path.basename(asset.name) !== asset.name) {
+                throw new Error(`Unexpected release asset name: ${asset.name}`);
+              }
+              const { data } = await github.rest.repos.getReleaseAsset({
+                owner, repo, asset_id: asset.id,
+                headers: { accept: "application/octet-stream" }
+              });
+              fs.writeFileSync(path.join(dist, asset.name), Buffer.from(data));
+            }
       - uses: actions/download-artifact@v4
         with:
           path: ${{ inputs.dir }}/dist
@@ -200,7 +239,7 @@ jobs:
       - name: Checksums
         working-directory: ${{ inputs.dir }}/dist
         run: |
-          find . -maxdepth 1 -type f -printf '%f\n' | sort | xargs sha256sum > "$RUNNER_TEMP/sums"
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -printf '%f\n' | sort | xargs sha256sum > "$RUNNER_TEMP/sums"
           mv "$RUNNER_TEMP/sums" SHA256SUMS.txt
           cat SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
@@ -208,4 +247,5 @@ jobs:
           tag_name: ${{ inputs.release-tag }}
           target_commitish: ${{ github.sha }}
           files: ${{ inputs.dir }}/dist/*
+          overwrite_files: true
           generate_release_notes: true

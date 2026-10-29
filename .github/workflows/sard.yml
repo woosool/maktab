@@ -1,6 +1,4 @@
-# Build Sard for macOS (Apple silicon, Intel), Windows and Linux (x86_64, arm64).
-# Every push builds and uploads the packages as artifacts; a tag "sard-v*" also publishes a
-# GitHub release with the installers, update.json and SHA256SUMS.txt. The jobs live in build-app.yml.
+# Build Sard for Windows and Linux (x86_64, arm64). macOS has its own workflow.
 name: Sard
 
 on:
@@ -11,13 +9,6 @@ on:
   pull_request:
     paths: ["sard/**", "qalam/**", "kit/**"]
   workflow_dispatch:
-    inputs:
-      platform:
-        description: Which platforms to build.
-        required: true
-        type: choice
-        options: [all, macos]
-        default: all
 
 jobs:
   build:
@@ -27,7 +18,7 @@ jobs:
     secrets: inherit
     with:
       dir: sard
-      platform: ${{ inputs.platform || 'all' }}
+      platform: windows-linux
       name: Sard
       slug: sard
       release-tag: ${{ startsWith(github.ref, 'refs/tags/sard-v') && github.ref_name || '' }}

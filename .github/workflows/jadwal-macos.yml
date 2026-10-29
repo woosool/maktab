@@ -1,0 +1,24 @@
+# Build and publish Jadwal for Apple silicon and Intel Macs.
+name: Jadwal macOS
+
+on:
+  push:
+    branches: [main]
+    tags: ["jadwal-v*"]
+    paths: ["jadwal/**", "sard/**", "qalam/**", "kit/**"]
+  pull_request:
+    paths: ["jadwal/**", "sard/**", "qalam/**", "kit/**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-app.yml
+    permissions:
+      contents: write
+    secrets: inherit
+    with:
+      dir: jadwal
+      platform: macos
+      name: Jadwal
+      slug: jadwal
+      release-tag: ${{ startsWith(github.ref, 'refs/tags/jadwal-v') && github.ref_name || '' }}
