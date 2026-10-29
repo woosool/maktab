@@ -1,0 +1,10 @@
+#!/bin/sh
+# Makes Sard the default app for its formats for the current user (opt-in; installers never do this
+# on their own). Run it as yourself, not root: sard-set-default
+# Formats: .pptx .potx .ppsx
+set -e
+command -v xdg-mime >/dev/null 2>&1 || { echo "xdg-mime not found (install xdg-utils)."; exit 1; }
+for mime in application/vnd.openxmlformats-officedocument.presentationml.presentation application/vnd.openxmlformats-officedocument.presentationml.template application/vnd.openxmlformats-officedocument.presentationml.slideshow; do
+  xdg-mime default sard.desktop "$mime"
+done
+echo "Sard is now the default app for: application/vnd.openxmlformats-officedocument.presentationml.presentation application/vnd.openxmlformats-officedocument.presentationml.template application/vnd.openxmlformats-officedocument.presentationml.slideshow"

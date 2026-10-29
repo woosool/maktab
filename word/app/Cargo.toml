@@ -1,0 +1,34 @@
+[package]
+name = "word-app"
+default-run = "qalam"
+autobins = false
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+chrono = "0.4"
+arboard = "3.7.0"
+eframe = "0.37.0"
+egui = "0.37"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
+resvg = "0.48.1"
+rfd = "0.17.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.10"
+unicode-bidi = "0.3.18"
+ureq = "3.5.0"
+word-engine = { version = "0.1.0", path = "../engine" }
+qalam-kit = { version = "0.1.0", path = "../../kit" }
+xcap = "0.9.8"
+
+[dev-dependencies]
+egui_kittest = { version = "0.37", features = ["wgpu", "snapshot", "eframe"] }
+
+[[bin]]
+name = "qalam"
+path = "src/main.rs"
+
+[build-dependencies]
+winresource = "0.1"

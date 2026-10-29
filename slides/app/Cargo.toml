@@ -1,0 +1,31 @@
+[package]
+name = "slides-app"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Sard (سرد): a presentation editor for .pptx files."
+
+[dependencies]
+arboard = "3.7.0"
+eframe = "0.37.0"
+egui = "0.37"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
+qalam-kit = { version = "0.1.0", path = "../../kit" }
+rfd = "0.17.2"
+slides-engine = { version = "0.1.0", path = "../engine" }
+tiny-skia = "0.11"
+word-engine = { version = "0.1.0", path = "../../word/engine" }
+xcap = "0.9.8"
+resvg = "0.48.1"
+display-info = "0.5"
+rodio = { version = "0.20", features = ["symphonia-all"] }
+serde_json = "1"
+sha2 = "0.10"
+ureq = "3.5"
+
+[dev-dependencies]
+egui_kittest = { version = "0.37", features = ["wgpu", "snapshot", "eframe"] }
+
+[[bin]]
+name = "sard"
+path = "src/main.rs"

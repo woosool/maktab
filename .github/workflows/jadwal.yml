@@ -1,0 +1,25 @@
+# Build Jadwal for macOS (Apple silicon, Intel), Windows and Linux (x86_64, arm64).
+# Every push builds and uploads the packages as artifacts; a tag "jadwal-v*" also publishes a
+# GitHub release with the installers, update.json and SHA256SUMS.txt. The jobs live in build-app.yml.
+name: Jadwal
+
+on:
+  push:
+    branches: [main]
+    tags: ["jadwal-v*"]
+    paths: ["sheet/**", "slides/**", "word/**", "kit/**", ".github/workflows/jadwal.yml", ".github/workflows/build-app.yml"]
+  pull_request:
+    paths: ["sheet/**", "slides/**", "word/**", "kit/**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-app.yml
+    permissions:
+      contents: write
+    secrets: inherit
+    with:
+      dir: sheet
+      name: Jadwal
+      slug: jadwal
+      release-tag: ${{ startsWith(github.ref, 'refs/tags/jadwal-v') && github.ref_name || '' }}

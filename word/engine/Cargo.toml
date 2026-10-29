@@ -1,0 +1,24 @@
+[package]
+name = "word-engine"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[features]
+# Compile fonts and the dictionary into the program instead of reading them from resources/.
+embed-assets = []
+
+[dependencies]
+spellbook = "0.4"
+rhai = { version = "1.22", features = ["no_time"] }
+sha2 = "0.10"
+hyphenation = { version = "0.8", features = ["embed_en-us"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "bmp", "ico"] }
+miniz_oxide = "0.9.1"
+quick-xml = { version = "0.37", default-features = false }
+resvg = "0.48.1"
+rustybuzz = "0.20.1"
+ttf-parser = "0.25.1"
+unicode-bidi = "0.3.18"
+unicode-segmentation = "1.13.3"
+zip = { version = "2", default-features = false, features = ["deflate"] }

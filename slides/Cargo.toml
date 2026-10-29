@@ -1,0 +1,12 @@
+[workspace]
+resolver = "3"
+members = ["engine", "app"]
+
+[profile.dev.package."*"]
+opt-level = 2
+# Libraries without debug info keep build folders small (our own crates keep theirs).
+debug = false
+
+[profile.release]
+lto = "thin"
+strip = true

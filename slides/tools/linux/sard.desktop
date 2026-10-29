@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Sard
+Name[ar]=سرد
+GenericName=Presentation
+Comment=Create and edit .pptx presentations
+Exec=sard %f
+Icon=sard
+Terminal=false
+Categories=Office;Presentation;
+MimeType=application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.openxmlformats-officedocument.presentationml.template;application/vnd.openxmlformats-officedocument.presentationml.slideshow;

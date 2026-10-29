@@ -1,0 +1,65 @@
+# Build and release all three apps on every platform at once. Each app gets its own release
+# (qalam-v<version>, sard-v<version>, jadwal-v<version>) with its own update.json, exactly as
+# its own workflow would publish it. Run it by hand with a version, or push a tag "v<version>".
+name: Release all
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release (e.g. 1.2.0); each app's app/Cargo.toml should match.
+        required: true
+        type: string
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        env:
+          INPUT: ${{ inputs.version }}
+          REF: ${{ github.ref_name }}
+        run: |
+          v=${INPUT:-${REF#v}}
+          v=${v#v}
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+  qalam:
+    needs: version
+    uses: ./.github/workflows/build-app.yml
+    permissions:
+      contents: write
+    secrets: inherit
+    with:
+      dir: word
+      name: Qalam
+      slug: qalam
+      release-tag: qalam-v${{ needs.version.outputs.version }}
+
+  sard:
+    needs: version
+    uses: ./.github/workflows/build-app.yml
+    permissions:
+      contents: write
+    secrets: inherit
+    with:
+      dir: slides
+      name: Sard
+      slug: sard
+      release-tag: sard-v${{ needs.version.outputs.version }}
+
+  jadwal:
+    needs: version
+    uses: ./.github/workflows/build-app.yml
+    permissions:
+      contents: write
+    secrets: inherit
+    with:
+      dir: sheet
+      name: Jadwal
+      slug: jadwal
+      release-tag: jadwal-v${{ needs.version.outputs.version }}

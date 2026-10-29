@@ -1,0 +1,16 @@
+[package]
+name = "sheet-engine"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Spreadsheets: a workbook model, an Excel-compatible formula engine, number formats and .xlsx/.csv files."
+
+[dependencies]
+word-engine = { version = "0.1.0", path = "../../word/engine" }
+slides-engine = { version = "0.1.0", path = "../../slides/engine" }
+resvg = "0.48.1"
+serde_json = "1"
+quick-xml = { version = "0.37", default-features = false }
+sha2 = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }

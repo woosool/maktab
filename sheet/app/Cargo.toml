@@ -1,0 +1,29 @@
+[package]
+name = "sheet-app"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Jadwal (جدول): a spreadsheet editor for .xlsx files."
+
+[dependencies]
+arboard = "3.7.0"
+eframe = "0.37.0"
+egui = "0.37"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
+qalam-kit = { version = "0.1.0", path = "../../kit" }
+resvg = "0.48.1"
+rfd = "0.17.2"
+serde_json = "1"
+sha2 = "0.10"
+slides-engine = { version = "0.1.0", path = "../../slides/engine" }
+ureq = "3.5"
+xcap = "0.9.8"
+sheet-engine = { version = "0.1.0", path = "../engine" }
+word-engine = { version = "0.1.0", path = "../../word/engine" }
+
+[dev-dependencies]
+egui_kittest = { version = "0.37", features = ["wgpu", "snapshot", "eframe"] }
+
+[[bin]]
+name = "jadwal"
+path = "src/main.rs"

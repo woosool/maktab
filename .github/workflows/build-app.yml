@@ -1,0 +1,191 @@
+# Reusable build for one woffice app: macOS (Apple silicon, Intel), Windows x64 and Linux
+# (x86_64, arm64). Uploads the packages as artifacts named <slug>-<os>-<arch>; with a release tag
+# it also publishes a GitHub release with the installers, update.json and SHA256SUMS.txt.
+# Called by qalam.yml, sard.yml, jadwal.yml and release-all.yml.
+#
+# Optional secrets (each step is skipped when its secret is missing):
+#   MACOS_CODESIGN_IDENTITY      "Developer ID Application: …" (Qalam's existing secret)
+#   MACOS_CERTIFICATE            base64 .p12 holding that identity, MACOS_CERTIFICATE_PASSWORD
+#   MACOS_NOTARY_KEY             base64 App Store Connect API key (.p8), MACOS_NOTARY_KEY_ID, MACOS_NOTARY_ISSUER
+#   WINDOWS_CERTIFICATE          base64 .pfx code-signing certificate, WINDOWS_CERTIFICATE_PASSWORD
+name: Build app
+
+on:
+  workflow_call:
+    inputs:
+      dir:
+        description: The app's folder (word, slides or sheet).
+        required: true
+        type: string
+      name:
+        description: The app's name as in its package names (Qalam, Sard, Jadwal).
+        required: true
+        type: string
+      slug:
+        description: Lower-case name used for artifacts and binaries (qalam, sard, jadwal).
+        required: true
+        type: string
+      release-tag:
+        description: Publish a GitHub release under this tag (e.g. qalam-v1.2.0); empty builds only.
+        required: false
+        type: string
+        default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  macos:
+    strategy:
+      matrix:
+        arch: [aarch64, x86_64]
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.arch }}-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ inputs.dir }}
+          key: ${{ inputs.slug }}-macos-${{ matrix.arch }}
+      - name: Import signing certificate
+        env:
+          CERT: ${{ secrets.MACOS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        if: env.CERT != ''
+        run: |
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          kcpass=$(uuidgen)
+          echo "$CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$kcpass" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$kcpass" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          security set-key-partition-list -S apple-tool:,apple: -k "$kcpass" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" login.keychain
+          rm "$RUNNER_TEMP/cert.p12"
+      - name: Notarization credentials
+        env:
+          KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          ISSUER: ${{ secrets.MACOS_NOTARY_ISSUER }}
+        if: env.KEY != ''
+        run: |
+          echo "$KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool store-credentials woffice-notary --key "$RUNNER_TEMP/notary.p8" --key-id "$KEY_ID" --issuer "$ISSUER"
+          echo "NOTARY_PROFILE=woffice-notary" >> "$GITHUB_ENV"
+      - name: Package
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
+        run: sh ${{ inputs.dir }}/tools/package-macos.sh ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.slug }}-macos-${{ matrix.arch }}
+          path: |
+            ${{ inputs.dir }}/dist/*.dmg
+            ${{ inputs.dir }}/dist/*.zip
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ inputs.dir }}
+          key: ${{ inputs.slug }}-windows
+      - name: Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Signing certificate
+        env:
+          CERT: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        if: env.CERT != ''
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT))
+          "SIGN_CERT=$pfx" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "SIGN_PASSWORD=$env:CERT_PASSWORD" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          $signtool.DirectoryName | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: Package
+        shell: pwsh
+        run: ./${{ inputs.dir }}/tools/package-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.slug }}-windows-x86_64
+          path: |
+            ${{ inputs.dir }}/dist/*.exe
+            ${{ inputs.dir }}/dist/*.zip
+
+  linux:
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            os: ubuntu-22.04
+          - arch: aarch64
+            os: ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ inputs.dir }}
+          key: ${{ inputs.slug }}-linux-${{ matrix.arch }}
+      - name: Build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxkbcommon-dev libwayland-dev libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev \
+            libpipewire-0.3-dev libgbm-dev libegl-dev libclang-dev libasound2-dev pkg-config dpkg-dev zip file libfuse2
+      - name: appimagetool
+        run: |
+          curl -fsSL -o /usr/local/bin/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${{ matrix.arch }}.AppImage
+          sudo chmod +x /usr/local/bin/appimagetool
+      - name: Package
+        run: sh ${{ inputs.dir }}/tools/package-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.slug }}-linux-${{ matrix.arch }}
+          path: |
+            ${{ inputs.dir }}/dist/*.tar.gz
+            ${{ inputs.dir }}/dist/*.zip
+            ${{ inputs.dir }}/dist/*.deb
+            ${{ inputs.dir }}/dist/*.AppImage
+
+  release:
+    if: inputs.release-tag != ''
+    needs: [macos, windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ inputs.dir }}/dist
+          pattern: ${{ inputs.slug }}-*
+          merge-multiple: true
+      - name: Check version
+        env:
+          TAG: ${{ inputs.release-tag }}
+        run: |
+          v=$(sh ${{ inputs.dir }}/tools/version.sh)
+          [ "${TAG#*-v}" = "$v" ] || echo "::warning::Tag $TAG doesn't match ${{ inputs.dir }}/app/Cargo.toml version $v; update.json will say $v."
+      - name: Update manifest
+        run: python3 ${{ inputs.dir }}/tools/manifest.py "https://github.com/${{ github.repository }}/releases/download/${{ inputs.release-tag }}"
+      - name: Checksums
+        working-directory: ${{ inputs.dir }}/dist
+        run: |
+          find . -maxdepth 1 -type f -printf '%f\n' | sort | xargs sha256sum > "$RUNNER_TEMP/sums"
+          mv "$RUNNER_TEMP/sums" SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release-tag }}
+          target_commitish: ${{ github.sha }}
+          files: ${{ inputs.dir }}/dist/*
+          generate_release_notes: true
