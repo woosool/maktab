@@ -15,7 +15,7 @@ if (Test-Path $folder) { Remove-Item -Recurse -Force $folder }
 New-Item -ItemType Directory -Force "$folder\resources" | Out-Null
 Copy-Item target\release\jadwal.exe $folder
 # Fonts, dictionary, translations and themes are shared with Qalam.
-foreach ($d in "fonts", "dict", "i18n", "themes") { Copy-Item -Recurse "..\word\assets\$d" "$folder\resources\" }
+foreach ($d in "fonts", "dict", "i18n", "themes") { Copy-Item -Recurse "..\qalam\assets\$d" "$folder\resources\" }
 Copy-Item LICENSE $folder
 
 function Sign($file) {
