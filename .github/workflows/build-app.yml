@@ -17,6 +17,11 @@ on:
         description: The app's folder (qalam, sard or jadwal).
         required: true
         type: string
+      platform:
+        description: Which platforms to build.
+        required: false
+        type: string
+        default: all
       name:
         description: The app's name as in its package names (Qalam, Sard, Jadwal).
         required: true
@@ -36,10 +41,15 @@ env:
 
 jobs:
   macos:
+    if: inputs.platform == 'all' || inputs.platform == 'macos'
     strategy:
       matrix:
-        arch: [aarch64, x86_64]
-    runs-on: macos-14
+        include:
+          - arch: aarch64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -87,6 +97,7 @@ jobs:
             ${{ inputs.dir }}/dist/*.zip
 
   windows:
+    if: inputs.platform == 'all'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -121,6 +132,7 @@ jobs:
             ${{ inputs.dir }}/dist/*.zip
 
   linux:
+    if: inputs.platform == 'all'
     strategy:
       matrix:
         include:
