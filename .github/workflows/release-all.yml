@@ -155,8 +155,51 @@ jobs:
           name: maktab-linux-${{ matrix.arch }}
           path: Maktab-*.tar.gz
 
+  package-chromeos:
+    needs: [version, qalam, jadwal, sard]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            deb_arch: amd64
+          - arch: aarch64
+            deb_arch: arm64
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: qalam-linux-${{ matrix.arch }}
+          path: packages/Qalam
+      - uses: actions/download-artifact@v4
+        with:
+          name: jadwal-linux-${{ matrix.arch }}
+          path: packages/Jadwal
+      - uses: actions/download-artifact@v4
+        with:
+          name: sard-linux-${{ matrix.arch }}
+          path: packages/Sard
+      - name: Bundle Debian packages for ChromeOS Linux
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          DEB_ARCH: ${{ matrix.deb_arch }}
+        run: |
+          mkdir -p chromeos
+          for app in Qalam Jadwal Sard; do
+            package=$(find "packages/$app" -maxdepth 1 -type f -name "*_${VERSION}_${DEB_ARCH}.deb" -print -quit)
+            if [ -z "$package" ]; then
+              echo "::error::Missing ${app} Debian package for ${DEB_ARCH}."
+              exit 1
+            fi
+            cp "$package" chromeos/
+          done
+          zip -qr "Maktab-${VERSION}-chromeos-${{ matrix.arch }}.zip" chromeos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maktab-chromeos-${{ matrix.arch }}
+          path: Maktab-*.zip
+
   publish:
-    needs: [version, package-macos, package-windows, package-linux]
+    needs: [version, package-macos, package-windows, package-linux, package-chromeos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -206,4 +249,5 @@ jobs:
           generate_release_notes: true
           body: |
             Each platform bundle contains installers for Qalam, Jadwal, and Sard.
+            ChromeOS bundles are Debian packages for the ChromeOS Linux development environment (Crostini).
             The individual ZIPs and app-specific update manifests are also included for in-app updates.
