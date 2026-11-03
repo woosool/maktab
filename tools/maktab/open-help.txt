@@ -1,0 +1,34 @@
+If an app won't open
+====================
+
+Maktab's apps aren't signed by Apple yet, so the first time you open one macOS may say it
+"can't be opened" or comes from an "unidentified developer". It is safe to open them:
+
+1. Drag the apps to the Applications folder (the shortcut beside them).
+2. Open the app once. When macOS refuses, open System Settings > Privacy & Security,
+   scroll down and click "Open Anyway" next to the app, then confirm.
+   (On macOS 14 and earlier you can also Control-click the app and choose Open.)
+
+Or do it for every app at once, in Terminal:
+
+    xattr -dr com.apple.quarantine /Applications/{Qalam,Jadwal,Sard,Saboura,Waraq,Barid}.app
+
+Easiest: install with this command in Terminal, which avoids the warning entirely:
+
+    curl -fsSL https://raw.githubusercontent.com/woosool/maktab/main/tools/maktab/install.sh | sh
+
+
+Si une app ne s'ouvre pas
+=========================
+
+Les apps de Maktab ne sont pas encore signées par Apple. La première fois, macOS peut refuser de
+les ouvrir. Ouvrez Réglages Système > Confidentialité et sécurité, puis cliquez sur « Ouvrir
+quand même » à côté de l'app. Ou installez avec la commande ci-dessus dans Terminal.
+
+
+إذا لم يفتح التطبيق
+==================
+
+تطبيقات مكتب غير موقّعة من Apple بعد، لذلك قد يرفض macOS فتحها في المرة الأولى.
+افتح إعدادات النظام > الخصوصية والأمان، ثم انقر «الفتح على أي حال» بجانب التطبيق.
+أو ثبّت باستخدام الأمر أعلاه في تطبيق Terminal.

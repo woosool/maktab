@@ -1,0 +1,8 @@
+<!-- Inserted into Info.plist by tools/maktab/package-macos.sh: PDF documents, as Editor with rank
+     Default (never Owner over Preview). -->
+  <key>CFBundleDocumentTypes</key><array>
+    <dict><key>CFBundleTypeName</key><string>PDF Document</string>
+      <key>LSItemContentTypes</key><array><string>com.adobe.pdf</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>pdf</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+  </array>

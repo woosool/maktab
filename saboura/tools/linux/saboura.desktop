@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Saboura
+Name[ar]=سبورة
+GenericName=Whiteboard
+Comment=Sticky notes, diagrams, mind maps and planning
+Exec=saboura %f
+Icon=saboura
+Terminal=false
+Categories=Office;Graphics;
+MimeType=application/vnd.woosool.saboura;application/json;

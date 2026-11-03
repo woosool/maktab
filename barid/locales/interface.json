@@ -1,0 +1,1642 @@
+{
+  "Welcome to Barid": {
+    "fr": "Bienvenue dans Barid",
+    "ar": "مرحباً بك في بريد"
+  },
+  "Barid by Woosool": {
+    "fr": "Barid par Woosool",
+    "ar": "بريد من وصول"
+  },
+  "Your email, all in one place.": {
+    "fr": "Tous vos e-mails au même endroit.",
+    "ar": "كل بريدك الإلكتروني في مكان واحد."
+  },
+  "Set up your email": {
+    "fr": "Configurer votre messagerie",
+    "ar": "إعداد بريدك الإلكتروني"
+  },
+  "Add an email account": {
+    "fr": "Ajouter un compte e-mail",
+    "ar": "إضافة حساب بريد إلكتروني"
+  },
+  "Choose your provider": {
+    "fr": "Choisir votre fournisseur",
+    "ar": "اختيار مزود البريد"
+  },
+  "Connect securely": {
+    "fr": "Connexion sécurisée",
+    "ar": "اتصال آمن"
+  },
+  "Review your account": {
+    "fr": "Vérifier votre compte",
+    "ar": "مراجعة حسابك"
+  },
+  "Language": {
+    "fr": "Langue",
+    "ar": "اللغة"
+  },
+  "Continue": {
+    "fr": "Continuer",
+    "ar": "متابعة"
+  },
+  "Back": {
+    "fr": "Retour",
+    "ar": "رجوع"
+  },
+  "Cancel": {
+    "fr": "Annuler",
+    "ar": "إلغاء"
+  },
+  "Connect": {
+    "fr": "Se connecter",
+    "ar": "اتصال"
+  },
+  "Finish": {
+    "fr": "Terminer",
+    "ar": "إنهاء"
+  },
+  "Use preview workspace": {
+    "fr": "Découvrir l’interface",
+    "ar": "استكشاف الواجهة"
+  },
+  "Add another account": {
+    "fr": "Ajouter un autre compte",
+    "ar": "إضافة حساب آخر"
+  },
+  "Open inbox": {
+    "fr": "Ouvrir la boîte de réception",
+    "ar": "فتح البريد الوارد"
+  },
+  "Waiting for browser sign-in…": {
+    "fr": "En attente de connexion dans le navigateur…",
+    "ar": "بانتظار تسجيل الدخول في المتصفح…"
+  },
+  "Testing your connection…": {
+    "fr": "Vérification de la connexion…",
+    "ar": "جارٍ اختبار الاتصال…"
+  },
+  "Account connected": {
+    "fr": "Compte connecté",
+    "ar": "تم ربط الحساب"
+  },
+  "Sign in with Google": {
+    "fr": "Se connecter avec Google",
+    "ar": "تسجيل الدخول باستخدام Google"
+  },
+  "Sign in with Microsoft": {
+    "fr": "Se connecter avec Microsoft",
+    "ar": "تسجيل الدخول باستخدام Microsoft"
+  },
+  "OAuth application settings": {
+    "fr": "Paramètres de l’application OAuth",
+    "ar": "إعدادات تطبيق OAuth"
+  },
+  "Client ID": {
+    "fr": "ID client",
+    "ar": "معرّف العميل"
+  },
+  "Desktop client secret (Google)": {
+    "fr": "Secret du client de bureau (Google)",
+    "ar": "سر عميل سطح المكتب (Google)"
+  },
+  "Register a desktop OAuth app and use a loopback redirect URI.": {
+    "fr": "Enregistrez une application OAuth de bureau avec une URI de redirection locale.",
+    "ar": "سجّل تطبيق OAuth لسطح المكتب واستخدم عنوان إعادة توجيه محلياً."
+  },
+  "Your browser opens for sign-in. Barid never receives your provider password.": {
+    "fr": "La connexion s’effectue dans votre navigateur. Barid ne reçoit jamais le mot de passe du fournisseur.",
+    "ar": "يتم تسجيل الدخول في المتصفح. لا يتلقى بريد كلمة مرور حسابك."
+  },
+  "Incoming protocol": {
+    "fr": "Protocole entrant",
+    "ar": "بروتوكول البريد الوارد"
+  },
+  "Incoming server": {
+    "fr": "Serveur entrant",
+    "ar": "خادم البريد الوارد"
+  },
+  "Incoming TLS port": {
+    "fr": "Port TLS entrant",
+    "ar": "منفذ TLS الوارد"
+  },
+  "SMTP server": {
+    "fr": "Serveur SMTP",
+    "ar": "خادم SMTP"
+  },
+  "SMTP TLS / STARTTLS port": {
+    "fr": "Port SMTP TLS / STARTTLS",
+    "ar": "منفذ SMTP TLS / STARTTLS"
+  },
+  "Email address": {
+    "fr": "Adresse e-mail",
+    "ar": "عنوان البريد الإلكتروني"
+  },
+  "Account name": {
+    "fr": "Nom du compte",
+    "ar": "اسم الحساب"
+  },
+  "Password or app password": {
+    "fr": "Mot de passe ou mot de passe d’application",
+    "ar": "كلمة المرور أو كلمة مرور التطبيق"
+  },
+  "POP3 downloads your inbox and leaves messages on the server. Folders and read states are local.": {
+    "fr": "POP3 télécharge la boîte de réception sans supprimer les messages du serveur. Les dossiers et états de lecture restent locaux.",
+    "ar": "ينزّل POP3 البريد الوارد ويترك الرسائل على الخادم. المجلدات وحالات القراءة محلية."
+  },
+  "Enter the mail server details supplied by Woosool.": {
+    "fr": "Saisissez les paramètres de serveur fournis par Woosool.",
+    "ar": "أدخل إعدادات خادم البريد التي يوفرها وصول."
+  },
+  "IMAP keeps folders and message states synchronized.": {
+    "fr": "IMAP synchronise les dossiers et l’état des messages.",
+    "ar": "يحافظ IMAP على مزامنة المجلدات وحالات الرسائل."
+  },
+  "Connection verified. Your account is ready.": {
+    "fr": "Connexion vérifiée. Votre compte est prêt.",
+    "ar": "تم التحقق من الاتصال. حسابك جاهز."
+  },
+  "Mail": {
+    "fr": "Courrier",
+    "ar": "البريد"
+  },
+  "New": {
+    "fr": "Nouveau",
+    "ar": "جديد"
+  },
+  "New message": {
+    "fr": "Nouveau message",
+    "ar": "رسالة جديدة"
+  },
+  "Refresh": {
+    "fr": "Actualiser",
+    "ar": "تحديث"
+  },
+  "Reply": {
+    "fr": "Répondre",
+    "ar": "رد"
+  },
+  "Reply all": {
+    "fr": "Répondre à tous",
+    "ar": "الرد على الجميع"
+  },
+  "Forward": {
+    "fr": "Transférer",
+    "ar": "إعادة توجيه"
+  },
+  "Mark": {
+    "fr": "Marquer",
+    "ar": "تمييز"
+  },
+  "Archive": {
+    "fr": "Archives",
+    "ar": "الأرشيف"
+  },
+  "Snooze": {
+    "fr": "Reporter",
+    "ar": "تأجيل"
+  },
+  "Delete": {
+    "fr": "Supprimer",
+    "ar": "حذف"
+  },
+  "Inboxes": {
+    "fr": "Boîtes de réception",
+    "ar": "صناديق الوارد"
+  },
+  "More": {
+    "fr": "Plus",
+    "ar": "المزيد"
+  },
+  "Favorites": {
+    "fr": "Favoris",
+    "ar": "المفضلة"
+  },
+  "All Inboxes": {
+    "fr": "Toutes les boîtes",
+    "ar": "كل صناديق الوارد"
+  },
+  "All inboxes": {
+    "fr": "Toutes les boîtes de réception",
+    "ar": "كل صناديق الوارد"
+  },
+  "Unread": {
+    "fr": "Non lus",
+    "ar": "غير مقروء"
+  },
+  "Flagged": {
+    "fr": "Marqués",
+    "ar": "مميزة"
+  },
+  "Inbox": {
+    "fr": "Boîte de réception",
+    "ar": "البريد الوارد"
+  },
+  "Sent": {
+    "fr": "Envoyés",
+    "ar": "المرسلة"
+  },
+  "Drafts": {
+    "fr": "Brouillons",
+    "ar": "المسودات"
+  },
+  "Junk": {
+    "fr": "Indésirables",
+    "ar": "البريد المزعج"
+  },
+  "Junk Email": {
+    "fr": "Courrier indésirable",
+    "ar": "البريد المزعج"
+  },
+  "Junk email": {
+    "fr": "Courrier indésirable",
+    "ar": "البريد المزعج"
+  },
+  "Trash": {
+    "fr": "Corbeille",
+    "ar": "المهملات"
+  },
+  "All Mail": {
+    "fr": "Tous les messages",
+    "ar": "كل الرسائل"
+  },
+  "Snoozed": {
+    "fr": "Reportés",
+    "ar": "المؤجلة"
+  },
+  "Personal account": {
+    "fr": "Compte personnel",
+    "ar": "الحساب الشخصي"
+  },
+  "Local Folders": {
+    "fr": "Dossiers locaux",
+    "ar": "المجلدات المحلية"
+  },
+  "Labels": {
+    "fr": "Étiquettes",
+    "ar": "التصنيفات"
+  },
+  "Label": {
+    "fr": "Étiquette",
+    "ar": "تصنيف"
+  },
+  "Filter": {
+    "fr": "Filtrer",
+    "ar": "تصفية"
+  },
+  "Today": {
+    "fr": "Aujourd’hui",
+    "ar": "اليوم"
+  },
+  "Yesterday": {
+    "fr": "Hier",
+    "ar": "أمس"
+  },
+  "Settings": {
+    "fr": "Paramètres",
+    "ar": "الإعدادات"
+  },
+  "Settings…": {
+    "fr": "Paramètres…",
+    "ar": "الإعدادات…"
+  },
+  "Settings & accounts": {
+    "fr": "Paramètres et comptes",
+    "ar": "الإعدادات والحسابات"
+  },
+  "Email accounts": {
+    "fr": "Comptes e-mail",
+    "ar": "حسابات البريد"
+  },
+  "General": {
+    "fr": "Général",
+    "ar": "عام"
+  },
+  "Appearance": {
+    "fr": "Apparence",
+    "ar": "المظهر"
+  },
+  "Composition": {
+    "fr": "Rédaction",
+    "ar": "الكتابة"
+  },
+  "Contacts": {
+    "fr": "Contacts",
+    "ar": "جهات الاتصال"
+  },
+  "Contact manager…": {
+    "fr": "Gestion des contacts…",
+    "ar": "إدارة جهات الاتصال…"
+  },
+  "Manage accounts…": {
+    "fr": "Gérer les comptes…",
+    "ar": "إدارة الحسابات…"
+  },
+  "Manage email accounts…": {
+    "fr": "Gérer les comptes e-mail…",
+    "ar": "إدارة حسابات البريد…"
+  },
+  "Manage all your inboxes in one place.": {
+    "fr": "Gérez toutes vos boîtes de réception au même endroit.",
+    "ar": "أدر كل صناديق الوارد في مكان واحد."
+  },
+  "About Barid": {
+    "fr": "À propos de Barid",
+    "ar": "حول بريد"
+  },
+  "A native desktop email workspace.": {
+    "fr": "Une messagerie native pour ordinateur.",
+    "ar": "مساحة بريد إلكتروني لسطح المكتب."
+  },
+  "Mail and contacts stay on your device. Credentials use the operating system credential store.": {
+    "fr": "Les messages et contacts restent sur votre appareil. Les identifiants sont protégés par le système.",
+    "ar": "تبقى الرسائل وجهات الاتصال على جهازك. تُحفظ بيانات الدخول في مخزن بيانات اعتماد النظام."
+  },
+  "File": {
+    "fr": "Fichier",
+    "ar": "ملف"
+  },
+  "Edit": {
+    "fr": "Édition",
+    "ar": "تحرير"
+  },
+  "View": {
+    "fr": "Affichage",
+    "ar": "عرض"
+  },
+  "Mailbox": {
+    "fr": "Boîte aux lettres",
+    "ar": "صندوق البريد"
+  },
+  "Message": {
+    "fr": "Message",
+    "ar": "رسالة"
+  },
+  "Format": {
+    "fr": "Format",
+    "ar": "تنسيق"
+  },
+  "Window": {
+    "fr": "Fenêtre",
+    "ar": "نافذة"
+  },
+  "Help": {
+    "fr": "Aide",
+    "ar": "مساعدة"
+  },
+  "Send": {
+    "fr": "Envoyer",
+    "ar": "إرسال"
+  },
+  "Send reply": {
+    "fr": "Envoyer la réponse",
+    "ar": "إرسال الرد"
+  },
+  "From": {
+    "fr": "De",
+    "ar": "من"
+  },
+  "To": {
+    "fr": "À",
+    "ar": "إلى"
+  },
+  "Subject": {
+    "fr": "Objet",
+    "ar": "الموضوع"
+  },
+  "Add email…": {
+    "fr": "Ajouter une adresse…",
+    "ar": "إضافة عنوان بريد…"
+  },
+  "Write your message…": {
+    "fr": "Rédigez votre message…",
+    "ar": "اكتب رسالتك…"
+  },
+  "Connect an account in Settings": {
+    "fr": "Connectez un compte dans les paramètres",
+    "ar": "اربط حساباً في الإعدادات"
+  },
+  "Formatting": {
+    "fr": "Mise en forme",
+    "ar": "التنسيق"
+  },
+  "Paragraph": {
+    "fr": "Paragraphe",
+    "ar": "فقرة"
+  },
+  "Preview": {
+    "fr": "Aperçu",
+    "ar": "معاينة"
+  },
+  "Write": {
+    "fr": "Rédiger",
+    "ar": "كتابة"
+  },
+  "Plain text": {
+    "fr": "Texte brut",
+    "ar": "نص عادي"
+  },
+  "Text color": {
+    "fr": "Couleur du texte",
+    "ar": "لون النص"
+  },
+  "Highlight": {
+    "fr": "Surlignage",
+    "ar": "تمييز النص"
+  },
+  "Font": {
+    "fr": "Police",
+    "ar": "الخط"
+  },
+  "Clear": {
+    "fr": "Effacer",
+    "ar": "مسح"
+  },
+  "Clear formatting": {
+    "fr": "Effacer la mise en forme",
+    "ar": "مسح التنسيق"
+  },
+  "Insert image…": {
+    "fr": "Insérer une image…",
+    "ar": "إدراج صورة…"
+  },
+  "Insert link": {
+    "fr": "Insérer un lien",
+    "ar": "إدراج رابط"
+  },
+  "Apply link": {
+    "fr": "Appliquer le lien",
+    "ar": "تطبيق الرابط"
+  },
+  "Bold": {
+    "fr": "Gras",
+    "ar": "عريض"
+  },
+  "Italic": {
+    "fr": "Italique",
+    "ar": "مائل"
+  },
+  "Underline": {
+    "fr": "Souligné",
+    "ar": "تسطير"
+  },
+  "Strikethrough": {
+    "fr": "Barré",
+    "ar": "يتوسطه خط"
+  },
+  "Align left": {
+    "fr": "Aligner à gauche",
+    "ar": "محاذاة لليسار"
+  },
+  "Align center": {
+    "fr": "Centrer",
+    "ar": "محاذاة للوسط"
+  },
+  "Align right": {
+    "fr": "Aligner à droite",
+    "ar": "محاذاة لليمين"
+  },
+  "Bulleted list": {
+    "fr": "Liste à puces",
+    "ar": "قائمة نقطية"
+  },
+  "Numbered list": {
+    "fr": "Liste numérotée",
+    "ar": "قائمة مرقمة"
+  },
+  "Indent": {
+    "fr": "Augmenter le retrait",
+    "ar": "زيادة المسافة البادئة"
+  },
+  "Outdent": {
+    "fr": "Réduire le retrait",
+    "ar": "تقليل المسافة البادئة"
+  },
+  "Undo": {
+    "fr": "Annuler",
+    "ar": "تراجع"
+  },
+  "Redo": {
+    "fr": "Rétablir",
+    "ar": "إعادة"
+  },
+  "Copy": {
+    "fr": "Copier",
+    "ar": "نسخ"
+  },
+  "Cut": {
+    "fr": "Couper",
+    "ar": "قص"
+  },
+  "Paste": {
+    "fr": "Coller",
+    "ar": "لصق"
+  },
+  "Paste plain": {
+    "fr": "Coller sans mise en forme",
+    "ar": "لصق كنص عادي"
+  },
+  "Select all": {
+    "fr": "Tout sélectionner",
+    "ar": "تحديد الكل"
+  },
+  "Draft saved automatically": {
+    "fr": "Brouillon enregistré automatiquement",
+    "ar": "تُحفظ المسودة تلقائياً"
+  },
+  "Read / unread": {
+    "fr": "Lu / non lu",
+    "ar": "مقروء / غير مقروء"
+  },
+  "Flag / unflag": {
+    "fr": "Marquer / démarquer",
+    "ar": "تمييز / إلغاء التمييز"
+  },
+  "Move to Trash": {
+    "fr": "Déplacer vers la corbeille",
+    "ar": "نقل إلى المهملات"
+  },
+  "Copy sender": {
+    "fr": "Copier l’expéditeur",
+    "ar": "نسخ المرسل"
+  },
+  "Save sender as contact…": {
+    "fr": "Enregistrer l’expéditeur comme contact…",
+    "ar": "حفظ المرسل كجهة اتصال…"
+  },
+  "Save all open drafts": {
+    "fr": "Enregistrer tous les brouillons",
+    "ar": "حفظ كل المسودات المفتوحة"
+  },
+  "Export original message…": {
+    "fr": "Exporter le message original…",
+    "ar": "تصدير الرسالة الأصلية…"
+  },
+  "Search mail (from:, subject:, is:unread)": {
+    "fr": "Rechercher (from:, subject:, is:unread)",
+    "ar": "البحث في البريد (from:, subject:, is:unread)"
+  },
+  "Search mail…": {
+    "fr": "Rechercher dans les messages…",
+    "ar": "البحث في البريد…"
+  },
+  "No messages": {
+    "fr": "Aucun message",
+    "ar": "لا توجد رسائل"
+  },
+  "No message selected": {
+    "fr": "Aucun message sélectionné",
+    "ar": "لم يتم اختيار رسالة"
+  },
+  "All mail": {
+    "fr": "Tous les messages",
+    "ar": "كل الرسائل"
+  },
+  "Unread only": {
+    "fr": "Non lus uniquement",
+    "ar": "غير المقروءة فقط"
+  },
+  "Oldest first": {
+    "fr": "Plus anciens d’abord",
+    "ar": "الأقدم أولاً"
+  },
+  "Newest first": {
+    "fr": "Plus récents d’abord",
+    "ar": "الأحدث أولاً"
+  },
+  "Dark appearance": {
+    "fr": "Apparence sombre",
+    "ar": "المظهر الداكن"
+  },
+  "Compact message rows": {
+    "fr": "Lignes de messages compactes",
+    "ar": "صفوف رسائل مدمجة"
+  },
+  "Mark messages read when opened": {
+    "fr": "Marquer comme lu à l’ouverture",
+    "ar": "تمييز الرسائل كمقروءة عند فتحها"
+  },
+  "Default sending account": {
+    "fr": "Compte d’envoi par défaut",
+    "ar": "حساب الإرسال الافتراضي"
+  },
+  "Save account": {
+    "fr": "Enregistrer le compte",
+    "ar": "حفظ الحساب"
+  },
+  "Cancel edit": {
+    "fr": "Annuler la modification",
+    "ar": "إلغاء التعديل"
+  },
+  "Add account": {
+    "fr": "Ajouter un compte",
+    "ar": "إضافة حساب"
+  },
+  "Edit account": {
+    "fr": "Modifier le compte",
+    "ar": "تعديل الحساب"
+  },
+  "Remove account": {
+    "fr": "Retirer le compte",
+    "ar": "إزالة الحساب"
+  },
+  "Connection": {
+    "fr": "Connexion",
+    "ar": "الاتصال"
+  },
+  "Enabled": {
+    "fr": "Activé",
+    "ar": "مفعّل"
+  },
+  "Disabled": {
+    "fr": "Désactivé",
+    "ar": "معطّل"
+  },
+  "New contact": {
+    "fr": "Nouveau contact",
+    "ar": "جهة اتصال جديدة"
+  },
+  "Save contact": {
+    "fr": "Enregistrer le contact",
+    "ar": "حفظ جهة الاتصال"
+  },
+  "Name": {
+    "fr": "Nom",
+    "ar": "الاسم"
+  },
+  "Phone": {
+    "fr": "Téléphone",
+    "ar": "الهاتف"
+  },
+  "Company": {
+    "fr": "Entreprise",
+    "ar": "الشركة"
+  },
+  "Notes": {
+    "fr": "Notes",
+    "ar": "ملاحظات"
+  },
+  "Group": {
+    "fr": "Groupe",
+    "ar": "المجموعة"
+  },
+  "All contacts": {
+    "fr": "Tous les contacts",
+    "ar": "كل جهات الاتصال"
+  },
+  "Restore": {
+    "fr": "Restaurer",
+    "ar": "استعادة"
+  },
+  "Import contacts…": {
+    "fr": "Importer des contacts…",
+    "ar": "استيراد جهات الاتصال…"
+  },
+  "Export contacts…": {
+    "fr": "Exporter des contacts…",
+    "ar": "تصدير جهات الاتصال…"
+  },
+  "Keyboard shortcuts & search": {
+    "fr": "Raccourcis et recherche",
+    "ar": "اختصارات لوحة المفاتيح والبحث"
+  },
+  "Shortcuts & search": {
+    "fr": "Raccourcis et recherche",
+    "ar": "الاختصارات والبحث"
+  },
+  "Quit Barid": {
+    "fr": "Quitter Barid",
+    "ar": "إنهاء بريد"
+  },
+  "Save All Drafts": {
+    "fr": "Enregistrer tous les brouillons",
+    "ar": "حفظ كل المسودات"
+  },
+  "New Message": {
+    "fr": "Nouveau message",
+    "ar": "رسالة جديدة"
+  },
+  "Send Active Message": {
+    "fr": "Envoyer le message actif",
+    "ar": "إرسال الرسالة الحالية"
+  },
+  "Close Draft / Window": {
+    "fr": "Fermer le brouillon / la fenêtre",
+    "ar": "إغلاق المسودة / النافذة"
+  },
+  "Find Mail": {
+    "fr": "Rechercher des messages",
+    "ar": "البحث في البريد"
+  },
+  "Get New Mail": {
+    "fr": "Relever le courrier",
+    "ar": "جلب البريد الجديد"
+  },
+  "Manage Accounts…": {
+    "fr": "Gérer les comptes…",
+    "ar": "إدارة الحسابات…"
+  },
+  "Contact Manager…": {
+    "fr": "Gestion des contacts…",
+    "ar": "إدارة جهات الاتصال…"
+  },
+  "Reply All": {
+    "fr": "Répondre à tous",
+    "ar": "الرد على الجميع"
+  },
+  "Read / Unread": {
+    "fr": "Lu / non lu",
+    "ar": "مقروء / غير مقروء"
+  },
+  "Flag / Unflag": {
+    "fr": "Marquer / démarquer",
+    "ar": "تمييز / إلغاء التمييز"
+  },
+  "Mark as Junk": {
+    "fr": "Marquer comme indésirable",
+    "ar": "تمييز كبريد مزعج"
+  },
+  "Save Sender as Contact…": {
+    "fr": "Enregistrer l’expéditeur comme contact…",
+    "ar": "حفظ المرسل كجهة اتصال…"
+  },
+  "Export Original Message…": {
+    "fr": "Exporter le message original…",
+    "ar": "تصدير الرسالة الأصلية…"
+  },
+  "Clear Formatting": {
+    "fr": "Effacer la mise en forme",
+    "ar": "مسح التنسيق"
+  },
+  "Insert Image…": {
+    "fr": "Insérer une image…",
+    "ar": "إدراج صورة…"
+  },
+  "Bulleted List": {
+    "fr": "Liste à puces",
+    "ar": "قائمة نقطية"
+  },
+  "Numbered List": {
+    "fr": "Liste numérotée",
+    "ar": "قائمة مرقمة"
+  },
+  "Align Left": {
+    "fr": "Aligner à gauche",
+    "ar": "محاذاة لليسار"
+  },
+  "Align Center": {
+    "fr": "Centrer",
+    "ar": "محاذاة للوسط"
+  },
+  "Align Right": {
+    "fr": "Aligner à droite",
+    "ar": "محاذاة لليمين"
+  },
+  "Minimize Compose Windows": {
+    "fr": "Réduire les fenêtres de rédaction",
+    "ar": "تصغير نوافذ الكتابة"
+  },
+  "Restore Compose Windows": {
+    "fr": "Restaurer les fenêtres de rédaction",
+    "ar": "استعادة نوافذ الكتابة"
+  },
+  "Keyboard Shortcuts": {
+    "fr": "Raccourcis clavier",
+    "ar": "اختصارات لوحة المفاتيح"
+  },
+  "Open Inbox": {
+    "fr": "Ouvrir la boîte de réception",
+    "ar": "فتح البريد الوارد"
+  },
+  "Compose Windows": {
+    "fr": "Fenêtres de rédaction",
+    "ar": "نوافذ الكتابة"
+  },
+  "Dark Appearance": {
+    "fr": "Apparence sombre",
+    "ar": "المظهر الداكن"
+  },
+  "Unread Messages Only": {
+    "fr": "Messages non lus uniquement",
+    "ar": "الرسائل غير المقروءة فقط"
+  },
+  "Compact Message Rows": {
+    "fr": "Lignes de messages compactes",
+    "ar": "صفوف رسائل مدمجة"
+  },
+  "Paste and Match Style": {
+    "fr": "Coller et adapter le style",
+    "ar": "لصق ومطابقة النمط"
+  },
+  "Select All": {
+    "fr": "Tout sélectionner",
+    "ar": "تحديد الكل"
+  },
+  "Account signature (optional)": {
+    "fr": "Signature du compte (facultatif)",
+    "ar": "توقيع الحساب (اختياري)"
+  },
+  "Account-specific signatures can be set on the Email accounts page.": {
+    "fr": "Les signatures propres aux comptes se règlent dans Comptes e-mail.",
+    "ar": "يمكن إعداد توقيع لكل حساب في صفحة حسابات البريد."
+  },
+  "An active account inbox takes precedence. Replies use the receiving account.": {
+    "fr": "La boîte active est prioritaire. Les réponses utilisent le compte destinataire.",
+    "ar": "تُعطى الأولوية للحساب النشط. تستخدم الردود حساب الاستلام."
+  },
+  "App password": {
+    "fr": "Mot de passe d’application",
+    "ar": "كلمة مرور التطبيق"
+  },
+  "Apply": {
+    "fr": "Appliquer",
+    "ar": "تطبيق"
+  },
+  "Attach files": {
+    "fr": "Joindre des fichiers",
+    "ar": "إرفاق ملفات"
+  },
+  "Check for mail every": {
+    "fr": "Relever le courrier toutes les",
+    "ar": "التحقق من البريد كل"
+  },
+  "Clear style": {
+    "fr": "Effacer le style",
+    "ar": "مسح النمط"
+  },
+  "Close active draft": {
+    "fr": "Fermer le brouillon actif",
+    "ar": "إغلاق المسودة الحالية"
+  },
+  "Close and save draft": {
+    "fr": "Fermer et enregistrer le brouillon",
+    "ar": "إغلاق وحفظ المسودة"
+  },
+  "Close dialog": {
+    "fr": "Fermer la fenêtre",
+    "ar": "إغلاق النافذة"
+  },
+  "Combine terms to narrow results. Closing the composer saves a local draft.": {
+    "fr": "Combinez les termes pour affiner les résultats. La fermeture enregistre un brouillon local.",
+    "ar": "اجمع عبارات البحث لتضييق النتائج. تُحفظ مسودة محلية عند إغلاق نافذة الكتابة."
+  },
+  "Compact: 74 px · Comfortable: 88 px": {
+    "fr": "Compact : 74 px · Confortable : 88 px",
+    "ar": "مدمج: 74 بكسل · مريح: 88 بكسل"
+  },
+  "Copy email address": {
+    "fr": "Copier l’adresse e-mail",
+    "ar": "نسخ عنوان البريد"
+  },
+  "Discard draft": {
+    "fr": "Abandonner le brouillon",
+    "ar": "تجاهل المسودة"
+  },
+  "Discard reply": {
+    "fr": "Abandonner la réponse",
+    "ar": "تجاهل الرد"
+  },
+  "Draft saves automatically": {
+    "fr": "Le brouillon s’enregistre automatiquement",
+    "ar": "تُحفظ المسودة تلقائياً"
+  },
+  "Edit draft": {
+    "fr": "Modifier le brouillon",
+    "ar": "تعديل المسودة"
+  },
+  "Export contacts (.json)": {
+    "fr": "Exporter les contacts (.json)",
+    "ar": "تصدير جهات الاتصال (.json)"
+  },
+  "Export original (.eml)": {
+    "fr": "Exporter l’original (.eml)",
+    "ar": "تصدير الأصل (.eml)"
+  },
+  "Find a contact": {
+    "fr": "Rechercher un contact",
+    "ar": "البحث عن جهة اتصال"
+  },
+  "Find mail                       Ctrl/Cmd+F": {
+    "fr": "Rechercher des messages          Ctrl/Cmd+F",
+    "ar": "البحث في البريد          Ctrl/Cmd+F"
+  },
+  "Find next": {
+    "fr": "Rechercher le suivant",
+    "ar": "البحث عن التالي"
+  },
+  "HTML is shown as text. Remote tracking images are not loaded.": {
+    "fr": "Le HTML s’affiche en texte. Les images de suivi distantes ne sont pas chargées.",
+    "ar": "يُعرض HTML كنص. لا تُحمّل صور التتبع البعيدة."
+  },
+  "Image description": {
+    "fr": "Description de l’image",
+    "ar": "وصف الصورة"
+  },
+  "Import contacts (.json)": {
+    "fr": "Importer les contacts (.json)",
+    "ar": "استيراد جهات الاتصال (.json)"
+  },
+  "Indent →": {
+    "fr": "Augmenter le retrait →",
+    "ar": "زيادة المسافة البادئة"
+  },
+  "Insert link on selection": {
+    "fr": "Insérer un lien sur la sélection",
+    "ar": "إدراج رابط على النص المحدد"
+  },
+  "Mail, drafts, contacts, and settings are stored on this device. Account passwords are kept in the operating system credential store.": {
+    "fr": "Messages, brouillons, contacts et paramètres sont stockés sur cet appareil. Les mots de passe sont conservés par le système.",
+    "ar": "تُحفظ الرسائل والمسودات وجهات الاتصال والإعدادات على هذا الجهاز. تُخزن كلمات المرور في مخزن بيانات اعتماد النظام."
+  },
+  "Mark messages as read when opened": {
+    "fr": "Marquer les messages comme lus à l’ouverture",
+    "ar": "تمييز الرسائل كمقروءة عند فتحها"
+  },
+  "Minimize all compose windows": {
+    "fr": "Réduire toutes les fenêtres de rédaction",
+    "ar": "تصغير كل نوافذ الكتابة"
+  },
+  "New compose window": {
+    "fr": "Nouvelle fenêtre de rédaction",
+    "ar": "نافذة كتابة جديدة"
+  },
+  "New message                 Ctrl/Cmd+N": {
+    "fr": "Nouveau message                 Ctrl/Cmd+N",
+    "ar": "رسالة جديدة                 Ctrl/Cmd+N"
+  },
+  "No contacts here": {
+    "fr": "Aucun contact ici",
+    "ar": "لا توجد جهات اتصال هنا"
+  },
+  "No open compose windows": {
+    "fr": "Aucune fenêtre de rédaction ouverte",
+    "ar": "لا توجد نوافذ كتابة مفتوحة"
+  },
+  "No saved contacts yet.": {
+    "fr": "Aucun contact enregistré.",
+    "ar": "لا توجد جهات اتصال محفوظة بعد."
+  },
+  "Open in composer": {
+    "fr": "Ouvrir dans la fenêtre de rédaction",
+    "ar": "فتح في نافذة الكتابة"
+  },
+  "Picture": {
+    "fr": "Image",
+    "ar": "صورة"
+  },
+  "Refresh all accounts": {
+    "fr": "Actualiser tous les comptes",
+    "ar": "تحديث كل الحسابات"
+  },
+  "Remove": {
+    "fr": "Retirer",
+    "ar": "إزالة"
+  },
+  "Remove recipient": {
+    "fr": "Retirer le destinataire",
+    "ar": "إزالة المستلم"
+  },
+  "Replace": {
+    "fr": "Remplacer",
+    "ar": "استبدال"
+  },
+  "Replace all": {
+    "fr": "Tout remplacer",
+    "ar": "استبدال الكل"
+  },
+  "Replace with": {
+    "fr": "Remplacer par",
+    "ar": "استبدال بـ"
+  },
+  "Restore all compose windows": {
+    "fr": "Restaurer toutes les fenêtres de rédaction",
+    "ar": "استعادة كل نوافذ الكتابة"
+  },
+  "Restore contact": {
+    "fr": "Restaurer le contact",
+    "ar": "استعادة جهة الاتصال"
+  },
+  "SETTINGS": {
+    "fr": "PARAMÈTRES",
+    "ar": "الإعدادات"
+  },
+  "Save and close draft": {
+    "fr": "Enregistrer et fermer le brouillon",
+    "ar": "حفظ وإغلاق المسودة"
+  },
+  "Search people, email, company…": {
+    "fr": "Rechercher une personne, un e-mail, une entreprise…",
+    "ar": "البحث عن أشخاص أو بريد أو شركة…"
+  },
+  "Select a message to read": {
+    "fr": "Sélectionnez un message à lire",
+    "ar": "اختر رسالة لقراءتها"
+  },
+  "Send active message": {
+    "fr": "Envoyer le message actif",
+    "ar": "إرسال الرسالة الحالية"
+  },
+  "Set to 0 for manual refresh. Applies while Barid is open.": {
+    "fr": "Choisissez 0 pour une actualisation manuelle. S’applique lorsque Barid est ouvert.",
+    "ar": "اضبط على 0 للتحديث اليدوي. يسري أثناء تشغيل بريد."
+  },
+  "Show / hide ribbon": {
+    "fr": "Afficher / masquer les outils",
+    "ar": "إظهار / إخفاء أدوات التنسيق"
+  },
+  "Sync": {
+    "fr": "Synchroniser",
+    "ar": "مزامنة"
+  },
+  "Unified inbox": {
+    "fr": "Boîte de réception unifiée",
+    "ar": "البريد الوارد الموحد"
+  },
+  "Unread messages only": {
+    "fr": "Messages non lus uniquement",
+    "ar": "الرسائل غير المقروءة فقط"
+  },
+  "Use dark appearance": {
+    "fr": "Utiliser le thème sombre",
+    "ar": "استخدام المظهر الداكن"
+  },
+  "View only": {
+    "fr": "Affichage seulement",
+    "ar": "للعرض فقط"
+  },
+  "Width": {
+    "fr": "Largeur",
+    "ar": "العرض"
+  },
+  "Write email": {
+    "fr": "Rédiger un e-mail",
+    "ar": "كتابة رسالة"
+  },
+  "Your name, title, and contact information": {
+    "fr": "Votre nom, fonction et coordonnées",
+    "ar": "اسمك ومسمّاك الوظيفي ومعلومات الاتصال"
+  },
+  "• List": {
+    "fr": "• Liste",
+    "ar": "• قائمة"
+  },
+  "1. List": {
+    "fr": "1. Liste",
+    "ar": "1. قائمة"
+  },
+  "← Outdent": {
+    "fr": "← Réduire le retrait",
+    "ar": "تقليل المسافة البادئة"
+  },
+  "Connection cancelled": {
+    "fr": "Connexion annulée",
+    "ar": "تم إلغاء الاتصال"
+  },
+  "This account is already connected.": {
+    "fr": "Ce compte est déjà connecté.",
+    "ar": "هذا الحساب مرتبط بالفعل."
+  },
+  "Enter a valid email address.": {
+    "fr": "Saisissez une adresse e-mail valide.",
+    "ar": "أدخل عنوان بريد إلكتروني صالحاً."
+  },
+  "Enter both server names and a password.": {
+    "fr": "Saisissez les deux serveurs et un mot de passe.",
+    "ar": "أدخل اسمي الخادمين وكلمة المرور."
+  },
+  "Enter server hostnames without a URL or port.": {
+    "fr": "Saisissez les noms de serveurs sans URL ni port.",
+    "ar": "أدخل أسماء الخوادم دون رابط أو منفذ."
+  },
+  "Enter your OAuth application client ID under OAuth application settings.": {
+    "fr": "Saisissez l’ID client dans les paramètres de l’application OAuth.",
+    "ar": "أدخل معرّف العميل ضمن إعدادات تطبيق OAuth."
+  },
+  "Sign-in cancelled": {
+    "fr": "Connexion annulée",
+    "ar": "تم إلغاء تسجيل الدخول"
+  },
+  "Sign-in timed out. Try again.": {
+    "fr": "La connexion a expiré. Réessayez.",
+    "ar": "انتهت مهلة تسجيل الدخول. حاول مجدداً."
+  },
+  "Sign-in was declined. You can try again.": {
+    "fr": "La connexion a été refusée. Vous pouvez réessayer.",
+    "ar": "تم رفض تسجيل الدخول. يمكنك المحاولة مجدداً."
+  },
+  "Preview workspace · Connect an account to receive your mail": {
+    "fr": "Aperçu · Connectez un compte pour recevoir votre courrier",
+    "ar": "مساحة المعاينة · اربط حساباً لاستلام بريدك"
+  },
+  "Default signature": {
+    "fr": "Signature par défaut",
+    "ar": "التوقيع الافتراضي"
+  },
+  "Synchronization": {
+    "fr": "Synchronisation",
+    "ar": "المزامنة"
+  },
+  "Local storage": {
+    "fr": "Stockage local",
+    "ar": "التخزين المحلي"
+  },
+  "Message density": {
+    "fr": "Densité des messages",
+    "ar": "كثافة الرسائل"
+  },
+  "A consistent desktop workspace, at any hour.": {
+    "fr": "Un espace de travail cohérent, à toute heure.",
+    "ar": "مساحة عمل متناسقة في كل وقت."
+  },
+  "Control how Barid receives and opens your mail.": {
+    "fr": "Réglez la réception et l’ouverture de votre courrier.",
+    "ar": "تحكم في استقبال بريدك وفتحه."
+  },
+  "Sending and signatures": {
+    "fr": "Envoi et signatures",
+    "ar": "الإرسال والتوقيعات"
+  },
+  "Choose the right identity for each conversation.": {
+    "fr": "Choisissez la bonne identité pour chaque conversation.",
+    "ar": "اختر الهوية المناسبة لكل محادثة."
+  },
+  "Copy server settings from Woosool Barid → Settings → Security → Mail app server settings.": {
+    "fr": "Copiez les serveurs depuis Barid Woosool → Paramètres → Sécurité → Paramètres des applications de messagerie.",
+    "ar": "انسخ إعدادات الخادم من بريد وصول ← الإعدادات ← الأمان ← إعدادات خادم تطبيقات البريد."
+  },
+  "Use your full email address and an Email app password, not your Woosool Account password.": {
+    "fr": "Utilisez votre adresse e-mail complète et un mot de passe d’application E-mail, pas celui du compte Woosool.",
+    "ar": "استخدم عنوان بريدك الكامل وكلمة مرور تطبيق للبريد، وليس كلمة مرور حساب وصول."
+  },
+  "Woosool connection help": {
+    "fr": "Aide de connexion Woosool",
+    "ar": "مساعدة اتصال وصول"
+  },
+  "Create an app password": {
+    "fr": "Créer un mot de passe d’application",
+    "ar": "إنشاء كلمة مرور تطبيق"
+  },
+  "Password is kept for this session only. Enter it again after restarting Barid.": {
+    "fr": "Le mot de passe est conservé uniquement pour cette session. Saisissez-le à nouveau après le redémarrage de Barid.",
+    "ar": "تُحفظ كلمة المرور لهذه الجلسة فقط. أدخلها مجدداً بعد إعادة تشغيل بريد."
+  },
+  "Advanced search": {
+    "fr": "Recherche avancée",
+    "ar": "بحث متقدم"
+  },
+  "Advanced search…": {
+    "fr": "Recherche avancée…",
+    "ar": "بحث متقدم…"
+  },
+  "Find messages": {
+    "fr": "Rechercher des messages",
+    "ar": "البحث عن الرسائل"
+  },
+  "Combine fields; search uses the current mailbox or All Mail.": {
+    "fr": "Combinez les champs dans la boîte actuelle ou Tous les messages.",
+    "ar": "اجمع الحقول للبحث في الصندوق الحالي أو كل الرسائل."
+  },
+  "Contains words": {
+    "fr": "Contient les mots",
+    "ar": "يحتوي على كلمات"
+  },
+  "Name or address": {
+    "fr": "Nom ou adresse",
+    "ar": "الاسم أو العنوان"
+  },
+  "Exact phrase": {
+    "fr": "Expression exacte",
+    "ar": "عبارة مطابقة"
+  },
+  "Words, -excluded, or OR": {
+    "fr": "Mots, -exclusions ou OR",
+    "ar": "كلمات أو -استثناءات أو OR"
+  },
+  "Local or provider label": {
+    "fr": "Étiquette locale ou du fournisseur",
+    "ar": "تصنيف محلي أو من المزود"
+  },
+  "After": {
+    "fr": "Après",
+    "ar": "بعد"
+  },
+  "Before": {
+    "fr": "Avant",
+    "ar": "قبل"
+  },
+  "Has attachment": {
+    "fr": "Avec pièce jointe",
+    "ar": "يحتوي على مرفق"
+  },
+  "Search all mail": {
+    "fr": "Rechercher dans tous les messages",
+    "ar": "البحث في كل الرسائل"
+  },
+  "Search this mailbox": {
+    "fr": "Rechercher dans cette boîte",
+    "ar": "البحث في هذا الصندوق"
+  },
+  "Group conversations": {
+    "fr": "Grouper les conversations",
+    "ar": "تجميع المحادثات"
+  },
+  "Folders & labels": {
+    "fr": "Dossiers et étiquettes",
+    "ar": "المجلدات والتصنيفات"
+  },
+  "Folders & labels…": {
+    "fr": "Dossiers et étiquettes…",
+    "ar": "المجلدات والتصنيفات…"
+  },
+  "Changes apply to the selected mail account.": {
+    "fr": "Les modifications concernent le compte sélectionné.",
+    "ar": "تُطبّق التغييرات على حساب البريد المحدد."
+  },
+  "Existing folders": {
+    "fr": "Dossiers existants",
+    "ar": "المجلدات الموجودة"
+  },
+  "Folder or label name": {
+    "fr": "Nom du dossier ou de l’étiquette",
+    "ar": "اسم المجلد أو التصنيف"
+  },
+  "New name": {
+    "fr": "Nouveau nom",
+    "ar": "الاسم الجديد"
+  },
+  "Create": {
+    "fr": "Créer",
+    "ar": "إنشاء"
+  },
+  "Rename": {
+    "fr": "Renommer",
+    "ar": "إعادة تسمية"
+  },
+  "Delete selected": {
+    "fr": "Supprimer la sélection",
+    "ar": "حذف المحدد"
+  },
+  "Confirm deletion of the selected folder or label and its server contents": {
+    "fr": "Confirmer la suppression du dossier ou de l’étiquette sélectionnés et de leur contenu sur le serveur",
+    "ar": "تأكيد حذف المجلد أو التصنيف المحدد ومحتوياته على الخادم"
+  },
+  "Provider labels": {
+    "fr": "Étiquettes du fournisseur",
+    "ar": "تصنيفات المزود"
+  },
+  "Move to folder": {
+    "fr": "Déplacer vers un dossier",
+    "ar": "نقل إلى مجلد"
+  },
+  "Pin": {
+    "fr": "Épingler",
+    "ar": "تثبيت"
+  },
+  "Unpin": {
+    "fr": "Désépingler",
+    "ar": "إلغاء التثبيت"
+  },
+  "Pin / unpin": {
+    "fr": "Épingler / désépingler",
+    "ar": "تثبيت / إلغاء التثبيت"
+  },
+  "Pinned": {
+    "fr": "Épinglés",
+    "ar": "المثبتة"
+  },
+  "Sync contacts": {
+    "fr": "Synchroniser les contacts",
+    "ar": "مزامنة جهات الاتصال"
+  },
+  "Contacts sync": {
+    "fr": "Synchronisation des contacts",
+    "ar": "مزامنة جهات الاتصال"
+  },
+  "Download contacts from Google, Outlook, or an HTTPS CardDAV address book.": {
+    "fr": "Téléchargez les contacts depuis Google, Outlook ou un carnet CardDAV HTTPS.",
+    "ar": "نزّل جهات الاتصال من Google أو Outlook أو دفتر عناوين CardDAV عبر HTTPS."
+  },
+  "Downloaded contacts merge by provider ID. Local contacts, favorites, groups and Trash are retained. Edits here stay on this device.": {
+    "fr": "Les contacts sont fusionnés par identifiant du fournisseur. Les contacts locaux, favoris, groupes et la corbeille sont conservés. Les modifications restent sur cet appareil.",
+    "ar": "تُدمج جهات الاتصال حسب معرّف المزود. تُحفظ جهات الاتصال المحلية والمفضلة والمجموعات والمهملات. تبقى التعديلات على هذا الجهاز."
+  },
+  "Reconnect this account if contacts permission has not been granted.": {
+    "fr": "Reconnectez le compte si l’accès aux contacts n’a pas été accordé.",
+    "ar": "أعد ربط الحساب إذا لم يتم منح صلاحية الوصول إلى جهات الاتصال."
+  },
+  "CardDAV address-book URL": {
+    "fr": "URL du carnet d’adresses CardDAV",
+    "ar": "عنوان دفتر عناوين CardDAV"
+  },
+  "Layout & desktop": {
+    "fr": "Disposition et bureau",
+    "ar": "التخطيط وسطح المكتب"
+  },
+  "Choose how your mail workspace behaves.": {
+    "fr": "Choisissez le comportement de votre espace de messagerie.",
+    "ar": "اختر سلوك مساحة عمل البريد."
+  },
+  "Reading pane below the message list": {
+    "fr": "Volet de lecture sous la liste des messages",
+    "ar": "جزء القراءة أسفل قائمة الرسائل"
+  },
+  "Group messages into conversations": {
+    "fr": "Regrouper les messages par conversation",
+    "ar": "تجميع الرسائل في محادثات"
+  },
+  "Show unread count on the app icon": {
+    "fr": "Afficher le nombre de non lus sur l’icône",
+    "ar": "إظهار عدد الرسائل غير المقروءة على أيقونة التطبيق"
+  },
+  "Keep Barid in the tray when the window is closed": {
+    "fr": "Garder Barid dans la zone de notification après la fermeture",
+    "ar": "إبقاء بريد في علبة النظام عند إغلاق النافذة"
+  },
+  "Minimize to tray": {
+    "fr": "Réduire dans la zone de notification",
+    "ar": "تصغير إلى علبة النظام"
+  },
+  "Show Barid": {
+    "fr": "Afficher Barid",
+    "ar": "إظهار بريد"
+  },
+  "Contacts synchronized to this device": {
+    "fr": "Contacts synchronisés sur cet appareil",
+    "ar": "تمت مزامنة جهات الاتصال على هذا الجهاز"
+  },
+  "Downloading contacts…": {
+    "fr": "Téléchargement des contacts…",
+    "ar": "جارٍ تنزيل جهات الاتصال…"
+  },
+  "Updating server folders…": {
+    "fr": "Mise à jour des dossiers du serveur…",
+    "ar": "جارٍ تحديث مجلدات الخادم…"
+  },
+  "Server folders updated": {
+    "fr": "Dossiers du serveur mis à jour",
+    "ar": "تم تحديث مجلدات الخادم"
+  },
+  "CardDAV settings saved": {
+    "fr": "Paramètres CardDAV enregistrés",
+    "ar": "تم حفظ إعدادات CardDAV"
+  },
+  "HTML message": {
+    "fr": "Message HTML",
+    "ar": "رسالة منسّقة"
+  },
+  "Remote images are hidden": {
+    "fr": "Les images distantes sont masquées",
+    "ar": "الصور البعيدة مخفية"
+  },
+  "Load remote images": {
+    "fr": "Charger les images distantes",
+    "ar": "تحميل الصور البعيدة"
+  },
+  "Some images could not be resolved from this message.": {
+    "fr": "Certaines images de ce message sont introuvables.",
+    "ar": "تعذر العثور على بعض صور هذه الرسالة."
+  },
+  "HTML formatting and embedded images are displayed. Remote images load only when requested.": {
+    "fr": "La mise en forme HTML et les images intégrées sont affichées. Les images distantes se chargent uniquement sur demande.",
+    "ar": "يتم عرض تنسيق HTML والصور المضمنة. تُحمّل الصور البعيدة عند الطلب فقط."
+  },
+  "Use the app theme for the email body (white by default)": {
+    "fr": "Utiliser le thème de l’application pour le corps du message (blanc par défaut)",
+    "ar": "استخدام مظهر التطبيق لنص الرسالة (أبيض افتراضياً)"
+  },
+  "Search & privacy": {
+    "fr": "Recherche et confidentialité",
+    "ar": "البحث والخصوصية"
+  },
+  "Find mail faster and control what is saved on this device.": {
+    "fr": "Trouvez vos messages plus vite et contrôlez les données enregistrées sur cet appareil.",
+    "ar": "اعثر على رسائلك بسرعة وتحكّم فيما يُحفظ على هذا الجهاز."
+  },
+  "Suggest search filters, senders and labels": {
+    "fr": "Suggérer des filtres, des expéditeurs et des libellés",
+    "ar": "اقتراح عوامل البحث والمرسلين والتصنيفات"
+  },
+  "Remember recent searches on this device": {
+    "fr": "Mémoriser les recherches récentes sur cet appareil",
+    "ar": "حفظ عمليات البحث الأخيرة على هذا الجهاز"
+  },
+  "Search history stores up to 20 searches locally. Press Enter to save a search.": {
+    "fr": "L’historique conserve jusqu’à 20 recherches sur cet appareil. Appuyez sur Entrée pour enregistrer une recherche.",
+    "ar": "يحتفظ السجل بآخر ٢٠ عملية بحث محلياً. اضغط إدخال لحفظ البحث."
+  },
+  "Recent searches": {
+    "fr": "Recherches récentes",
+    "ar": "عمليات البحث الأخيرة"
+  },
+  "Suggestions & recent searches": {
+    "fr": "Suggestions et recherches récentes",
+    "ar": "الاقتراحات وعمليات البحث الأخيرة"
+  },
+  "Clear search history": {
+    "fr": "Effacer l’historique de recherche",
+    "ar": "مسح سجل البحث"
+  },
+  "Clear search": {
+    "fr": "Effacer la recherche",
+    "ar": "مسح البحث"
+  },
+  "Search tools": {
+    "fr": "Outils de recherche",
+    "ar": "أدوات البحث"
+  },
+  "Use the down and up arrows to choose a suggestion, Enter to apply it, and Escape to dismiss.": {
+    "fr": "Choisissez une suggestion avec les flèches, validez avec Entrée et fermez avec Échap.",
+    "ar": "استخدم السهمين لأعلى ولأسفل لاختيار اقتراح، وإدخال لتطبيقه، وEscape للإغلاق."
+  },
+  "Text size": {
+    "fr": "Taille du texte",
+    "ar": "حجم النص"
+  },
+  "Interface scale": {
+    "fr": "Échelle de l’interface",
+    "ar": "مقياس الواجهة"
+  },
+  "New messages": {
+    "fr": "Nouveaux messages",
+    "ar": "الرسائل الجديدة"
+  },
+  "Compose new messages in plain text": {
+    "fr": "Rédiger les nouveaux messages en texte brut",
+    "ar": "كتابة الرسائل الجديدة كنص عادي"
+  },
+  "Open new composers in expanded view": {
+    "fr": "Ouvrir les nouveaux messages en vue agrandie",
+    "ar": "فتح نوافذ الكتابة الجديدة بحجم موسّع"
+  },
+  "Changes are saved automatically": {
+    "fr": "Les modifications sont enregistrées automatiquement",
+    "ar": "تُحفظ التغييرات تلقائياً"
+  },
+  "Windows": {
+    "fr": "Fenêtres",
+    "ar": "النوافذ"
+  },
+  "Arrange composers": {
+    "fr": "Réorganiser les fenêtres de rédaction",
+    "ar": "ترتيب نوافذ الكتابة"
+  },
+  "Minimize all composers": {
+    "fr": "Réduire toutes les fenêtres de rédaction",
+    "ar": "تصغير جميع نوافذ الكتابة"
+  },
+  "Restore all composers": {
+    "fr": "Restaurer toutes les fenêtres de rédaction",
+    "ar": "استعادة جميع نوافذ الكتابة"
+  },
+  "Saturday": {
+    "fr": "Samedi",
+    "ar": "السبت"
+  },
+  "Sunday": {
+    "fr": "Dimanche",
+    "ar": "الأحد"
+  },
+  "Monday": {
+    "fr": "Lundi",
+    "ar": "الاثنين"
+  },
+  "Tuesday": {
+    "fr": "Mardi",
+    "ar": "الثلاثاء"
+  },
+  "Wednesday": {
+    "fr": "Mercredi",
+    "ar": "الأربعاء"
+  },
+  "Thursday": {
+    "fr": "Jeudi",
+    "ar": "الخميس"
+  },
+  "Friday": {
+    "fr": "Vendredi",
+    "ar": "الجمعة"
+  },
+  "Reply to sender": {
+    "fr": "Répondre à l’expéditeur",
+    "ar": "الرد على المرسل"
+  },
+  "Reply to all": {
+    "fr": "Répondre à tous",
+    "ar": "الرد على الجميع"
+  },
+  "HTML message · styled paste": {
+    "fr": "Message HTML · collage avec mise en forme",
+    "ar": "رسالة منسّقة · لصق مع التنسيق"
+  },
+  "Cc": {
+    "fr": "Cc",
+    "ar": "نسخة"
+  },
+  "Bcc": {
+    "fr": "Cci",
+    "ar": "نسخة مخفية"
+  },
+  "Clear selection formatting": {
+    "fr": "Effacer la mise en forme de la sélection",
+    "ar": "مسح تنسيق النص المحدد"
+  },
+  "No accounts yet. Add Gmail, Outlook, Woosool, or any IMAP/POP3 account to start receiving mail.": {
+    "fr": "Aucun compte pour l’instant. Ajoutez Gmail, Outlook, Woosool ou tout compte IMAP/POP3 pour recevoir vos e-mails.",
+    "ar": "لا توجد حسابات بعد. أضف Gmail أو Outlook أو وصول أو أي حساب IMAP/POP3 لبدء استلام البريد."
+  },
+  "Downloaded contact · local copy": {
+    "fr": "Contact téléchargé · copie locale",
+    "ar": "جهة اتصال متزامنة · نسخة محلية"
+  },
+  "Find text (case-sensitive)": {
+    "fr": "Rechercher du texte (sensible à la casse)",
+    "ar": "البحث عن نص (مع مراعاة حالة الأحرف)"
+  },
+  "Paste text only · Ctrl/Cmd+Shift+V": {
+    "fr": "Coller le texte seul · Ctrl/Cmd+Shift+V",
+    "ar": "لصق النص فقط"
+  },
+  "Paste with original formatting · Ctrl/Cmd+V": {
+    "fr": "Coller avec la mise en forme d’origine · Ctrl/Cmd+V",
+    "ar": "لصق مع التنسيق الأصلي"
+  },
+  "Your people, in one place": {
+    "fr": "Tous vos contacts au même endroit",
+    "ar": "جهات اتصالك في مكان واحد"
+  },
+  "Ready · Mail stored on this device": {
+    "fr": "Prêt · Courrier enregistré sur cet appareil",
+    "ar": "جاهز · البريد محفوظ على هذا الجهاز"
+  },
+  "No labels": {
+    "fr": "Aucune étiquette",
+    "ar": "لا توجد تصنيفات"
+  },
+  "New label": {
+    "fr": "Nouvelle étiquette",
+    "ar": "تصنيف جديد"
+  },
+  "Add label": {
+    "fr": "Ajouter l’étiquette",
+    "ar": "إضافة تصنيف"
+  },
+  "Edit address": {
+    "fr": "Modifier l’adresse",
+    "ar": "تعديل العنوان"
+  },
+  "Notifications": {
+    "fr": "Notifications",
+    "ar": "الإشعارات"
+  },
+  "Get a desktop alert when mail arrives or is sent.": {
+    "fr": "Recevez une alerte lorsqu’un e-mail arrive ou est envoyé.",
+    "ar": "احصل على تنبيه عند وصول البريد أو إرساله."
+  },
+  "Alerts": {
+    "fr": "Alertes",
+    "ar": "التنبيهات"
+  },
+  "New mail in your inboxes": {
+    "fr": "Nouveaux e-mails dans vos boîtes de réception",
+    "ar": "بريد جديد في صناديق الوارد"
+  },
+  "Message sent": {
+    "fr": "Message envoyé",
+    "ar": "تم إرسال الرسالة"
+  },
+  "Content": {
+    "fr": "Contenu",
+    "ar": "المحتوى"
+  },
+  "Show sender and subject": {
+    "fr": "Afficher l’expéditeur et l’objet",
+    "ar": "إظهار المرسل والموضوع"
+  },
+  "Turn off to keep message details private on a shared screen.": {
+    "fr": "Désactivez pour garder les détails privés sur un écran partagé.",
+    "ar": "أوقفه للحفاظ على خصوصية التفاصيل على شاشة مشتركة."
+  },
+  "Play a sound for new mail": {
+    "fr": "Jouer un son pour les nouveaux e-mails",
+    "ar": "تشغيل صوت عند وصول بريد جديد"
+  },
+  "Send test notification": {
+    "fr": "Envoyer une notification de test",
+    "ar": "إرسال إشعار تجريبي"
+  },
+  "Notifications are working.": {
+    "fr": "Les notifications fonctionnent.",
+    "ar": "الإشعارات تعمل."
+  },
+  "If nothing appears, allow notifications for Barid in your system settings.": {
+    "fr": "Si rien n’apparaît, autorisez les notifications de Barid dans les réglages du système.",
+    "ar": "إذا لم يظهر شيء، اسمح بإشعارات بريد في إعدادات النظام."
+  },
+  "You have a new message": {
+    "fr": "Vous avez un nouveau message",
+    "ar": "لديك رسالة جديدة"
+  },
+  "(no subject)": {
+    "fr": "(sans objet)",
+    "ar": "(بدون موضوع)"
+  }
+}

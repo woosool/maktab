@@ -1,0 +1,8 @@
+# The apps in Maktab, one per line (read by package-macos.sh, package-linux.sh, package-windows.ps1):
+# slug|folder|cargo package|binary|Name|Arabic name|needs the shared resources (1/0)|macOS bundle id
+qalam|qalam|word-app|qalam|Qalam|قلم|1|com.woosool.qalam
+jadwal|jadwal|sheet-app|jadwal|Jadwal|جدول|1|com.woosool.jadwal
+sard|sard|slides-app|sard|Sard|سرد|1|com.woosool.sard
+saboura|saboura|saboura-app|saboura|Saboura|سبورة|1|com.woosool.saboura
+waraq|pdf|pdf-app|waraq|Waraq|ورق|0|com.woosool.waraq
+barid|barid|barid|barid|Barid|بريد|0|com.woosool.barid

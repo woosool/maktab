@@ -1,0 +1,40 @@
+<!-- Inserted into Info.plist by tools/package-macos.sh: the formats this app opens, as Editor with
+     rank Default (never Owner over the system/Microsoft types). Generated alongside tools/windows/*.iss
+     and tools/linux/*.desktop; keep the three lists the same. -->
+  <key>CFBundleDocumentTypes</key><array>
+    <dict><key>CFBundleTypeName</key><string>Word Document</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.wordprocessingml.document</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>docx</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Word Macro-Enabled Document</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.wordprocessingml.document.macroenabled</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>docm</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Word Template</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.wordprocessingml.template</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>dotx</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Word Macro-Enabled Template</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.wordprocessingml.template.macroenabled</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>dotm</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Markdown Document</string>
+      <key>LSItemContentTypes</key><array><string>net.daringfireball.markdown</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>md</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Text Document</string>
+      <key>LSItemContentTypes</key><array><string>public.plain-text</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>txt</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+  </array>
+  <key>UTImportedTypeDeclarations</key><array>
+    <dict><key>UTTypeIdentifier</key><string>org.openxmlformats.wordprocessingml.document.macroenabled</string><key>UTTypeDescription</key><string>Word Macro-Enabled Document</string>
+      <key>UTTypeConformsTo</key><array><string>org.openxmlformats.openxml</string><string>public.zip-archive</string></array>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>docm</string></array><key>public.mime-type</key><array><string>application/vnd.ms-word.document.macroEnabled.12</string></array></dict></dict>
+    <dict><key>UTTypeIdentifier</key><string>org.openxmlformats.wordprocessingml.template.macroenabled</string><key>UTTypeDescription</key><string>Word Macro-Enabled Template</string>
+      <key>UTTypeConformsTo</key><array><string>org.openxmlformats.openxml</string><string>public.zip-archive</string></array>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>dotm</string></array><key>public.mime-type</key><array><string>application/vnd.ms-word.template.macroEnabled.12</string></array></dict></dict>
+    <dict><key>UTTypeIdentifier</key><string>net.daringfireball.markdown</string><key>UTTypeDescription</key><string>Markdown Document</string>
+      <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>md</string></array><key>public.mime-type</key><array><string>text/markdown</string></array></dict></dict>
+  </array>

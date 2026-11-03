@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Waraq (ورق, "paper"): a stack of paper sheets on a red tile. Original artwork, MIT. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EA5A4E"/>
+      <stop offset="0.5" stop-color="#CC2F36"/>
+      <stop offset="1" stop-color="#8C121C"/>
+    </linearGradient>
+    <radialGradient id="gloss" cx="0.3" cy="0.12" r="0.85">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F4ECEA"/>
+    </linearGradient>
+    <linearGradient id="back" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBF2F0"/>
+      <stop offset="1" stop-color="#E9D9D6"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#E7D3CF"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#4A0710" flood-opacity="0.42"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#4A0710" flood-opacity="0.30"/>
+    </filter>
+    <clipPath id="tileclip"><rect x="44" y="44" width="424" height="424" rx="96"/></clipPath>
+  </defs>
+
+  <!-- Tile with a soft inner highlight and edge. -->
+  <rect x="44" y="44" width="424" height="424" rx="96" fill="url(#tile)"/>
+  <rect x="44" y="44" width="424" height="424" rx="96" fill="url(#gloss)"/>
+  <rect x="45.5" y="45.5" width="421" height="421" rx="94.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="3"/>
+
+  <g clip-path="url(#tileclip)">
+    <!-- Back sheets, fanned. -->
+    <rect x="146" y="118" width="214" height="276" rx="16" fill="url(#back)" filter="url(#soft)" transform="translate(-14 6) rotate(-16 253 256)"/>
+    <rect x="148" y="112" width="214" height="276" rx="16" fill="url(#back)" filter="url(#soft)" transform="translate(-6 2) rotate(-7 255 250)"/>
+
+    <!-- Front sheet with a folded top-right corner. -->
+    <g transform="rotate(4 270 262)" filter="url(#shadow)">
+      <path d="M172 116 H316 L366 166 V384 Q366 400 350 400 H172 Q156 400 156 384 V132 Q156 116 172 116 Z" fill="url(#paper)"/>
+      <path d="M316 116 V150 Q316 166 332 166 H366 Z" fill="url(#fold)"/>
+      <path d="M316 116 V150 Q316 166 332 166 H366" fill="none" stroke="#D9C3BF" stroke-width="2"/>
+      <!-- Faint text lines. -->
+      <g stroke="#CDBAB7" stroke-width="9" stroke-linecap="round">
+        <line x1="188" y1="196" x2="334" y2="196"/>
+        <line x1="188" y1="228" x2="334" y2="228"/>
+        <line x1="188" y1="260" x2="300" y2="260"/>
+      </g>
+      <!-- A red signature stroke. -->
+      <path d="M186 344 C204 312 218 312 214 336 C210 358 232 330 246 322 C258 316 254 340 268 336 C284 331 298 318 336 314"
+            fill="none" stroke="#C9363A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

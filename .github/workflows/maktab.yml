@@ -1,0 +1,241 @@
+# Maktab: every Woosool app (tools/maktab/apps.tsv) built and bundled per platform:
+#   macOS     Maktab-<v>-macos-aarch64.dmg, Maktab-<v>-macos-x86_64.dmg     (all apps, drag to Applications)
+#   Windows   Maktab-<v>-windows-x86_64-setup.exe (+ portable .zip)          (one installer, apps optional)
+#   Linux     maktab_<v>_amd64.deb, maktab_<v>_arm64.deb (+ portable .tar.gz)
+#   ChromeOS  Maktab-<v>-chromeos-x86_64.deb, Maktab-<v>-chromeos-aarch64.deb (Linux on ChromeOS installs .deb)
+# plus each app's update archive and update.json, so the apps' own updaters keep working.
+# Pushes to main build and upload artifacts; a tag "maktab-v<version>" (or running it by hand
+# with "release" ticked) also publishes a GitHub release.
+#
+# Optional secrets (each step is skipped when its secret is missing):
+#   MACOS_CODESIGN_IDENTITY, MACOS_CERTIFICATE, MACOS_CERTIFICATE_PASSWORD
+#   MACOS_NOTARY_KEY, MACOS_NOTARY_KEY_ID, MACOS_NOTARY_ISSUER
+#   WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD
+name: Maktab
+
+on:
+  push:
+    branches: [main]
+    tags: ["maktab-v*"]
+    paths: ["qalam/**", "jadwal/**", "sard/**", "saboura/**", "pdf/**", "barid/**", "kit/**", "translate/**", "tools/maktab/**", ".github/workflows/maktab.yml"]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a GitHub release (maktab-v<version>)
+        type: boolean
+        default: false
+
+concurrency:
+  group: maktab-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.arch }}-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: maktab-macos-${{ matrix.arch }}
+          workspaces: |
+            qalam
+            jadwal
+            sard
+            saboura
+            pdf
+            barid
+      - name: Import signing certificate
+        env:
+          CERT: ${{ secrets.MACOS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        if: env.CERT != ''
+        run: |
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          kcpass=$(uuidgen)
+          echo "$CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$kcpass" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$kcpass" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          security set-key-partition-list -S apple-tool:,apple: -k "$kcpass" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" login.keychain
+          rm "$RUNNER_TEMP/cert.p12"
+      - name: Notarization credentials
+        env:
+          KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          ISSUER: ${{ secrets.MACOS_NOTARY_ISSUER }}
+        if: env.KEY != ''
+        run: |
+          echo "$KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool store-credentials woffice-notary --key "$RUNNER_TEMP/notary.p8" --key-id "$KEY_ID" --issuer "$ISSUER"
+          echo "NOTARY_PROFILE=woffice-notary" >> "$GITHUB_ENV"
+      - name: Package
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
+        run: sh tools/maktab/package-macos.sh ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maktab-macos-${{ matrix.arch }}
+          path: dist/maktab/*
+          compression-level: 0
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: maktab-windows
+          workspaces: |
+            qalam
+            jadwal
+            sard
+            saboura
+            pdf
+            barid
+      - name: Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Signing certificate
+        env:
+          CERT: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        if: env.CERT != ''
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT))
+          "SIGN_CERT=$pfx" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "SIGN_PASSWORD=$env:CERT_PASSWORD" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          $signtool.DirectoryName | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: Package
+        shell: pwsh
+        run: ./tools/maktab/package-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maktab-windows-x86_64
+          path: dist/maktab/*
+          compression-level: 0
+
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            os: ubuntu-22.04
+          - arch: aarch64
+            os: ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: maktab-linux-${{ matrix.arch }}
+          workspaces: |
+            qalam
+            jadwal
+            sard
+            saboura
+            pdf
+            barid
+      - name: Build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxkbcommon-dev libwayland-dev libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev \
+            libgbm-dev libegl-dev libclang-dev libasound2-dev libssl-dev libdbus-1-dev \
+            pkg-config dpkg-dev zip file meson ninja-build
+      # libspa 0.10 (via xcap) needs PipeWire >= 1.4 headers; Ubuntu 22.04 ships 0.3.48.
+      - name: PipeWire
+        run: |
+          curl -fsSL https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/1.4.2/pipewire-1.4.2.tar.gz | tar xz -C /tmp
+          cd /tmp/pipewire-1.4.2
+          meson setup build --prefix=/usr/local -Dauto_features=disabled -Dsession-managers=[] -Dexamples=disabled -Dtests=disabled
+          sudo meson install -C build
+          sudo ldconfig
+      - name: Package
+        run: sh tools/maktab/package-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maktab-linux-${{ matrix.arch }}
+          path: dist/maktab/*
+          compression-level: 0
+
+  # ChromeOS runs desktop apps in its Linux environment (Debian): the Debian packages install
+  # there as they are, on Intel/AMD and on ARM Chromebooks.
+  chromeos:
+    needs: linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: maktab-linux-*
+          path: linux
+          merge-multiple: true
+      - name: ChromeOS packages
+        run: |
+          mkdir chromeos
+          for deb in linux/maktab_*_amd64.deb linux/maktab_*_arm64.deb; do
+            v=$(basename "$deb" | cut -d_ -f2)
+            case "$deb" in *amd64*) a=x86_64 ;; *) a=aarch64 ;; esac
+            cp "$deb" "chromeos/Maktab-$v-chromeos-$a.deb"
+          done
+          ls -lh chromeos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maktab-chromeos
+          path: chromeos/*
+          compression-level: 0
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/maktab-v') || inputs.release
+    needs: [macos, windows, linux, chromeos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: maktab-*
+          path: dist/maktab
+          merge-multiple: true
+      - name: Version
+        id: v
+        run: |
+          v=$(sh tools/maktab/version.sh)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          case "$GITHUB_REF" in refs/tags/maktab-v*) [ "${GITHUB_REF#refs/tags/maktab-v}" = "$v" ] || echo "::warning::Tag ${GITHUB_REF_NAME} doesn't match the apps' version $v." ;; esac
+      - name: Update manifests
+        run: python3 tools/maktab/manifest.py "https://github.com/${{ github.repository }}/releases/download/maktab-v${{ steps.v.outputs.version }}"
+      - name: Checksums
+        working-directory: dist/maktab
+        run: |
+          find . -maxdepth 1 -type f -printf '%f\n' | sort | xargs sha256sum > "$RUNNER_TEMP/sums"
+          mv "$RUNNER_TEMP/sums" SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: maktab-v${{ steps.v.outputs.version }}
+          name: Maktab ${{ steps.v.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          files: dist/maktab/*
+          body_path: RELEASE.md

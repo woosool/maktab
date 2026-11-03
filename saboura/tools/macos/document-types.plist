@@ -1,0 +1,17 @@
+<!-- Inserted into Info.plist by tools/maktab/package-macos.sh: Saboura's own .sab boards (Owner)
+     and the whiteboard's JSON (Alternate, since .json belongs to many apps). -->
+  <key>CFBundleDocumentTypes</key><array>
+    <dict><key>CFBundleTypeName</key><string>Saboura Board</string>
+      <key>LSItemContentTypes</key><array><string>com.woosool.saboura.board</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>sab</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Owner</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Whiteboard JSON</string>
+      <key>LSItemContentTypes</key><array><string>public.json</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>json</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Alternate</string></dict>
+  </array>
+  <key>UTExportedTypeDeclarations</key><array>
+    <dict><key>UTTypeIdentifier</key><string>com.woosool.saboura.board</string><key>UTTypeDescription</key><string>Saboura Board</string>
+      <key>UTTypeConformsTo</key><array><string>public.data</string><string>org.gnu.gnu-zip-archive</string></array>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>sab</string></array><key>public.mime-type</key><array><string>application/vnd.woosool.saboura</string></array></dict></dict>
+  </array>

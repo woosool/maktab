@@ -1,0 +1,10 @@
+#!/bin/sh
+# Makes Qalam the default app for its formats for the current user (opt-in; installers never do this
+# on their own). Run it as yourself, not root: qalam-set-default
+# Formats: .docx .docm .dotx .dotm .md .txt
+set -e
+command -v xdg-mime >/dev/null 2>&1 || { echo "xdg-mime not found (install xdg-utils)."; exit 1; }
+for mime in application/vnd.openxmlformats-officedocument.wordprocessingml.document application/vnd.ms-word.document.macroEnabled.12 application/vnd.openxmlformats-officedocument.wordprocessingml.template application/vnd.ms-word.template.macroEnabled.12 text/markdown text/plain; do
+  xdg-mime default qalam.desktop "$mime"
+done
+echo "Qalam is now the default app for: application/vnd.openxmlformats-officedocument.wordprocessingml.document application/vnd.ms-word.document.macroEnabled.12 application/vnd.openxmlformats-officedocument.wordprocessingml.template application/vnd.ms-word.template.macroEnabled.12 text/markdown text/plain"

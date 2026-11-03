@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The .sab type, installed to /usr/share/mime/packages by the Linux packages. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/vnd.woosool.saboura">
+    <comment>Saboura board</comment>
+    <comment xml:lang="ar">لوح سبورة</comment>
+    <comment xml:lang="fr">Tableau Saboura</comment>
+    <sub-class-of type="application/gzip"/>
+    <glob pattern="*.sab"/>
+  </mime-type>
+</mime-info>

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Makes Jadwal the default app for its formats for the current user (opt-in; installers never do this
+# on their own). Run it as yourself, not root: jadwal-set-default
+# Formats: .xlsx .xlsm .xltx .xltm .ods .csv .tsv
+set -e
+command -v xdg-mime >/dev/null 2>&1 || { echo "xdg-mime not found (install xdg-utils)."; exit 1; }
+for mime in application/vnd.openxmlformats-officedocument.spreadsheetml.sheet application/vnd.ms-excel.sheet.macroEnabled.12 application/vnd.openxmlformats-officedocument.spreadsheetml.template application/vnd.ms-excel.template.macroEnabled.12 application/vnd.oasis.opendocument.spreadsheet text/csv text/tab-separated-values; do
+  xdg-mime default jadwal.desktop "$mime"
+done
+echo "Jadwal is now the default app for: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet application/vnd.ms-excel.sheet.macroEnabled.12 application/vnd.openxmlformats-officedocument.spreadsheetml.template application/vnd.ms-excel.template.macroEnabled.12 application/vnd.oasis.opendocument.spreadsheet text/csv text/tab-separated-values"

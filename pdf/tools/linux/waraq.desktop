@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Waraq
+Name[ar]=ورق
+GenericName=PDF Editor
+Comment=View, annotate, sign and edit PDF documents
+Exec=waraq %f
+Icon=waraq
+Terminal=false
+Categories=Office;Viewer;
+MimeType=application/pdf;

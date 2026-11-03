@@ -1,0 +1,41 @@
+<!-- Inserted into Info.plist by tools/package-macos.sh: the formats this app opens, as Editor with
+     rank Default (never Owner over the system/Microsoft types). Generated alongside tools/windows/*.iss
+     and tools/linux/*.desktop; keep the three lists the same. -->
+  <key>CFBundleDocumentTypes</key><array>
+    <dict><key>CFBundleTypeName</key><string>Excel Workbook</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.spreadsheetml.sheet</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>xlsx</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Excel Macro-Enabled Workbook</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.spreadsheetml.sheet.macroenabled</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>xlsm</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Excel Template</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.spreadsheetml.template</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>xltx</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Excel Macro-Enabled Template</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.spreadsheetml.template.macroenabled</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>xltm</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>OpenDocument Spreadsheet</string>
+      <key>LSItemContentTypes</key><array><string>org.oasis-open.opendocument.spreadsheet</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>ods</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>CSV Document</string>
+      <key>LSItemContentTypes</key><array><string>public.comma-separated-values-text</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>csv</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>Tab-Separated Values</string>
+      <key>LSItemContentTypes</key><array><string>public.tab-separated-values-text</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>tsv</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+  </array>
+  <key>UTImportedTypeDeclarations</key><array>
+    <dict><key>UTTypeIdentifier</key><string>org.openxmlformats.spreadsheetml.sheet.macroenabled</string><key>UTTypeDescription</key><string>Excel Macro-Enabled Workbook</string>
+      <key>UTTypeConformsTo</key><array><string>org.openxmlformats.openxml</string><string>public.zip-archive</string></array>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>xlsm</string></array><key>public.mime-type</key><array><string>application/vnd.ms-excel.sheet.macroEnabled.12</string></array></dict></dict>
+    <dict><key>UTTypeIdentifier</key><string>org.openxmlformats.spreadsheetml.template.macroenabled</string><key>UTTypeDescription</key><string>Excel Macro-Enabled Template</string>
+      <key>UTTypeConformsTo</key><array><string>org.openxmlformats.openxml</string><string>public.zip-archive</string></array>
+      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>xltm</string></array><key>public.mime-type</key><array><string>application/vnd.ms-excel.template.macroEnabled.12</string></array></dict></dict>
+  </array>

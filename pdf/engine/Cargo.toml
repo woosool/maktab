@@ -1,0 +1,19 @@
+[package]
+name = "pdf-engine"
+version = "0.1.1"
+edition = "2024"
+description = "Document logic for Waraq (ورق), the PDF editor: page operations, annotations, rendering and text search"
+license = "MIT"
+
+[lib]
+name = "pdf_engine"
+
+[dependencies]
+lopdf = { version = "0.46", default-features = false }
+hayro = "0.9"
+rustybuzz = "0.20"
+subsetter = "0.2"
+unicode-bidi = "0.3"
+regex = { version = "1", default-features = false, features = ["std", "unicode"] }
+unicode-normalization = "0.1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Jadwal
+Name[ar]=جدول
+GenericName=Spreadsheet
+Comment=Create and edit .xlsx spreadsheets
+Exec=jadwal %f
+Icon=jadwal
+Terminal=false
+Categories=Office;Spreadsheet;
+MimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.ms-excel.sheet.macroEnabled.12;application/vnd.openxmlformats-officedocument.spreadsheetml.template;application/vnd.ms-excel.template.macroEnabled.12;application/vnd.oasis.opendocument.spreadsheet;text/csv;text/tab-separated-values;

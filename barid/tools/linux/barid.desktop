@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Barid
+Name[ar]=بريد
+GenericName=Mail
+Comment=Read and write email
+Exec=barid %u
+Icon=barid
+Terminal=false
+Categories=Network;Email;
+MimeType=x-scheme-handler/mailto;

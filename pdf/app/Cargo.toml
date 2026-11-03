@@ -1,0 +1,28 @@
+[package]
+name = "pdf-app"
+default-run = "waraq"
+version = "0.1.1"
+edition = "2024"
+description = "Waraq (ورق): a desktop PDF editor."
+license = "MIT"
+
+[[bin]]
+name = "waraq"
+path = "src/main.rs"
+
+[dependencies]
+pdf-engine = { version = "0.1.0", path = "../engine" }
+eframe = "0.37"
+rfd = "0.17"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+directories = "6"
+serde_json = "1"
+sha2 = "0.10"
+ureq = "3.5"
+unicode-bidi = "0.3"
+
+[build-dependencies]
+winresource = "0.1"
+
+[dev-dependencies]
+egui_kittest = { version = "0.37", features = ["wgpu", "snapshot", "eframe"] }

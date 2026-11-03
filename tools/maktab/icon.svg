@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#2b3a55"/>
+      <stop offset="1" stop-color="#141c2c"/>
+    </linearGradient>
+  </defs>
+  <rect x="92" y="92" width="840" height="840" rx="190" fill="url(#bg)"/>
+  <!-- The suite's apps as four tiles: documents, spreadsheets, presentations, whiteboard. -->
+  <rect x="232" y="196" width="262" height="230" rx="44" fill="#2f6fd6"/>
+  <rect x="530" y="196" width="262" height="230" rx="44" fill="#26894a"/>
+  <rect x="232" y="456" width="262" height="230" rx="44" fill="#e0662c"/>
+  <rect x="530" y="456" width="262" height="230" rx="44" fill="#1aa595"/>
+  <path d="M290 270h146M290 312h146M290 354h96" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <path d="M588 262h146M588 311h146M588 360h146M661 238v146" stroke="#fff" stroke-width="18" stroke-linecap="round"/>
+  <path d="M330 530l78 41-78 41z" fill="#fff"/>
+  <rect x="588" y="516" width="64" height="58" rx="8" fill="#f6d55c"/><rect x="672" y="560" width="64" height="58" rx="8" fill="#fff"/>
+  <text x="512" y="836" text-anchor="middle" font-family="Noto Sans Arabic" font-weight="700" font-size="140" fill="#ffffff">مكتب</text>
+</svg>

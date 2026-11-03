@@ -1,0 +1,57 @@
+[package]
+name = "barid"
+version = "0.1.1"
+edition = "2024"
+description = "A native, local-first desktop email client"
+license = "MIT"
+
+[dependencies]
+eframe = { version = "0.37", features = ["persistence"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.40", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
+imap = "2.4"
+native-tls = "0.2"
+mailparse = "0.16"
+html2text = "0.16"
+lettre = "0.11"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+rfd = "0.17"
+directories = "6"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+arboard = "3.7"
+scraper = "0.27"
+base64 = "0.22"
+uuid = { version = "1", features = ["v4"] }
+
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "form", "query", "native-tls"] }
+sha2 = "0.10"
+zeroize = "1"
+unicode-bidi = "0.3"
+url = "2"
+percent-encoding = "2"
+webbrowser = "1"
+quick-xml = "0.41"
+notify-rust = "4"
+
+[profile.release]
+lto = "thin"
+strip = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+muda = { version = "0.21", default-features = false }
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSDockTile"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tray-icon = { version = "0.26", default-features = false }
+
+
+[dev-dependencies]
+egui_kittest = { version = "0.37", features = ["wgpu", "snapshot", "eframe"] }
+
+# Keep the build cache small: no debug info for dependencies.
+[profile.dev.package."*"]
+debug = false

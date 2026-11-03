@@ -1,0 +1,17 @@
+<!-- Inserted into Info.plist by tools/package-macos.sh: the formats this app opens, as Editor with
+     rank Default (never Owner over the system/Microsoft types). Generated alongside tools/windows/*.iss
+     and tools/linux/*.desktop; keep the three lists the same. -->
+  <key>CFBundleDocumentTypes</key><array>
+    <dict><key>CFBundleTypeName</key><string>PowerPoint Presentation</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.presentationml.presentation</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>pptx</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>PowerPoint Template</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.presentationml.template</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>potx</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+    <dict><key>CFBundleTypeName</key><string>PowerPoint Slide Show</string>
+      <key>LSItemContentTypes</key><array><string>org.openxmlformats.presentationml.slideshow</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>ppsx</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string><key>LSHandlerRank</key><string>Default</string></dict>
+  </array>
