@@ -775,6 +775,24 @@ mod tests {
     }
 
     #[test]
+    fn erased_horizontal_border_is_one_cell() {
+        // wordcraft #640: erasing the border between two rows of a column merges them on screen too.
+        let mut d = grid(3, 3);
+        let id = |d: &Document, r, c| d.tables[0].cell_at_grid(r, c).unwrap().1.id;
+        let (a, b) = (id(&d, 0, 0), id(&d, 1, 0));
+        assert!(d.erase_border(a, b));
+        assert_eq!(cell_text(&d, 0, 0), "00|10");
+        let l = crate::layout_document(&d);
+        let boxes: Vec<_> = l.cells.iter().filter(|c| c.col == 0 && c.row <= 1).collect();
+        let top = boxes.iter().find(|c| c.row == 0).unwrap();
+        // A click in the lower half lands in the merged cell's text, not an empty continuation.
+        let below = l.cells.iter().find(|c| c.row == 1 && c.col == 1).unwrap();
+        let y = (below.y0 + below.y1) / 2.0;
+        let at = l.hit_test(top.page, (top.x0 + top.x1) / 2.0, y).unwrap();
+        let para = d.locate(at).0;
+        assert_eq!(d.paragraphs[para].cell, Some(a), "boxes {boxes:?}");
+    }
+    #[test]
     fn block_merge_and_split() {
         let mut d = grid(3, 3);
         let a = d.paragraph_start(d.paragraphs.iter().position(|p| p.text() == "00").unwrap());

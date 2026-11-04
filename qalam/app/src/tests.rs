@@ -1723,3 +1723,91 @@ fn wordcraft_task04_qalam_renders() {
     h.state_mut().set_dark(&ctx, true);
     for n in [299, 312] { shot(&mut h, n); }
 }
+
+/// wordcraft #686: clicking a paragraph alignment button keeps typing going into the document.
+#[test]
+fn typing_continues_after_alignment_click() {
+    use egui_kittest::kittest::Queryable;
+    let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+    h.run_steps(2);
+    h.event(Event::Text("ab".into()));
+    h.run_steps(2);
+    h.get_by_label("Center (⌘E)").click();
+    h.run_steps(3);
+    assert_eq!(h.state().doc.visual_alignment(), word_engine::Alignment::Center);
+    h.event(Event::Text("c".into()));
+    h.run_steps(2);
+    assert_eq!(h.state().doc.text().trim_end(), "abc");
+}
+
+/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
+/// in task 08, one `qalam.png` per issue folder under `WORDCRAFT_IMG`.
+#[test]
+#[ignore]
+fn wordcraft_task08_qalam_renders() {
+    use word_engine::numbering::ListKind;
+    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
+    let shot_as = |h: &mut Harness<'static, WordApp>, n: u32, name: &str| {
+        h.run_steps(6);
+        let dir = root.join(n.to_string());
+        std::fs::create_dir_all(&dir).unwrap();
+        h.render().expect("render").save(dir.join(name)).unwrap();
+    };
+    let typed = |paras: &[&str], size: [f32; 2]| {
+        let mut h = Harness::builder().with_size(size).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+        h.run_steps(2);
+        for (i, t) in paras.iter().enumerate() {
+            h.event(Event::Text((*t).into()));
+            h.run_steps(1);
+            if i + 1 < paras.len() { h.key_press(Key::Enter); }
+        }
+        h
+    };
+    let big = [1200.0, 760.0];
+    // Myanmar shaping (#604): before and after an installed Myanmar font is available.
+    let burmese = ["မြန်မာစာ စမ်းသပ်ချက်", "ကျွန်ုပ်တို့ မင်္ဂလာပါ"];
+    let mut h = typed(&burmese, big);
+    shot_as(&mut h, 604, "qalam.png");
+    word_engine::fonts::register_font_file(std::path::Path::new("/System/Library/Fonts/Supplemental/Myanmar Sangam MN.ttc"));
+    let mut h = typed(&burmese, big);
+    shot_as(&mut h, 604, "qalam-after.png");
+    // Palatino Linotype text (#670).
+    let mut h = typed(&["Palatino Linotype body text, 0123456789.", "The quick brown fox jumps over the lazy dog."], big);
+    let len = h.state().doc.len();
+    h.state_mut().doc.select(0, len);
+    h.state_mut().doc.set_run_props(word_engine::RunProps { font: Some("Palatino Linotype".into()), ..Default::default() });
+    shot_as(&mut h, 670, "qalam.png");
+    // Bullet button state inside a list (#642), Home ribbon (#619 #653 #659), custom colours (#606).
+    let mut h = typed(&["First item", "Second item"], [1440.0, 860.0]);
+    h.state_mut().doc.toggle_list(ListKind::Bullet);
+    for n in [642, 619, 653, 659, 660] { shot_as(&mut h, n, "qalam.png"); }
+    // Home tab at a narrower window (#662) and a phone-sized window (#634).
+    let mut h = typed(&["Narrow window"], [1000.0, 700.0]);
+    shot_as(&mut h, 662, "qalam.png");
+    let mut h = typed(&["Phone"], [360.0, 700.0]);
+    shot_as(&mut h, 634, "qalam.png");
+    // Table handle (#635) and vertical merge (#640).
+    let mut h = typed(&["Table"], big);
+    let end = h.state().doc.len();
+    h.state_mut().doc.select(end, end);
+    h.state_mut().doc.insert_table(4, 7);
+    shot_as(&mut h, 635, "qalam.png");
+    shot_as(&mut h, 640, "qalam.png");
+    // Design tab (#638), Layout tab paragraph group (#654), References (#661).
+    h.state_mut().tab = crate::ribbon::Tab::Design;
+    shot_as(&mut h, 638, "qalam.png");
+    h.state_mut().tab = crate::ribbon::Tab::Layout;
+    shot_as(&mut h, 654, "qalam.png");
+    h.state_mut().tab = crate::ribbon::Tab::References;
+    shot_as(&mut h, 661, "qalam.png");
+    // Page gap between pages (#645).
+    let para = "Delectus neque mollitia illo occaecati harum reprehenderit dolorem. Sit ad alias quis velit. Corrupti nisi iste non porro eius quibusdam aut repudiandae.";
+    let paras: Vec<&str> = std::iter::repeat_n(para, 14).collect();
+    let mut h = typed(&paras, big);
+    shot_as(&mut h, 645, "qalam.png");
+    // Dark theme accents, inputs, styles gallery (#655 #656 #657 #663).
+    let mut h = typed(&["Dark theme نص عربي"], [1440.0, 860.0]);
+    let ctx = h.ctx.clone();
+    h.state_mut().set_dark(&ctx, true);
+    for n in [655, 656, 657, 663] { shot_as(&mut h, n, "qalam.png"); }
+}
