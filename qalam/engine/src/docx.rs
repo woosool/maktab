@@ -403,6 +403,8 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                     self.revision = outer;
                 }
                 "w:smartTag" | "w:customXml" | "w:bdo" | "w:dir" => self.inline(c, runs, link),
+                // A break written straight into the paragraph (outside any run) still breaks.
+                "w:br" | "w:cr" => { let mut r = Element::new("w:r"); r.push(c.clone()); self.run(&r, runs, link); }
                 "w:sdt" => if let Some(x) = c.child("w:sdtContent") { self.inline(x, runs, link) },
                 "w:commentRangeStart" => if let Some(id) = c.attr("w:id") { runs.push(Run::marker(Marker::CommentStart(id.into()))) },
                 "w:bookmarkStart" => if let (Some(id), Some(name)) = (c.attr("w:id"), c.attr("w:name")) {
@@ -2109,6 +2111,30 @@ mod tests {
         let mut out = vec![];
         z.by_name(name).unwrap().read_to_end(&mut out).unwrap();
         out
+    }
+
+    #[test]
+    fn paragraph_level_break_outside_run_is_kept() {
+        let base = write(&Document::new(vec![Paragraph::new("x")])).unwrap();
+        let xml = String::from_utf8(read_part(&base, "word/document.xml")).unwrap();
+        let i = xml.find("<w:p>").or_else(|| xml.find("<w:p ")).unwrap();
+        let j = xml.find("</w:p>").unwrap() + 6;
+        let xml = format!("{}<w:p><w:r><w:t>one</w:t></w:r><w:br/><w:r><w:t>two</w:t></w:r></w:p>{}", &xml[..i], &xml[j..]);
+        let mut out = Cursor::new(Vec::new());
+        {
+            let mut z = zip::ZipArchive::new(Cursor::new(&base)).unwrap();
+            let mut w = zip::ZipWriter::new(&mut out);
+            for k in 0..z.len() {
+                let mut f = z.by_index(k).unwrap();
+                let name = f.name().to_string();
+                let mut data = vec![]; std::io::Read::read_to_end(&mut f, &mut data).unwrap();
+                w.start_file(name.as_str(), zip::write::SimpleFileOptions::default()).unwrap();
+                w.write_all(if name == "word/document.xml" { xml.as_bytes() } else { &data }).unwrap();
+            }
+            w.finish().unwrap();
+        }
+        let d = read(&out.into_inner()).unwrap();
+        assert_eq!(d.paragraphs[0].text(), format!("one{}two", chars::LINE_BREAK));
     }
 
     #[test]

@@ -1883,11 +1883,17 @@ impl Document {
         let q: Vec<char> = query.chars().map(fold).collect();
         let text: Vec<char> = self.text().chars().collect();
         let folded: Vec<char> = text.iter().map(|&c| fold(c)).collect();
+        // Tracked deletions are not searchable: a match must not touch deleted text.
+        let mut deleted = vec![];
+        for (i, p) in self.paragraphs.iter().enumerate() {
+            if i > 0 { deleted.push(false); }
+            for r in &p.runs { deleted.extend(std::iter::repeat_n(r.revision.as_ref().is_some_and(|v| v.kind == RevKind::Del), r.len())); }
+        }
         let is_word = |c: Option<&char>| c.is_some_and(|c| c.is_alphanumeric() || *c == '_');
         let mut out = vec![];
         let mut i = 0;
         while i + q.len() <= folded.len() {
-            if folded[i..i + q.len()] == q[..] && (!whole_words || !is_word(text.get(i.wrapping_sub(1)).filter(|_| i > 0)) && !is_word(text.get(i + q.len()))) {
+            if folded[i..i + q.len()] == q[..] && !deleted[i..i + q.len()].contains(&true) && (!whole_words || !is_word(text.get(i.wrapping_sub(1)).filter(|_| i > 0)) && !is_word(text.get(i + q.len()))) {
                 out.push((i, i + q.len()));
                 i += q.len();
             } else { i += 1; }
@@ -1908,6 +1914,7 @@ impl Document {
         self.checkpoint(EditKind::Other);
         for &(s, e) in matches.iter().rev() {
             // New text takes the first matched character's formatting.
+            if self.track_changes { self.tracked_replace(s, e, with); continue; }
             let mut run = self.typing_run(s + 1);
             run.link = None;
             self.delete_range(s, e);
@@ -2495,6 +2502,17 @@ mod tests {
         assert!(d.comments.is_empty() && d.comment_anchors().is_empty());
         d.undo();
         assert_eq!(d.comments.len(), 2);
+    }
+
+    #[test]
+    fn tracked_replace_all_skips_deletions_and_is_tracked() {
+        let mut d = doc("go to town");
+        d.set_track_changes(true);
+        assert_eq!(d.replace_all("to", "toward", true, true), 1);
+        assert_eq!(d.text(), "go totoward town");
+        assert_eq!(d.revisions().iter().map(|r| r.2).collect::<Vec<_>>(), vec![RevKind::Del, RevKind::Ins]);
+        // The deleted "to" is no longer a match (Word skips tracked deletions).
+        assert_eq!(d.find_all("to", true, false), vec![(5, 7), (12, 14)]);
     }
 
     #[test]
