@@ -794,7 +794,6 @@ mod tests {
         let para = d.locate(at).0;
         assert_eq!(d.paragraphs[para].cell, Some(a), "boxes {boxes:?}");
     }
-    }
 
     #[test]
     fn header_table_style_bolds_arabic_too() {
