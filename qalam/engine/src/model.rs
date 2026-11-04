@@ -2129,6 +2129,9 @@ impl Document {
     pub fn add_comment(&mut self, author: &str, text: &str, date: &str) -> String {
         let (mut s, mut e) = self.range();
         if s == e { (s, e) = self.word_at(s); }
+        // A selection of whole paragraphs ends at the next paragraph's start; the comment ends
+        // with the last selected paragraph's text, as in Word.
+        if e > s && self.locate(e).1 == 0 && self.locate(e).0 > self.locate(s).0 { e -= 1; }
         self.checkpoint(EditKind::Other);
         let id = self.next_comment_id();
         // End first so the start position stays valid.
@@ -2490,6 +2493,16 @@ mod tests {
     use super::*;
 
     fn doc(text: &str) -> Document { Document::new(text.split('\n').map(Paragraph::new).collect()) }
+
+    #[test]
+    fn a_comment_on_whole_paragraphs_ends_with_the_last_one() {
+        let mut d = doc("الفقرة الأولى.\nالفقرة الثانية.\nالفقرة الثالثة.\nالفقرة الرابعة.");
+        let end: usize = d.paragraphs[..3].iter().map(|p| p.len() + 1).sum();
+        d.select(0, end);
+        d.add_comment("a", "", "2026-01-01T00:00:00Z");
+        assert_eq!(d.comment_anchors()[0].2, end - 1, "the end marker stays in the third paragraph");
+        assert!(d.paragraphs[3].runs.iter().all(|r| r.marker.is_none()));
+    }
 
     #[test]
     fn copied_text_carries_its_formatting_as_html() {
