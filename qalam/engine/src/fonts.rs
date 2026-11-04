@@ -299,7 +299,7 @@ pub fn load_system_fonts(cache: Option<&std::path::Path>) -> usize {
                 (0..n).filter_map(|ix| {
                     let f = ttf_parser::Face::parse(&bytes, ix).ok()?;
                     // Text fonts only: they need a Unicode character map and outlines.
-                    f.glyph_index('a').or(f.glyph_index('\u{0627}'))?;
+                    ['a', '\u{0627}', '\u{1000}', '\u{0E01}', '\u{0915}'].iter().find_map(|&c| f.glyph_index(c))?;
                     let fam = name_of(&f, &[16, 1])?;
                     Some((ix, fam, f.is_bold(), f.is_italic()))
                 }).collect()
@@ -386,7 +386,22 @@ pub fn resolve(name: &str, bold: bool, italic: bool) -> FontKey {
     if let Some(i) = embedded_face(name, bold, false).or_else(|| embedded_face(name, false, italic)) { return FontKey { face: i as u16, synthetic_bold: false }; }
     if let Some(i) = embedded_face(name, false, false) { return FontKey { face: i as u16, synthetic_bold: bold }; }
     let exact_bundled = FAMILIES.iter().any(|(d, f)| d.eq_ignore_ascii_case(name.trim()) && d == f);
-    match system_family(name).filter(|_| !exact_bundled) { Some(f) => resolve_family(f, bold, italic), None => resolve_family(bundled_family(name), bold, italic) }
+    if system_family(name).is_none() {
+        if let Some(a) = close_families(name).iter().find(|a| !a.eq_ignore_ascii_case(name.trim()) && embedded_face(a, false, false).is_some()) { return resolve(a, bold, italic); }
+    }
+    let installed = system_family(name).or_else(|| close_families(name).iter().find_map(|a| system_family(a)));
+    match installed.filter(|_| !exact_bundled) { Some(f) => resolve_family(f, bold, italic), None => resolve_family(bundled_family(name), bold, italic) }
+}
+
+/// wordcraft #670: installed designs that stand in for a missing font far better than the
+/// generic bundled substitute (Palatino Linotype is Palatino on macOS, Pagella/P052 on Linux).
+fn close_families(name: &str) -> &'static [&'static str] {
+    match name.trim().to_ascii_lowercase().as_str() {
+        "palatino linotype" | "book antiqua" | "palatino" => &["Palatino Linotype", "Palatino", "Book Antiqua", "TeX Gyre Pagella", "URW Palladio L", "P052"],
+        "century schoolbook" => &["Century Schoolbook", "New Century Schoolbook", "TeX Gyre Schola", "C059"],
+        "bookman old style" => &["Bookman Old Style", "Bookman", "TeX Gyre Bonum", "URW Bookman"],
+        _ => &[],
+    }
 }
 
 fn resolve_family(family: &str, bold: bool, italic: bool) -> FontKey {
@@ -416,8 +431,37 @@ pub fn fallback(key: FontKey, c: char) -> FontKey {
         let k = resolve_family(family, bold, false);
         if has_glyph(k.face, c) { return k; }
     }
-    if is_cjk(c) { if let Some(face) = cjk_face(c, bold) { return FontKey { face, synthetic_bold: bold && !self::face(face).bold }; } }
+    if let Some(face) = cjk_face(c, bold) { return FontKey { face, synthetic_bold: bold && !self::face(face).bold }; }
     key
+}
+
+/// wordcraft #604: installed font families likely to cover `c`'s script when no bundled font
+/// does (Myanmar, Thai, Indic, …), so only those few are opened (#605).
+fn script_hints(c: char) -> &'static [&'static str] {
+    match c as u32 {
+        0x1000..=0x109F | 0xA9E0..=0xA9FF | 0xAA60..=0xAA7F => &["Myanmar", "Padauk", "Zawgyi"],
+        0x0E00..=0x0E7F => &["Thai", "Thonburi", "Ayuthaya", "Sukhumvit", "Tahoma", "Leelawadee"],
+        0x0E80..=0x0EFF => &["Lao"],
+        0x1780..=0x17FF | 0x19E0..=0x19FF => &["Khmer"],
+        0x0900..=0x097F | 0xA8E0..=0xA8FF => &["Devanagari", "Kohinoor", "Mangal", "Nirmala"],
+        0x0980..=0x09FF => &["Bengali", "Bangla", "Vrinda", "Nirmala"],
+        0x0A00..=0x0A7F => &["Gurmukhi", "Raavi", "Nirmala"],
+        0x0A80..=0x0AFF => &["Gujarati", "Shruti", "Nirmala"],
+        0x0B00..=0x0B7F => &["Oriya", "Odia", "Nirmala"],
+        0x0B80..=0x0BFF => &["Tamil", "Latha", "Nirmala"],
+        0x0C00..=0x0C7F => &["Telugu", "Gautami", "Nirmala"],
+        0x0C80..=0x0CFF => &["Kannada", "Tunga", "Nirmala"],
+        0x0D00..=0x0D7F => &["Malayalam", "Kartika", "Nirmala"],
+        0x0D80..=0x0DFF => &["Sinhala", "Iskoola"],
+        0x0F00..=0x0FFF => &["Tibetan", "Kailasa", "Himalaya"],
+        0x10A0..=0x10FF => &["Georgian"],
+        0x0530..=0x058F => &["Armenian"],
+        0x1200..=0x139F | 0x2D80..=0x2DDF => &["Ethiopic", "Kefa", "Nyala", "Ebrima"],
+        0x13A0..=0x13FF => &["Cherokee", "Plantagenet"],
+        0x0700..=0x074F => &["Syriac"],
+        0x0780..=0x07BF => &["Thaana", "MV Boli"],
+        _ => &[],
+    }
 }
 
 /// Han, kana, hangul, bopomofo and CJK punctuation/compatibility forms: none are in the bundled
@@ -433,11 +477,13 @@ static CJK_CACHE: OnceLock<Mutex<HashMap<(char, bool), Option<u16>>>> = OnceLock
 fn cjk_face(c: char, bold: bool) -> Option<u16> {
     const PREFERRED: &[&str] = &["PingFang SC", "Hiragino Sans GB", "Hiragino Sans", "Heiti SC", "Songti SC", "Apple SD Gothic Neo", "Microsoft YaHei", "Microsoft JhengHei", "Yu Gothic", "Meiryo", "Malgun Gothic", "SimSun", "MS Gothic", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", "WenQuanYi Micro Hei", "Droid Sans Fallback", "Arial Unicode MS"];
     const HINTS: &[&str] = &["CJK", "SC", "TC", "JP", "KR", "Hei", "Song", "Kai", "Ming", "Gothic", "Mincho", "Hiragino", "PingFang", "YaHei", "Han", "Unicode"];
+    let hints = if is_cjk(c) { HINTS } else { script_hints(c) };
+    if hints.is_empty() { return None; }
     let cache = CJK_CACHE.get_or_init(Default::default);
     if let Some(r) = cache.lock().unwrap().get(&(c, bold)) { return *r; }
     let candidates: Vec<usize> = (faces().len() - SYSTEM.get().map_or(0, |s| s.len())..face_slots())
         .filter(|&i| i < faces().len() || EMBEDDED.get(i - faces().len()).is_some_and(|s| s.get().is_some()))
-        .filter(|&i| { let f = face(i as u16).family; PREFERRED.contains(&f) || HINTS.iter().any(|h| f.contains(h)) })
+        .filter(|&i| { let f = face(i as u16).family; (is_cjk(c) && PREFERRED.contains(&f)) || hints.iter().any(|h| f.contains(h)) })
         .collect();
     let rank = |i: &usize| { let f = face(*i as u16); (PREFERRED.iter().position(|p| *p == f.family).unwrap_or(PREFERRED.len()), f.bold != bold, f.italic) };
     let mut sorted = candidates;
@@ -584,6 +630,30 @@ mod tests {
             assert!(has_glyph(k.face, c), "{c} has no glyph in {}", face(k.face).family);
         }
         assert_eq!(fallback(key, 'a').face, key.face);
+    }
+    #[test]
+    fn myanmar_and_palatino_use_installed_fonts() {
+        // wordcraft #604: Burmese fell back to tofu; it now comes from an installed Myanmar font.
+        if let Some(p) = ["/System/Library/Fonts/Supplemental/Myanmar Sangam MN.ttc", "/System/Library/Fonts/NotoSansMyanmar.ttc", "/usr/share/fonts/truetype/noto/NotoSansMyanmar-Regular.ttf", "C:\\Windows\\Fonts\\mmrtext.ttf"]
+            .iter().map(std::path::Path::new).find(|p| p.exists()) {
+            assert!(!register_font_file(p).is_empty());
+            let key = resolve("Calibri", false, false);
+            for c in "မြန်မာစာ".chars() {
+                let k = fallback(key, c);
+                assert!(has_glyph(k.face, c), "{c:?} has no glyph in {}", face(k.face).family);
+            }
+            assert!(!shape(fallback(key, 'မ'), "မြန်မာ", false, 16.0).is_empty());
+        }
+        // Characters of scripts without hints never open installed fonts (wordcraft #605).
+        assert!(script_hints('\u{17000}').is_empty());
+        // wordcraft #670: Palatino Linotype resolves to Palatino, not the generic serif.
+        if let Some(p) = ["/System/Library/Fonts/Palatino.ttc", "/usr/share/fonts/opentype/urw-base35/P052-Roman.otf"].iter().map(std::path::Path::new).find(|p| p.exists()) {
+            let fams = register_font_file(p);
+            assert!(!fams.is_empty());
+            let k = resolve("Palatino Linotype", false, false);
+            assert!(fams.iter().any(|f| f == face(k.face).family), "got {}", face(k.face).family);
+            assert_eq!(face(resolve("Book Antiqua", false, false).face).family, face(k.face).family);
+        }
     }
     #[test]
     fn user_font_files_register_by_family() {
