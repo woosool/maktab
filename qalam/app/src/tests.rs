@@ -1958,3 +1958,19 @@ fn wordcraft_task10_qalam_renders() {
     shot_as(&mut h, 818, "qalam.png");
     shot_as(&mut h, 822, "qalam.png");
 }
+
+#[test]
+fn ctrl_wheel_and_pinch_zoom_the_document() {
+    // wordcraft #139 / #123: Ctrl + mouse wheel and a touchpad pinch change the zoom.
+    let mut h = harness(None);
+    h.run_steps(2);
+    let before = h.state().zoom;
+    h.event(Event::PointerMoved(Pos2::new(760.0, 500.0)));
+    h.event(Event::Zoom(1.25));
+    h.run_steps(2);
+    let after = h.state().zoom;
+    assert!((after - before * 1.25).abs() < 0.01, "{before} -> {after}");
+    h.event(Event::MouseWheel { unit: egui::MouseWheelUnit::Point, delta: egui::vec2(0.0, -120.0), modifiers: Modifiers::COMMAND, phase: egui::TouchPhase::Move, source: egui::MouseWheelSource::Wheel });
+    h.run_steps(2);
+    assert!(h.state().zoom < after, "Ctrl + wheel down zooms out: {after} -> {}", h.state().zoom);
+}

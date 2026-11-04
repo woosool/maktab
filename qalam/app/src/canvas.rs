@@ -36,6 +36,11 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         app.fit_width = false;
         if let Some(p) = app.layout.pages.first() { app.set_zoom((ui.available_width() - 2.0 * GAP - 16.0) / p.width); }
     }
+    // Ctrl/Cmd + mouse wheel and touchpad pinch zoom the document, as in Word.
+    let pinch = ui.input(|i| i.zoom_delta());
+    if pinch != 1.0 && !app.read_mode && ui.rect_contains_pointer(ui.max_rect()) {
+        app.zoom = (app.zoom * pinch).clamp(0.25, 4.0);
+    }
     // Read Mode fits a page to the window height, two side by side when there is room.
     let (zoom, columns) = if app.read_mode {
         let p = app.layout.pages.first().map(|p| (p.width, p.height)).unwrap_or((816.0, 1056.0));
