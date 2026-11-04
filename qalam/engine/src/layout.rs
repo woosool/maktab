@@ -634,6 +634,9 @@ impl<'a> Ctx<'a> {
                 }
                 // Overflow: back up to the last break opportunity; trailing spaces stay on the line.
                 if hyphen_w == 0.0 { if let Some(b) = last_break.filter(|&b| b > line_start_atom) { stop = b; } }
+                // Text after a run of leading tabs that doesn't fit takes its tab to the next
+                // line, where the tab aligns it at a stop again (as Word does).
+                if hyphen_w == 0.0 && stop > line_start_atom + 1 && stop < atoms.len() && atoms[line_start_atom..stop].iter().all(|a| a.kind == Kind::Tab) && atoms[stop].kind != Kind::Tab { stop -= 1; }
                 while stop < atoms.len() && atoms[stop].kind == Kind::Space { stop += 1; }
                 if stop == line_start_atom { stop = line_start_atom + 1; }
                 xs.truncate(stop - line_start_atom);
@@ -2369,6 +2372,22 @@ mod tests {
         // A left stop past the margin still wraps.
         d.paragraphs[0].props.tabs = Some(vec![TabStop { pos: 11610, kind: TabKind::Left, leader: Leader::None }]);
         assert!(layout_document(&d).lines.len() > 1);
+    }
+
+    #[test]
+    fn text_after_leading_tabs_that_does_not_fit_takes_its_tab_to_the_next_line() {
+        // two leading tabs reach a left stop near the margin; the greeting doesn't fit there,
+        // so the second tab moves down with it and centres it at the centre stop.
+        let mut d = doc("\t\tGreetings");
+        d.page.width = 11906; d.page.left = 1440; d.page.right = 1440;
+        d.paragraphs[0].props.tabs = Some(vec![TabStop { pos: 5018, kind: TabKind::Center, leader: Leader::None }, TabStop { pos: 8625, kind: TabKind::Left, leader: Leader::None }]);
+        d.paragraphs[0].props.first_line = Some(539);
+        let l = layout_document(&d);
+        assert_eq!(l.lines.len(), 2);
+        assert_eq!(l.lines[1].start, 1, "the second tab starts the second line");
+        let (a, b) = (l.caret_rect(2).unwrap(), l.caret_rect(11).unwrap());
+        let centre = twips(d.page.left) + twips(5018);
+        assert!(((a.x + b.x) / 2.0 - centre).abs() < 1.5, "greeting centred at the stop: {} {}", a.x, b.x);
     }
 
     #[test]
