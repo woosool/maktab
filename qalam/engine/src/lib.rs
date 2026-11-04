@@ -56,4 +56,15 @@ pub mod chars {
     pub const OBJECT: char = '\u{FFFC}';
     /// Footnote/endnote reference mark (its number is computed at layout).
     pub const NOTE: char = '\u{E000}';
+    /// Positional tabs (`w:ptab`): left, center or right alignment against the margins
+    /// (`PTABS[0..3]`) or the paragraph's indents (`PTABS[3..6]`).
+    pub const PTABS: [char; 6] = ['\u{E001}', '\u{E002}', '\u{E003}', '\u{E004}', '\u{E005}', '\u{E006}'];
+    /// The positional tab for a `w:ptab`'s alignment and relativeTo.
+    pub fn ptab(alignment: &str, indent: bool) -> char {
+        PTABS[match alignment { "center" => 1, "right" => 2, _ => 0 } + if indent { 3 } else { 0 }]
+    }
+    /// A positional tab's alignment and whether it is relative to the indents.
+    pub fn ptab_kind(c: char) -> Option<(&'static str, bool)> {
+        PTABS.iter().position(|&p| p == c).map(|i| (["left", "center", "right"][i % 3], i >= 3))
+    }
 }

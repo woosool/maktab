@@ -488,7 +488,8 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                 _ if in_instr => {}
                 _ if self.field.last().is_some_and(|f| f.0 == "#done") => {}
                 "w:t" | "w:delText" => text.push_str(&c.text().replace(['\u{000B}', '\u{000C}', '\u{000E}', '\u{FFFC}'], "")),
-                "w:tab" | "w:ptab" => text.push('\t'),
+                "w:tab" => text.push('\t'),
+                "w:ptab" => text.push(chars::ptab(c.attr("w:alignment").unwrap_or("left"), c.attr("w:relativeTo") == Some("indent"))),
                 "w:br" | "w:cr" => text.push(match c.attr("w:type") { Some("page") => chars::PAGE_BREAK, Some("column") => chars::COLUMN_BREAK, _ => chars::LINE_BREAK }),
                 "w:noBreakHyphen" => text.push('\u{2011}'),
                 "w:softHyphen" => text.push('\u{AD}'),
@@ -1391,6 +1392,11 @@ impl<'a> Writer<'a> {
                 chars::PAGE_BREAK => { flush(&mut text, &mut r); r.push(el("w:br").with_attr("w:type", "page")); }
                 chars::COLUMN_BREAK => { flush(&mut text, &mut r); r.push(el("w:br").with_attr("w:type", "column")); }
                 '\u{2011}' => { flush(&mut text, &mut r); r.push(el("w:noBreakHyphen")); }
+                c if chars::ptab_kind(c).is_some() => {
+                    let (align, indent) = chars::ptab_kind(c).unwrap();
+                    flush(&mut text, &mut r);
+                    r.push(el("w:ptab").with_attr("w:relativeTo", if indent { "indent" } else { "margin" }).with_attr("w:alignment", align).with_attr("w:leader", "none"));
+                }
                 chars::OBJECT => {}
                 c => text.push(c),
             }
@@ -2732,6 +2738,19 @@ mod tests {
         // Black pixels come out light: washed out.
         let px = image::load_from_memory(&d.assets[&img.asset].bytes).unwrap().to_rgba8();
         assert!(px.get_pixel(0, 0)[0] > 150, "{:?}", px.get_pixel(0, 0));
+    }
+
+    #[test]
+    fn positional_tab_aligns_right_and_round_trips() {
+        // A right positional tab puts the text after it against the right margin, with no tab stop.
+        let doc = r#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Left text</w:t></w:r><w:r><w:ptab w:relativeTo="margin" w:alignment="right" w:leader="none"/></w:r><w:r><w:t>Right text</w:t></w:r></w:p></w:body></w:document>"#;
+        let d = read(&raw_docx(doc)).unwrap();
+        let l = crate::layout::layout_document(&d);
+        let end = l.caret_rect(d.paragraphs[0].text().chars().count()).unwrap();
+        let right = (d.page.width - d.page.right) as f32 / 15.0;
+        assert!((end.x - right).abs() < 1.5, "text ends at the right margin: {} vs {right}", end.x);
+        let xml = String::from_utf8(read_part(&write(&d).unwrap(), "word/document.xml")).unwrap();
+        assert!(xml.contains(r#"<w:ptab w:relativeTo="margin" w:alignment="right""#), "{xml}");
     }
 
     #[test]

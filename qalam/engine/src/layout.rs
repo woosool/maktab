@@ -476,7 +476,7 @@ impl<'a> Ctx<'a> {
             let mut prev_cs = false;
             for c in run.text.chars() {
                 let kind = match c {
-                    '\t' => Kind::Tab, chars::LINE_BREAK => Kind::LineBreak,
+                    '\t' => Kind::Tab, c if chars::ptab_kind(c).is_some() => Kind::Tab, chars::LINE_BREAK => Kind::LineBreak,
                     chars::PAGE_BREAK | chars::COLUMN_BREAK => Kind::PageBreak,
                     ' ' | '\u{00A0}' => Kind::Space, _ => Kind::Char,
                 };
@@ -578,7 +578,15 @@ impl<'a> Ctx<'a> {
                     // Tab stops are relative to the text margin (content box left).
                     let abs = line_left + x;
                     let seg: f32 = atoms[j + 1..].iter().take_while(|a| !matches!(a.kind, Kind::Tab | Kind::LineBreak | Kind::PageBreak)).map(|a| a.width).sum();
-                    let (w, leader, aligned) = self.tab_width(&format, abs, seg, first && atoms[j].pos.is_none(), indent_left, &atoms[j + 1..]);
+                    let (w, leader, aligned) = match chars::ptab_kind(atoms[j].ch) {
+                        // A positional tab aligns against the margins or indents, whatever the stops.
+                        Some((align, indent)) => {
+                            let (lo, hi) = if indent { (indent_left, width - indent_right) } else { (0.0, width) };
+                            let pos = match align { "center" => (lo + hi) / 2.0 - seg / 2.0, "right" => hi - seg, _ => lo };
+                            ((pos - abs).max(0.0), Leader::None, align != "left")
+                        }
+                        None => self.tab_width(&format, abs, seg, first && atoms[j].pos.is_none(), indent_left, &atoms[j + 1..]),
+                    };
                     if aligned { limit = limit.max(x + w + seg + 0.5); }
                     atoms[j].width = w;
                     atoms[j].leader = leader;
