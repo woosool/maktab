@@ -304,6 +304,19 @@ fn ribbon_tabs_render() {
     save(&mut h, "tab-table");
 }
 
+#[test]
+fn home_borders_in_a_table_border_the_cells() {
+    let mut h = harness(None);
+    h.state_mut().doc.insert_table(2, 2);
+    let b = Some(word_engine::Border { width: 0.5, space: 1.0, color: None });
+    crate::ribbon::home_borders(h.state_mut(), "borderBottom", word_engine::ParaBorders { bottom: b, ..Default::default() });
+    let app = h.state();
+    let cell = app.doc.current_cell().unwrap();
+    let c = app.doc.tables.iter().flat_map(|t| t.rows.iter().flat_map(|r| r.cells.iter())).find(|c| c.id == cell).unwrap();
+    assert!(c.borders.bottom.is_some(), "the cell gets a bottom border");
+    assert!(app.doc.current_paragraph().props.borders.is_none(), "no paragraph border inside the cell");
+}
+
 fn press(h: &mut Harness<'_, WordApp>, pos: Pos2, modifiers: Modifiers) {
     h.event(Event::PointerMoved(pos));
     h.event(Event::PointerButton { pos, button: PointerButton::Primary, pressed: true, modifiers });

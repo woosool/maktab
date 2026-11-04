@@ -638,7 +638,20 @@ fn borders_menu(app: &mut WordApp, ui: &mut Ui) {
         ("borderOuter", "Box Border", ParaBorders { top: b, bottom: b, left: b, right: b }),
         ("borderNone", "No Border", ParaBorders::default()),
     ] {
-        if small(ui, icon, Some(label), false, true, "").clicked() { app.doc.set_para_props(word_engine::ParaProps { borders: Some(borders), ..Default::default() }); ui.close(); }
+        if small(ui, icon, Some(label), false, true, "").clicked() { home_borders(app, icon, borders); ui.close(); }
+    }
+}
+
+/// Home › Borders: in a table it borders the cells (Bottom, Top, Box = Outside, No Border), as
+/// Word does, instead of drawing paragraph borders inside each cell; elsewhere paragraph borders.
+pub(crate) fn home_borders(app: &mut WordApp, icon: &str, borders: word_engine::ParaBorders) {
+    use word_engine::tables::BorderPreset as B;
+    if app.doc.current_cell().is_some() {
+        let preset = match icon { "borderBottom" => B::Bottom, "borderTop" => B::Top, "borderOuter" => B::Outside, _ => B::None };
+        let pen = app.border_pen;
+        app.doc.apply_border_preset(preset, pen);
+    } else {
+        app.doc.set_para_props(word_engine::ParaProps { borders: Some(borders), ..Default::default() });
     }
 }
 
