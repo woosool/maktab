@@ -31,6 +31,7 @@ pub fn shortcuts(app: &mut WordApp, ctx: &egui::Context) {
     // Formatting shortcuts apply only while the document has focus.
     if !app.canvas_focus { return; }
     if fire(CMD, Key::A) { app.doc.select_all(); }
+    if fire(Modifiers::SHIFT, Key::F3) { app.doc.cycle_case(); }
     if fire(CMD, Key::D) { app.open_font_dialog(); }
     if fire(CMD, Key::B) { app.doc.toggle_bold(); }
     if fire(CMD, Key::I) { app.doc.toggle_italic(); }

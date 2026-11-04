@@ -171,6 +171,17 @@ impl Document {
         self.changed();
     }
 
+    /// Shift+F3: cycle the selection (or the word at the caret) through
+    /// lowercase → Capitalize Each Word → UPPERCASE → lowercase, as Word does.
+    pub fn cycle_case(&mut self) {
+        let (mut s, mut e) = self.range();
+        if s == e { (s, e) = self.word_at(s); }
+        let text: String = self.text().chars().skip(s).take(e - s).collect();
+        let (upper, lower) = (text.chars().any(char::is_uppercase), text.chars().any(char::is_lowercase));
+        if !upper && !lower { return; }
+        self.change_case(if !lower { CaseMode::Lower } else if !upper { CaseMode::Capitalize } else { CaseMode::Upper });
+    }
+
     /// Change Case on the selection (or the word at the caret).
     pub fn change_case(&mut self, mode: CaseMode) {
         let (mut s, mut e) = self.range();
@@ -443,6 +454,19 @@ mod tests {
         assert_eq!(d.text(), "Hello World. Second Sentence");
         d.change_case(CaseMode::Toggle);
         assert_eq!(d.text(), "hELLO wORLD. sECOND sENTENCE");
+        // wordcraft #186: Shift+F3 cycles lower → Capitalize → UPPER → lower; caseless Arabic is left alone.
+        let mut d = doc("hello world");
+        d.select(0, 11);
+        d.cycle_case();
+        assert_eq!(d.text(), "Hello World");
+        d.cycle_case();
+        assert_eq!(d.text(), "HELLO WORLD");
+        d.cycle_case();
+        assert_eq!(d.text(), "hello world");
+        let mut d = doc("مرحبا بالعالم");
+        d.select(0, 13);
+        d.cycle_case();
+        assert_eq!(d.text(), "مرحبا بالعالم");
         let mut d = doc("pear\n10\napple\n9");
         d.select_all();
         assert!(d.sort_paragraphs(false));
