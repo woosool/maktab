@@ -1537,3 +1537,50 @@ fn readme_screenshots() {
     h.state_mut().extras.options.settings.lang = crate::i18n::Lang::En;
     h.run_steps(2);
 }
+
+/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
+/// in task 00, one `qalam.png` per issue folder under `WORDCRAFT_IMG`.
+#[test]
+#[ignore]
+fn wordcraft_task00_qalam_renders() {
+    use word_engine::{Alignment, numbering::ListKind};
+    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
+    let shot = |h: &mut Harness<'static, WordApp>, n: u32| {
+        h.run_steps(6);
+        let dir = root.join(n.to_string());
+        std::fs::create_dir_all(&dir).unwrap();
+        h.render().expect("render").save(dir.join("qalam.png")).unwrap();
+    };
+    let typed = |paras: &[&str]| {
+        let mut h = Harness::builder().with_size([1200.0, 760.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+        h.run_steps(2);
+        for (i, t) in paras.iter().enumerate() {
+            h.event(Event::Text((*t).into()));
+            h.run_steps(1);
+            if i + 1 < paras.len() { h.key_press(Key::Enter); }
+        }
+        h
+    };
+    // Arabic/Persian/Kurdish/Hebrew text shaping and direction (#19 #48 #63 #199 #211 #824 #1018 #2916).
+    let mut h = typed(&["مرحبا بالعالم، هذا نص عربي للاختبار.", "سلام دنیا، این یک متن فارسی است.", "سڵاو جیهان، ئەمە دەقێکی کوردییە.", "שלום עולם (שלום) זה טקסט בעברית.", "naphtol-2 مادة كيميائية 123"]);
+    for n in [19, 48, 63, 199, 211, 824, 1018, 2916, 2150] { shot(&mut h, n); }
+    // Centered bullets move with the text (#1159).
+    let mut h = typed(&["First item", "Second item", "البند الثالث"]);
+    let len = h.state().doc.len();
+    h.state_mut().doc.select(0, len);
+    h.state_mut().doc.toggle_list(ListKind::Bullet);
+    h.state_mut().doc.set_alignment(Alignment::Center);
+    shot(&mut h, 1159);
+    // Arabic/Persian table column order (#529 #2883 #362).
+    let mut h = typed(&["جدول"]);
+    let end = h.state().doc.len();
+    h.state_mut().doc.select(end, end);
+    h.state_mut().doc.insert_table(2, 3);
+    h.run_steps(2);
+    for (i, t) in ["الأول", "الثاني", "الثالث", "١", "٢", "٣"].iter().enumerate() {
+        h.event(Event::Text((*t).into()));
+        h.run_steps(1);
+        if i < 5 { h.key_press(Key::Tab); h.run_steps(1); }
+    }
+    for n in [529, 2883, 362] { shot(&mut h, n); }
+}
