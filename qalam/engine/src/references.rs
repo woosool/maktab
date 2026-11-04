@@ -788,3 +788,22 @@ mod tests {
         assert!(text.contains("(Smith & Lee, 2020)") && text.contains("Figure 2"));
     }
 }
+
+#[cfg(test)]
+mod arabic_citation_tests {
+    use super::*;
+    use crate::model::{Paragraph, Run};
+
+    #[test]
+    fn arabic_author_in_a_citation_is_drawn_in_an_arabic_face() {
+        let mut d = Document::new(vec![Paragraph { runs: vec![Run::text("a sd")], ..Default::default() }]);
+        d.add_source(Source { tag: "Ahm".into(), kind: SourceKind::Book, authors: "هلا كيف".into(), title: "كتاب".into(), ..Default::default() });
+        d.select(0, 0);
+        d.insert_field(Field::Citation("Ahm".into()));
+        let l = crate::layout::layout_document(&d);
+        let glyphs: Vec<(crate::fonts::FontKey, &crate::layout::Glyph)> = l.pages[0].items.iter().filter_map(|i| match i { crate::layout::DrawItem::Glyphs { glyphs, font, .. } => Some(glyphs.iter().map(move |g| (*font, g))), _ => None }).flatten().collect();
+        let arabic: Vec<_> = glyphs.iter().filter(|(_, g)| crate::fonts::is_complex(g.ch)).collect();
+        assert!(!arabic.is_empty(), "the author's name is drawn");
+        assert!(arabic.iter().all(|(_, g)| g.gid != 0), "no missing-glyph boxes");
+    }
+}

@@ -461,7 +461,7 @@ impl<'a> Ctx<'a> {
             }
             if let Some(field) = run.field.clone() {
                 let text = self.field_text(&field, Some(pos));
-                let w: f32 = text.chars().map(|c| fonts::advance(f.key, c, f.size)).sum();
+                let w = crate::objects::shape_bidi(&text, false, f.key, f.size, 0.0).1;
                 let n = run.len();
                 // A field's result is one unit for editing purposes: the first atom carries its width.
                 for (k, _) in run.text.chars().enumerate() {
@@ -1360,6 +1360,7 @@ impl<'a> Placer<'a> {
             let (mut start_x, mut end_x) = (f32::MAX, f32::MIN);
             let (mut deco0, mut deco1) = (f32::MAX, f32::MIN);
             let mut w = v;
+            let mut field_pieces: Vec<(FontKey, Vec<Glyph>)> = vec![];
             while w < l.order.len() {
                 let j = l.order[w];
                 let at = &l.atoms[j];
@@ -1374,7 +1375,12 @@ impl<'a> Placer<'a> {
                     // Spaces paint nothing but keep word boundaries for PDF text extraction.
                     Kind::Space if !f.hidden => glyphs.push(Glyph { ch: ' ', gid: fonts::glyph_id(face.face, ' '), x: gx, dy: 0.0 }),
                     Kind::Note if !f.hidden => text_glyphs(&at.note.as_ref().and_then(|n| self.ctx.note_labels.get(n)).cloned().unwrap_or_default(), &mut glyphs),
-                    Kind::Field => if let Some(field) = &at.field { text_glyphs(&self.ctx.field_text(field, at.pos), &mut glyphs) },
+                    // A field's result (a citation's Arabic author, say) is shaped with bidi and font
+                    // fallback; pieces in other faces are drawn after this run's glyphs.
+                    Kind::Field => if let Some(field) = &at.field {
+                        let (pieces, _) = crate::objects::shape_bidi(&self.ctx.field_text(field, at.pos), l.rtl, face, f.size, gx);
+                        for (key, gs) in pieces { if key == face { glyphs.extend(gs); } else { field_pieces.push((key, gs)); } }
+                    },
                     Kind::Tab if at.leader != Leader::None => {
                         let c = match at.leader { Leader::Dot => '.', Leader::Hyphen => '-', Leader::Underscore => '_', Leader::MiddleDot => '\u{00B7}', Leader::None => ' ' };
                         let cw = fonts::advance(face, c, f.size).max(1.0);
@@ -1396,6 +1402,7 @@ impl<'a> Placer<'a> {
                 if let Some(h) = f.highlight { pb.under.push(DrawItem::Rect { x: start_x, y: top, w: end_x - start_x, h: l.height, color: h }); }
                 let gb = base - f.shift;
                 if !glyphs.is_empty() { pb.items.push(DrawItem::Glyphs { glyphs, baseline: gb, font: face, size: f.size, color: f.color, effects: f.effects }); }
+                for (key, gs) in field_pieces.drain(..) { pb.items.push(DrawItem::Glyphs { glyphs: gs, baseline: gb, font: key, size: f.size, color: f.color, effects: f.effects }); }
                 if deco1 > deco0 {
                     if f.underline {
                         let (off, th) = if f.shift == 0.0 && ul_th > 0.0 { (ul_off, ul_th) } else { (f.ul_offset, f.ul_thickness) };

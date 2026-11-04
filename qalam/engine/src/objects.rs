@@ -276,12 +276,17 @@ pub fn text_line(text: &str, font: &str, bold: bool, size_pt: f32, color: Color,
 /// paragraph that starts with a number still reads right to left).
 fn text_line_dir(text: &str, rtl: bool, font: &str, bold: bool, size_pt: f32, color: Color, x: f32, baseline: f32) -> (Vec<DrawItem>, f32) {
     let size = size_pt * 4.0 / 3.0;
-    let base = fonts::resolve(font, bold, false);
-    let mut items = vec![];
+    let (pieces, width) = shape_bidi(text, rtl, fonts::resolve(font, bold, false), size, x);
+    let items = pieces.into_iter().map(|(key, glyphs)| DrawItem::Glyphs { glyphs, baseline, font: key, size, color, effects: Effects::default() }).collect();
+    (items, width)
+}
+
+/// A line of text shaped for display from `x`: the Unicode bidi algorithm (UAX #9) in the given
+/// paragraph direction, each level run laid out in visual order and shaped in its own direction,
+/// split by the face that covers it (Arabic in an Arabic face). Pieces by face, and the width.
+pub fn shape_bidi(text: &str, rtl: bool, base: fonts::FontKey, size: f32, x: f32) -> (Vec<(fonts::FontKey, Vec<Glyph>)>, f32) {
+    let mut out = vec![];
     let mut pen = x;
-    // Bidi (UAX #9): the line's direction comes from its first strong letter; level runs are
-    // laid out in visual order, each shaped in its own direction, so "السنة الجامعية:2026"
-    // keeps its word order and its digits left to right.
     let info = unicode_bidi::BidiInfo::new(text, Some(if rtl { unicode_bidi::Level::rtl() } else { unicode_bidi::Level::ltr() }));
     let mut runs: Vec<(bool, std::ops::Range<usize>)> = vec![];
     for para in &info.paragraphs {
@@ -298,13 +303,20 @@ fn text_line_dir(text: &str, rtl: bool, font: &str, bold: bool, size_pt: f32, co
         if rtl { segments.reverse(); }
         for (key, seg) in segments {
             let shaped = fonts::shape(key, &seg, rtl, size);
-            let first = seg.chars().next().unwrap_or(' ');
-            let glyphs: Vec<Glyph> = shaped.iter().scan(pen, |p, g| { let gl = Glyph { ch: first, gid: g.gid, x: *p + g.dx, dy: g.dy }; *p += g.advance; Some(gl) }).collect();
+            // Each glyph carries the char it starts (for copying text out); a cluster's further
+            // glyphs are continuations.
+            let mut seen = std::collections::HashSet::new();
+            let glyphs: Vec<Glyph> = shaped.iter().scan(pen, |p, g| {
+                let ch = if seen.insert(g.cluster) { seg[g.cluster..].chars().next().unwrap_or(' ') } else { crate::layout::CONTINUATION };
+                let gl = Glyph { ch, gid: g.gid, x: *p + g.dx, dy: g.dy };
+                *p += g.advance;
+                Some(gl)
+            }).collect();
             pen += shaped.iter().map(|g| g.advance).sum::<f32>();
-            items.push(DrawItem::Glyphs { glyphs, baseline, font: key, size, color, effects: Effects::default() });
+            out.push((key, glyphs));
         }
     }
-    (items, pen - x)
+    (out, pen - x)
 }
 
 /// Whether a line of shape text reads right to left (its first strong letter is Arabic/Hebrew).
