@@ -1931,3 +1931,16 @@ fn highlight_button_after_no_color_removes_highlight() {
     h.state_mut().apply_last_highlight();
     assert!(h.state().doc.current_format().highlight.is_none());
 }
+
+#[test]
+fn wheel_over_the_status_bar_zoom_slider_zooms() {
+    let mut h = harness(None);
+    h.run_steps(3);
+    let slider = h.get_by_label("Zoom").rect().center();
+    let before = h.state().zoom;
+    h.event(Event::PointerMoved(slider));
+    h.run_steps(1);
+    h.event(Event::MouseWheel { unit: egui::MouseWheelUnit::Line, delta: egui::vec2(0.0, 1.0), modifiers: Modifiers::NONE, phase: egui::TouchPhase::Move, source: egui::MouseWheelSource::Wheel });
+    h.run_steps(2);
+    assert!((h.state().zoom - before - 0.1).abs() < 0.01, "wheel up zooms in: {before} -> {}", h.state().zoom);
+}

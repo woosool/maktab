@@ -104,6 +104,14 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                 let zr = ui.add(egui::Slider::new(&mut pct, 25.0..=400.0).show_value(false).step_by(5.0));
                 zr.widget_info(|| egui::WidgetInfo::slider(true, pct as f64, crate::i18n::tr("Zoom")));
                 if zr.changed() { app.set_zoom(pct / 100.0); }
+                // The mouse wheel over the slider zooms by 10% a notch instead of scrolling the page.
+                if zr.hovered() {
+                    let notches: f32 = ui.input(|i| i.events.iter().filter_map(|e| match e { egui::Event::MouseWheel { delta, modifiers, .. } if !modifiers.command => Some(delta.y.signum()), _ => None }).sum());
+                    if notches != 0.0 {
+                        app.set_zoom(app.zoom + 0.1 * notches);
+                        ui.input_mut(|i| i.smooth_scroll_delta = egui::Vec2::ZERO);
+                    }
+                }
                 if ribbon::small(ui, "zoomOut", None, false, true, "Zoom out").clicked() { app.set_zoom(app.zoom - 0.1); }
                 ui.add_space(8.0);
                 if ribbon::small(ui, "pilcrow", None, app.show_marks, true, "Formatting marks").clicked() { app.show_marks = !app.show_marks; }
