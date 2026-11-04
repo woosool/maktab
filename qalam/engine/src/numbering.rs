@@ -111,8 +111,8 @@ impl Numbering {
 
     /// Create a new list definition and instance (newList in numbering.js).
     pub fn new_list(&mut self, kind: ListKind) -> u32 {
-        let abs_id = self.abstracts.iter().map(|a| a.id + 1).max().unwrap_or(0);
-        let num_id = self.nums.iter().map(|n| n.id + 1).max().unwrap_or(1).max(1);
+        let abs_id = free_id(self.abstracts.iter().map(|a| a.id), 0);
+        let num_id = free_id(self.nums.iter().map(|n| n.id), 1);
         let levels = (0..9).map(|i| {
             let (fmt, text) = match kind {
                 ListKind::Bullet => (NumFmt::Bullet, BULLETS[i % 3].to_string()),
@@ -128,8 +128,8 @@ impl Numbering {
 
     /// A new list from explicit level definitions (bullet/numbering libraries, multilevel lists).
     pub fn new_list_levels(&mut self, levels: Vec<Level>) -> u32 {
-        let abs_id = self.abstracts.iter().map(|a| a.id + 1).max().unwrap_or(0);
-        let num_id = self.nums.iter().map(|n| n.id + 1).max().unwrap_or(1).max(1);
+        let abs_id = free_id(self.abstracts.iter().map(|a| a.id), 0);
+        let num_id = free_id(self.nums.iter().map(|n| n.id), 1);
         self.abstracts.push(AbstractNum { id: abs_id, levels, raw: None });
         self.nums.push(NumInstance { id: num_id, abstract_id: abs_id, start_overrides: HashMap::new(), raw: None });
         self.changed = true;
@@ -140,7 +140,7 @@ impl Numbering {
     pub fn restart(&mut self, num_id: u32, ilvl: u8, start: u32) -> Option<u32> {
         let source = self.nums.iter().find(|n| n.id == num_id)?;
         let abs = source.abstract_id;
-        let id = self.nums.iter().map(|n| n.id + 1).max().unwrap_or(1);
+        let id = free_id(self.nums.iter().map(|n| n.id), 1);
         let mut start_overrides = source.start_overrides.clone();
         start_overrides.insert(ilvl, start);
         // Keep the source instance's own level overrides (format, label, indent) and change only the start.
@@ -154,6 +154,15 @@ impl Numbering {
         self.nums.push(NumInstance { id, abstract_id: abs, start_overrides, raw });
         self.changed = true;
         Some(id)
+    }
+}
+
+/// An unused id: one past the largest, or the smallest free one when that would overflow.
+fn free_id(ids: impl Iterator<Item = u32>, min: u32) -> u32 {
+    let used: std::collections::HashSet<u32> = ids.collect();
+    match used.iter().max() {
+        None => min,
+        Some(&m) => m.checked_add(1).map(|n| n.max(min)).unwrap_or_else(|| (min..).find(|i| !used.contains(i)).unwrap_or(min)),
     }
 }
 
@@ -268,6 +277,22 @@ impl MarkerCounter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn list_ids_never_overflow_or_collide() {
+        let mut n = Numbering::default();
+        n.new_list(ListKind::Number);
+        n.nums[0].id = u32::MAX;
+        n.abstracts[0].id = u32::MAX;
+        n.nums[0].abstract_id = u32::MAX;
+        let next = n.new_list(ListKind::Bullet);
+        assert_ne!(next, u32::MAX);
+        assert_eq!(n.abstracts.iter().filter(|a| a.id == u32::MAX).count(), 1);
+        let again = n.restart(u32::MAX, 0, 1).unwrap();
+        assert!(again != next && again != u32::MAX);
+        let ids: std::collections::HashSet<u32> = n.nums.iter().map(|x| x.id).collect();
+        assert_eq!(ids.len(), n.nums.len());
+    }
+
     #[test]
     fn restart_keeps_the_instance_level_overrides() {
         let mut n = Numbering::default();
