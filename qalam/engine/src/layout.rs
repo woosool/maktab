@@ -923,6 +923,8 @@ struct Placer<'a> {
     /// Floats from the previous pass, by page: text above a float's anchor paragraph (or
     /// placed before it on the page) wraps around them too.
     seeded: Vec<PlacedFloat>,
+    /// The last paragraph box painted: (paragraph, page, bottom), for boxes that join.
+    box_end: Option<(usize, usize, f32)>,
 }
 
 /// Gap above the footnote separator plus the separator itself.
@@ -1381,10 +1383,21 @@ impl<'a> Placer<'a> {
         let x0 = left + twips(f.indent_left);
         let x1 = left + width - twips(f.indent_right);
         let b = &f.borders;
+        // Neighbouring paragraphs with the same borders and indents share one box, as in Word:
+        // no line between them and the sides run through the spacing.
+        let doc = self.ctx.doc;
+        let joins = |i: usize, j: usize| j < doc.paragraphs.len() && doc.paragraphs[i].cell == doc.paragraphs[j].cell
+            && { let g = doc.para_format(&doc.paragraphs[j]); g.borders == f.borders && g.indent_left == f.indent_left && g.indent_right == f.indent_right };
+        let i = m.paragraph;
+        let body = i < doc.paragraphs.len();
+        let joined_above = match self.box_end { Some((q, pg, y)) if first && body && i > 0 && q == i - 1 && pg == page && joins(i, i - 1) => Some(y), _ => None };
+        let joined_below = last && body && joins(i, i + 1);
+        let (first, last) = (first && joined_above.is_none(), last && !joined_below);
         let pb = &mut self.pages[page];
         let pad = |o: &Option<Border>| o.map(|b| b.space * PT).unwrap_or(0.0);
         let (bx0, bx1) = (x0 - pad(&b.left), x1 + pad(&b.right));
-        let (by0, by1) = (top - if first { pad(&b.top) } else { 0.0 }, bottom + if last { pad(&b.bottom) } else { 0.0 });
+        let (by0, by1) = (joined_above.unwrap_or(top - if first { pad(&b.top) } else { 0.0 }), bottom + if last { pad(&b.bottom) } else { 0.0 });
+        self.box_end = body.then_some((i, page, by1));
         if let Some(c) = f.shading { pb.under.push(DrawItem::Rect { x: bx0, y: by0, w: bx1 - bx0, h: by1 - by0, color: c }); }
         let line = |pb: &mut PageBox, b: &Option<Border>, x1: f32, y1: f32, x2: f32, y2: f32| if let Some(b) = b { pb.items.push(DrawItem::Line { x1, y1, x2, y2, width: (b.width * PT).max(0.75), color: b.color.unwrap_or(Color::BLACK) }); };
         if first { line(pb, &b.top, bx0, by0, bx1, by0); }
@@ -1883,7 +1896,7 @@ fn layout_pass(doc: &Document, cache: &mut MeasureCache, bookmark_pages: &HashMa
     // Measure header height to push the body down when the header is taller than the margin.
     let mut placer = Placer {
         ctx: Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count, cache: std::mem::take(cache), note_labels: doc.note_labels(), bookmark_pages: bookmark_pages.clone(), refs: Default::default() },
-        pages: vec![], lines: vec![], cells: vec![], page: 0, y: page.top, body_top: page.top, body_bottom: page.height - page.bottom, foot_space: 0.0, page_notes: vec![], note_heights: HashMap::new(), merge_ends: HashMap::new(), floats: vec![], front: vec![], seeded: seed.to_vec(), float_origins: HashMap::new(), cols: vec![(page.left, page.width - page.left - page.right)], col: 0, col_top: page.top, col_bottom: None, col_max_y: page.top, col_separator: false, line_numbers: None, line_no: 0,
+        pages: vec![], lines: vec![], cells: vec![], page: 0, y: page.top, body_top: page.top, body_bottom: page.height - page.bottom, foot_space: 0.0, page_notes: vec![], note_heights: HashMap::new(), merge_ends: HashMap::new(), floats: vec![], front: vec![], seeded: seed.to_vec(), float_origins: HashMap::new(), cols: vec![(page.left, page.width - page.left - page.right)], col: 0, col_top: page.top, col_bottom: None, col_max_y: page.top, col_separator: false, line_numbers: None, line_no: 0, box_end: None,
     };
     if let Some(h) = doc.header.as_ref().filter(|_| !plain) {
         let width = page.width - page.left - page.right;
@@ -2139,6 +2152,21 @@ mod tests {
 
     fn doc(text: &str) -> Document { Document::new(text.split('\n').map(Paragraph::new).collect()) }
 
+
+    /// Consecutive paragraphs with the same outside borders share one box: no lines between them.
+    #[test]
+    fn matching_paragraph_borders_draw_one_box() {
+        let mut d = doc("السطر الأول\nالسطر الثاني\nالسطر الثالث");
+        let pen = Some(crate::format::Border { width: 0.5, space: 1.0, color: None });
+        for p in &mut d.paragraphs { p.props.borders = Some(ParaBorders { top: pen, bottom: pen, left: pen, right: pen }); }
+        let l = layout_document(&d);
+        let flat = l.pages[0].items.iter().filter(|i| matches!(i, DrawItem::Line { y1, y2, .. } if y1 == y2)).count();
+        assert_eq!(flat, 2, "one top and one bottom line around the three paragraphs");
+        let sides: Vec<(f32, f32)> = l.pages[0].items.iter().filter_map(|i| match i { DrawItem::Line { x1, x2, y1, y2, .. } if x1 == x2 => Some((*y1, *y2)), _ => None }).collect();
+        let mut tops: Vec<f32> = sides.iter().map(|s| s.0).collect(); tops.sort_by(f32::total_cmp);
+        let mut ends: Vec<f32> = sides.iter().map(|s| s.1).collect(); ends.sort_by(f32::total_cmp);
+        assert!(tops.iter().skip(2).all(|t| ends.iter().any(|e| (e - t).abs() < 0.01)), "side lines run on without gaps: {sides:?}");
+    }
 
     /// NUMPAGES in a body paragraph shows the document's page count, not 1.
     #[test]
