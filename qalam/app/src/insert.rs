@@ -73,6 +73,8 @@ pub struct InsertState {
     pub chart: Option<ChartEdit>,
     pub diagram: Option<DiagramEdit>,
     pub shape: Option<ShapeEdit>,
+    /// The shape whose text is being typed (it stays selected; Backspace and Enter edit its text).
+    pub typing_shape: Option<usize>,
     pub bookmark: Option<BookmarkDraft>,
     pub xref: Option<XrefDraft>,
     pub addins: bool,
@@ -136,6 +138,30 @@ impl WordApp {
             Some(Object::Ink(_)) => { self.doc.select(pos, pos + 1); self.tab = crate::ribbon::Tab::Draw; }
             None => {}
         }
+    }
+    /// Typing while an object is selected: into a shape's text (as Word does), else after the
+    /// object, never over it.
+    pub fn type_text(&mut self, t: &str) {
+        match self.selected_object() {
+            Some((pos, Object::Shape(mut shape))) if !shape.kind.is_line() => {
+                shape.text.push_str(t);
+                self.doc.set_object(pos, Object::Shape(shape));
+                self.doc.select(pos, pos + 1);
+                self.insert.typing_shape = Some(pos);
+            }
+            Some((pos, _)) => { self.doc.select(pos + 1, pos + 1); self.doc.replace(t); }
+            None => self.doc.replace(t),
+        }
+    }
+    /// Backspace or Enter while typing into the selected shape; false if not typing in one.
+    pub fn shape_key(&mut self, enter: bool) -> bool {
+        let Some(pos) = self.insert.typing_shape else { return false };
+        let Some((at, Object::Shape(mut shape))) = self.selected_object() else { self.insert.typing_shape = None; return false };
+        if at != pos { self.insert.typing_shape = None; return false; }
+        if enter { shape.text.push('\n'); } else { shape.text.pop(); }
+        self.doc.set_object(pos, Object::Shape(shape));
+        self.doc.select(pos, pos + 1);
+        true
     }
     /// The selected object, if the selection is exactly one.
     pub fn selected_object(&self) -> Option<(usize, Object)> {
@@ -650,47 +676,55 @@ fn shape_dialog(app: &mut WordApp, ctx: &egui::Context) {
 /// Shape fill, outline, text color and size. `pairs` label/control pairs go on each grid row
 /// (1 in dialogs, 3 in the compact ribbon).
 pub fn shape_controls(ui: &mut Ui, s: &mut Shape, pairs: usize) -> bool {
-    let mut n = 0;
-    let mut row = |ui: &mut Ui| { n += 1; if n % pairs == 0 { ui.end_row(); } };
+    type Control = fn(&mut Ui, &mut Shape) -> bool;
+    let kind: Control = |ui, s| {
+        let mut changed = false;
+        crate::theme::Combo::from_id_salt("shape-kind").selected_text(crate::i18n::tr(SHAPES.iter().find(|x| x.0 == s.kind).map(|x| x.2).unwrap_or("Shape"))).show_ui(ui, |ui| {
+            for (k, _, n) in SHAPES { changed |= ui.selectable_value(&mut s.kind, *k, crate::i18n::tr(n)).changed(); }
+        });
+        changed
+    };
+    let fill: Control = |ui, s| {
+        // Text left in the old fill's contrasting color follows the fill, so a new shape's
+        // white text doesn't vanish when its fill is turned off or made light.
+        let mut changed = false;
+        let before = s.fill;
+        let mut on = s.fill.is_some();
+        if crate::theme::check(ui, &mut on, "").changed() { s.fill = on.then_some(PALETTE[0]); changed = true; }
+        if let Some(c) = &mut s.fill { changed |= crate::ribbon::color_button(ui, c); }
+        if s.fill != before && s.text_color == Shape::contrast(before) { s.text_color = Shape::contrast(s.fill); }
+        changed
+    };
+    let outline: Control = |ui, s| {
+        let mut changed = false;
+        let mut on = s.outline.is_some();
+        if crate::theme::check(ui, &mut on, "").changed() { s.outline = on.then_some(Color::BLACK); changed = true; }
+        if let Some(c) = &mut s.outline { changed |= crate::ribbon::color_button(ui, c); }
+        changed | ui.add(DragValue::new(&mut s.outline_width).range(0.25..=12.0).speed(0.05).suffix(crate::i18n::tr(" pt"))).changed()
+    };
+    let text_color: Control = |ui, s| crate::ribbon::color_button(ui, &mut s.text_color);
+    let size: Control = |ui, s| {
+        let mut changed = false;
+        let mut w = s.width / 96.0;
+        let mut h = s.height / 96.0;
+        if ui.add(DragValue::new(&mut w).range(0.05..=20.0).speed(0.01).max_decimals(2).suffix("\"")).changed() { s.width = w * 96.0; changed = true; }
+        ui.label("×");
+        if ui.add(DragValue::new(&mut h).range(0.0..=20.0).speed(0.01).max_decimals(2).suffix("\"")).changed() { s.height = h * 96.0; changed = true; }
+        changed
+    };
+    let items: [(&str, Control); 5] = [("Shape", kind), ("Fill", fill), ("Outline", outline), ("Text color", text_color), ("Size", size)];
+    // Rows of `pairs` label + control pairs, from the reading side (hrow runs right to left
+    // in Arabic, so each label sits right of its control there).
     let mut changed = false;
-    crate::theme::grid(ui, egui::Grid::new(ui.next_auto_id()).num_columns(2 * pairs), |ui| {
-        ui.label(crate::i18n::tr("Shape"));
-        crate::theme::Combo::from_id_salt("shape-kind").selected_text(crate::i18n::tr(&(SHAPES.iter().find(|x| x.0 == s.kind).map(|x| x.2).unwrap_or("Shape")))).show_ui(ui, |ui| {
-            for (k, _, n) in SHAPES { changed |= ui.selectable_value(&mut s.kind, *k, crate::i18n::tr(&*n)).changed(); }
-        });
-        row(ui);
-        ui.label(crate::i18n::tr("Fill"));
+    for chunk in items.chunks(pairs.max(1)) {
         crate::theme::hrow(ui, |ui| {
-            // Text left in the old fill's contrasting color follows the fill, so a new shape's
-            // white text doesn't vanish when its fill is turned off or made light.
-            let before = s.fill;
-            let mut on = s.fill.is_some();
-            if crate::theme::check(ui, &mut on, "").changed() { s.fill = on.then_some(PALETTE[0]); changed = true; }
-            if let Some(c) = &mut s.fill { changed |= crate::ribbon::color_button(ui, c); }
-            if s.fill != before && s.text_color == Shape::contrast(before) { s.text_color = Shape::contrast(s.fill); }
+            for (label, control) in chunk {
+                ui.label(crate::i18n::tr(label));
+                changed |= control(ui, s);
+                ui.add_space(10.0);
+            }
         });
-        row(ui);
-        ui.label(crate::i18n::tr("Outline"));
-        crate::theme::hrow(ui, |ui| {
-            let mut on = s.outline.is_some();
-            if crate::theme::check(ui, &mut on, "").changed() { s.outline = on.then_some(Color::BLACK); changed = true; }
-            if let Some(c) = &mut s.outline { changed |= crate::ribbon::color_button(ui, c); }
-            changed |= ui.add(DragValue::new(&mut s.outline_width).range(0.25..=12.0).speed(0.05).suffix(crate::i18n::tr(" pt"))).changed();
-        });
-        row(ui);
-        ui.label(crate::i18n::tr("Text color"));
-        changed |= crate::ribbon::color_button(ui, &mut s.text_color);
-        row(ui);
-        ui.label(crate::i18n::tr("Size"));
-        crate::theme::hrow(ui, |ui| {
-            let mut w = s.width / 96.0;
-            let mut h = s.height / 96.0;
-            if ui.add(DragValue::new(&mut w).range(0.05..=20.0).speed(0.01).max_decimals(2).suffix("\"")).changed() { s.width = w * 96.0; changed = true; }
-            ui.label("×");
-            if ui.add(DragValue::new(&mut h).range(0.0..=20.0).speed(0.01).max_decimals(2).suffix("\"")).changed() { s.height = h * 96.0; changed = true; }
-        });
-        row(ui);
-    });
+    }
     if changed { s.raw = None; }
     changed
 }

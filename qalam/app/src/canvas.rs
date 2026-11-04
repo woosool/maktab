@@ -960,10 +960,10 @@ fn handle_keys(app: &mut WordApp, ui: &Ui) {
         let before = (app.doc.revision, app.doc.selection);
         match event {
             Event::Text(t) => {
-                if t.chars().all(|c| !c.is_control()) && !t.is_empty() { app.doc.replace(&t); }
+                if t.chars().all(|c| !c.is_control()) && !t.is_empty() { app.type_text(&t); }
             }
             Event::Ime(egui::ImeEvent::Preedit { text, .. }) => app.preedit = text,
-            Event::Ime(egui::ImeEvent::Commit(t)) => { app.preedit.clear(); if !t.is_empty() { app.doc.replace(&t); } }
+            Event::Ime(egui::ImeEvent::Commit(t)) => { app.preedit.clear(); if !t.is_empty() { app.type_text(&t); } }
             Event::Copy => { app.copy(ui.ctx()); }
             Event::Cut => app.cut(ui.ctx()),
             Event::Paste(t) => app.paste_text(&t),
@@ -980,6 +980,7 @@ fn handle_keys(app: &mut WordApp, ui: &Ui) {
 }
 
 fn key_press(app: &mut WordApp, ui: &Ui, key: Key, m: Modifiers, mac: bool) {
+    if matches!(key, Key::Backspace | Key::Enter) && m.is_none() && app.shape_key(key == Key::Enter) { return; }
     let doc = &mut app.doc;
     let (s, e) = doc.range();
     let focus = doc.selection.focus;

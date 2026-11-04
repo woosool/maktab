@@ -404,9 +404,34 @@ fn render_unrotated(s: &Shape) -> Vec<DrawItem> {
     }
     out.push(path(shifted(geometry(s.kind, s.width, s.height), x, y), true, s.fill, stroke));
     if !s.text.trim().is_empty() {
-        if s.textbox { out.extend(box_text(s, x, y)); } else { out.extend(centered_text(&s.text, s.font_size, s.bold, s.text_color, x, y, s.width, s.height)); }
+        if s.textbox { out.extend(box_text(s, x, y)); } else {
+            // Text sits in the shape's text area (inside an oval's curve), as Word's presets do.
+            let (l, t, r, b) = text_area(s.kind);
+            let (w, h) = (s.width, s.height);
+            out.extend(centered_text(&s.text, s.font_size, s.bold, s.text_color, x + w * l, y + h * t, w * (1.0 - l - r), h * (1.0 - t - b)));
+        }
     }
     out
+}
+
+/// A shape's text rectangle as fractions of its box (left, top, right, bottom insets),
+/// approximating the OOXML preset text rectangles.
+fn text_area(kind: ShapeKind) -> (f32, f32, f32, f32) {
+    use ShapeKind::*;
+    match kind {
+        Ellipse => (0.146, 0.146, 0.146, 0.146),
+        Diamond => (0.25, 0.25, 0.25, 0.25),
+        Triangle => (0.25, 0.5, 0.25, 0.0),
+        RightTriangle => (0.0, 0.5, 0.5, 0.0),
+        Star5 => (0.3, 0.38, 0.3, 0.2),
+        Heart => (0.2, 0.2, 0.2, 0.25),
+        Hexagon | Octagon => (0.15, 0.15, 0.15, 0.15),
+        Pentagon => (0.15, 0.25, 0.15, 0.0),
+        Parallelogram | Trapezoid => (0.2, 0.0, 0.2, 0.0),
+        Plus => (0.25, 0.25, 0.25, 0.25),
+        RoundRect => (0.05, 0.05, 0.05, 0.05),
+        _ => (0.0, 0.0, 0.0, 0.0),
+    }
 }
 
 /// A text box's text: wrapped inside 0.1"/0.05" insets, from the top left.

@@ -2103,3 +2103,32 @@ fn arabic_comment_reads_right_to_left() {
     assert_eq!(h.state().doc.comments[0].text, "هل انت بخير 2026");
     save(&mut h, "arabic_comment");
 }
+
+#[test]
+fn typing_with_a_shape_selected_writes_into_the_shape() {
+    use word_engine::objects::{Object, ShapeKind};
+    let mut h = harness(None);
+    h.run_steps(2);
+    h.state_mut().insert_shape(ShapeKind::Ellipse);
+    let pos = h.state().doc.len() - 1;
+    let pos = (0..=pos).find(|&p| h.state().doc.object_at(p).is_some()).unwrap();
+    h.state_mut().doc.select(pos, pos + 1);
+    h.run_steps(1);
+    h.event(Event::Text("هل انت".into()));
+    h.key_press(Key::Enter);
+    h.event(Event::Text("بخير".into()));
+    h.key_press(Key::Backspace);
+    h.run_steps(2);
+    let shape = match h.state().doc.object_at(pos) { Some(Object::Shape(s)) => s.clone(), other => panic!("the shape is still there: {other:?}") };
+    assert_eq!(shape.text, "هل انت\nبخي");
+    // The Shape Format tab in Arabic.
+    h.state_mut().extras.options.settings.lang = crate::i18n::Lang::Ar;
+    h.state_mut().tab = crate::ribbon::Tab::ShapeFormat;
+    h.run_steps(4);
+    save(&mut h, "shape-format-ar");
+    h.state_mut().extras.options.settings.lang = crate::i18n::Lang::En;
+    h.run_steps(2);
+    // A selected picture-like object (not a shape) keeps itself; text goes after it.
+    h.state_mut().doc.select(0, 0);
+    assert!(h.state().doc.object_at(pos).is_some());
+}
