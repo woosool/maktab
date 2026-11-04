@@ -1567,7 +1567,7 @@ impl<'a> Placer<'a> {
         for g in &grid { col_x.push(col_x.last().unwrap() + g); }
         let t = TableGeo {
             col_x,
-            borders: table.borders || table.style.as_deref().and_then(|s| doc.styles.get(s)).is_some_and(|s| s.table_borders),
+            borders: table.borders || table.style.as_deref().is_some_and(|s| doc.styles.table_style_borders(s)),
         };
         let header_rows = table.rows.iter().take_while(|r| r.header).count();
         for r in 0..table.rows.len() {

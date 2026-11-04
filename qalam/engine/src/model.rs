@@ -522,7 +522,7 @@ impl Document {
 
     pub fn para_format(&self, p: &Paragraph) -> ParaFormat {
         let mut f = ParaFormat::default();
-        let mut props = self.styles.para_props(p.style.as_deref());
+        let mut props = self.styles.para_props_in(p.style.as_deref(), self.cell_table_style(p));
         props.overlay(&p.props);
         f.apply(&props);
         // List level geometry supplies indents unless declared directly (listGeometry).
@@ -536,14 +536,21 @@ impl Document {
     }
     pub fn run_format(&self, p: &Paragraph, r: &Run) -> RunFormat {
         let mut f = RunFormat::default();
-        let mut props = self.styles.run_props(p.style.as_deref(), r.style.as_deref());
+        let mut props = self.styles.run_props_in(p.style.as_deref(), r.style.as_deref(), self.cell_table_style(p));
         props.overlay(&r.props);
         f.apply(&props);
         f
     }
+    /// The table style whose paragraph and run properties apply to a paragraph in a table cell.
+    fn cell_table_style(&self, p: &Paragraph) -> Option<&str> {
+        let cell = p.cell?;
+        if !self.styles.table_styles_format_text() { return None; }
+        let t = &self.tables[self.table_of_cell(cell)?];
+        t.style.as_deref().or(self.styles.default_table.as_deref())
+    }
     pub fn mark_format(&self, p: &Paragraph) -> RunFormat {
         let mut f = RunFormat::default();
-        let mut props = self.styles.run_props(p.style.as_deref(), None);
+        let mut props = self.styles.run_props_in(p.style.as_deref(), None, self.cell_table_style(p));
         props.overlay(&p.mark);
         f.apply(&props);
         f

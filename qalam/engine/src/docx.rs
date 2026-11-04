@@ -2100,6 +2100,31 @@ mod tests {
     }
 
     #[test]
+    fn table_style_paragraph_and_run_formatting_applies_in_cells() {
+        // wordcraft #175: a table style's own pPr/rPr (Word's "Table Grid" sets after=0, single
+        // lines) sits between docDefaults and the paragraph style, and a derived style keeps the
+        // borders of the style it is based on.
+        use crate::styles::{Style, StyleKind};
+        let mut d = Document::new(vec![Paragraph::new("قبل الجدول")]);
+        d.styles.doc_para.space_after = Some(8.0);
+        d.insert_table(1, 1);
+        d.replace("خلية عربية");
+        let base = Style { id: "Grid".into(), name: "Grid".into(), kind: StyleKind::Table, based_on: None, next: None, para: crate::format::ParaProps { space_after: Some(0.0), ..Default::default() }, run: Default::default(), table_borders: true };
+        let red = Style { id: "RedGrid".into(), name: "Red Grid".into(), kind: StyleKind::Table, based_on: Some("Grid".into()), next: None, para: Default::default(), run: crate::format::RunProps { bold: Some(true), ..Default::default() }, table_borders: false };
+        d.styles.add(base);
+        d.styles.add(red);
+        d.tables[0].style = Some("RedGrid".into());
+        d.tables[0].borders = false;
+        let cell = d.paragraphs.iter().find(|p| p.cell.is_some()).unwrap().clone();
+        let outside = d.paragraphs[0].clone();
+        assert_eq!(d.para_format(&cell).space_after, 0.0);
+        assert!(d.run_format(&cell, &cell.runs[0]).bold);
+        assert_eq!(d.para_format(&outside).space_after, 8.0);
+        assert!(!d.run_format(&outside, &outside.runs[0]).bold);
+        assert!(d.styles.table_style_borders("RedGrid"));
+    }
+
+    #[test]
     fn empty_hyperlink_target_is_not_a_link() {
         let mut d = Document::new(vec![Paragraph::new("plain words")]);
         d.paragraphs[0].runs[0].link = Some(String::new());

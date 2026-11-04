@@ -78,8 +78,13 @@ impl StyleSheet {
     }
 
     /// Declared paragraph properties: docDefaults ⊕ paragraph style chain.
-    pub fn para_props(&self, style: Option<&str>) -> ParaProps {
+    pub fn para_props(&self, style: Option<&str>) -> ParaProps { self.para_props_in(style, None) }
+
+    /// Declared paragraph properties of a paragraph in a table of style `table`:
+    /// docDefaults ⊕ table style chain ⊕ paragraph style chain (§17.7.2).
+    pub fn para_props_in(&self, style: Option<&str>, table: Option<&str>) -> ParaProps {
         let mut p = self.doc_para.clone();
+        if let Some(id) = table { for s in self.chain(id) { p.overlay(&s.para); } }
         if let Some(id) = self.paragraph_style_id(style) {
             for s in self.chain(id) { p.overlay(&s.para); }
         }
@@ -87,8 +92,12 @@ impl StyleSheet {
     }
 
     /// Run properties for text in a paragraph of `para_style` with character style `char_style`.
-    pub fn run_props(&self, para_style: Option<&str>, char_style: Option<&str>) -> RunProps {
+    pub fn run_props(&self, para_style: Option<&str>, char_style: Option<&str>) -> RunProps { self.run_props_in(para_style, char_style, None) }
+
+    /// Run properties for text in a table of style `table` (table style rPr sits under the paragraph style).
+    pub fn run_props_in(&self, para_style: Option<&str>, char_style: Option<&str>, table: Option<&str>) -> RunProps {
         let mut r = self.doc_run.clone();
+        if let Some(id) = table { for s in self.chain(id) { r.overlay(&s.run); } }
         if let Some(id) = self.paragraph_style_id(para_style) {
             for s in self.chain(id) { r.overlay(&s.run); }
         }
@@ -105,6 +114,14 @@ impl StyleSheet {
             }
         }
         r
+    }
+
+    /// Whether a table style or any style it is based on declares table borders.
+    pub fn table_style_borders(&self, id: &str) -> bool { self.chain(id).iter().any(|s| s.table_borders) }
+
+    /// Whether any table style declares paragraph or run properties.
+    pub fn table_styles_format_text(&self) -> bool {
+        self.styles.values().any(|s| s.kind == StyleKind::Table && (s.para != ParaProps::default() || s.run != RunProps::default()))
     }
 
     pub fn paragraph_styles(&self) -> Vec<&Style> {
