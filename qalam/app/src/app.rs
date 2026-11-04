@@ -112,6 +112,8 @@ pub struct WordApp {
     pub show_marks: bool,
     /// Rich copy of the last in-app copy, with its plain text to recognize it on paste.
     pub clipboard: Option<(String, Vec<Paragraph>)>,
+    /// Media of the copied pictures, so they paste into another document (wordcraft #375).
+    pub clipboard_assets: std::collections::HashMap<String, word_engine::model::Asset>,
     pub goal_x: Option<f32>,
     pub scroll_to_caret: bool,
     pub caret_blink: f64,
@@ -254,7 +256,7 @@ impl WordApp {
         let layout = if cfg!(test) { layout_document(&doc) } else { Default::default() };
         let mut app = WordApp {
             doc, layout, measure_cache: Default::default(), sent_title: String::new(), path: None, zoom: 1.0, dialogs: Dialogs::default(), find: FindState::default(),
-            show_outline: false, show_marks: false, clipboard: None, goal_x: None, scroll_to_caret: false,
+            show_outline: false, show_marks: false, clipboard: None, clipboard_assets: Default::default(), goal_x: None, scroll_to_caret: false,
             caret_blink: 0.0, preedit: String::new(), textures: HashMap::new(), status: None,
             drag: canvas_state::Drag::None, allow_close: false, canvas_focus: true,
             author: std::env::var("USER").or_else(|_| std::env::var("USERNAME")).unwrap_or_else(|_| "Author".into()), show_comments: false, comment_edit: None, reply: None, show_notes: false, note_edit: None, tab: Default::default(), format_painter: None, last_color: word_engine::Color(0xC0, 0, 0), last_highlight: "yellow".into(), fit_width: false, last_click: (f64::NEG_INFINITY, egui::Pos2::ZERO, 0), canvas_map: (0.0, 0.0, vec![], 1.0), show_gridlines: true, atlas: Default::default(), ctx: cc.egui_ctx.clone(), splash: None, custom_lists: load_custom_lists(), insert: Default::default(), show_ruler: true, ruler_tab_kind: word_engine::TabKind::Left, focus_mode: false, read_mode: false, read_row: 0, read_scroll: false, ruler_rect: egui::Rect::NOTHING, table_tool: None, border_pen: word_engine::Border { width: 0.5, space: 0.0, color: None }, formula: None, extras: crate::extras::Extras { quick_parts: crate::text_tools::load_quick_parts(), ..Default::default() },
@@ -541,7 +543,10 @@ impl WordApp {
     pub fn copy(&mut self, ctx: &egui::Context) -> bool {
         if self.doc.selection.is_caret() { return false; }
         let text = self.doc.selected_text();
-        self.clipboard = Some((text.clone(), self.doc.fragment()));
+        let fragment = self.doc.fragment();
+        let used: Vec<&String> = fragment.iter().flat_map(|p| p.runs.iter()).filter_map(|r| r.image.as_ref()).flat_map(|i| std::iter::once(&i.asset).chain(i.original.as_ref())).collect();
+        self.clipboard_assets = used.into_iter().filter_map(|k| self.doc.assets.get(k).map(|a| (k.clone(), a.clone()))).collect();
+        self.clipboard = Some((text.clone(), fragment));
         ctx.copy_text(text);
         true
     }
@@ -551,7 +556,7 @@ impl WordApp {
     pub fn paste_text(&mut self, text: &str) {
         let text = text.replace("\r\n", "\n").replace('\r', "\n");
         match &self.clipboard {
-            Some((plain, fragment)) if *plain == text => { let f = fragment.clone(); self.doc.paste_fragment(f); }
+            Some((plain, fragment)) if *plain == text => { let mut f = fragment.clone(); self.doc.adopt_assets(&mut f, &self.clipboard_assets); self.doc.paste_fragment(f); }
             _ => self.doc.replace(&text),
         }
         self.scroll_to_caret = true;

@@ -2033,3 +2033,41 @@ fn wordcraft_task03_screenshots() {
         h.render().expect("render").save(d.join("qalam.png")).unwrap();
     }
 }
+
+/// Renders Qalam reproductions of wordcraft issue scenarios (triage task 05) to
+/// `$WORDCRAFT_IMG/<issue>/qalam.png` (and `qalam-after.png` after the fixed command):
+/// `WORDCRAFT_IMG=<dir> cargo test -p word-app wordcraft_task05_screenshots -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn wordcraft_task05_screenshots() {
+    let dir = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
+    type Step = fn(&mut Harness<'static, WordApp>);
+    fn typ(h: &mut Harness<'static, WordApp>, t: &str) { h.event(Event::Text(t.into())); h.run_steps(1); }
+    fn table(h: &mut Harness<'static, WordApp>) {
+        h.state_mut().doc.insert_table(2, 3);
+        for (k, t) in ["الاسم", "Name", "City", "أحمد", "Ada", "London"].iter().enumerate() { typ(h, t); if k < 5 { h.key_press(Key::Tab); } }
+    }
+    fn cell(h: &Harness<'static, WordApp>, r: usize, c: usize) -> usize { let d = &h.state().doc; let id = d.tables[0].rows[r].cells[c].id; d.paragraph_start(d.paragraphs.iter().position(|p| p.cell == Some(id)).unwrap()) }
+    let cases: [(&str, Step, Option<Step>); 6] = [
+        ("413", |h| { typ(h, "hi"); h.key_press(Key::Enter); h.key_press(Key::Enter); typ(h, "hello مرحبا"); let d = &mut h.state_mut().doc; d.select(4, 15); d.set_link(Some("https://google.com".into())); d.select(3, 3); h.run_steps(1); typ(h, "typed beside the link"); h.event(Event::PointerMoved(Pos2::new(400.0, 300.0))); }, None),
+        ("376", |h| { typ(h, "The … button in the title row opens a menu"); }, None),
+        ("418", |h| { typ(h, "First paragraph"); h.key_press(Key::Enter); typ(h, "الفقرة الثانية"); h.state_mut().doc.select(0, 16); h.state_mut().doc.set_alignment(word_engine::Alignment::Center); }, None),
+        ("431", |h| { table(h); let (a, f) = (cell(h, 0, 0), cell(h, 0, 1) + 1); h.state_mut().doc.select(a, f); }, Some(|h| h.state_mut().doc.delete_table_part(word_engine::model::TablePart::Column))),
+        ("432", |h| { h.state_mut().doc.insert_table(2, 1); typ(h, "top خلية"); }, Some(|h| { h.state_mut().doc.split_cell(2); })),
+        ("375", |h| { typ(h, "Picture: "); let b = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/icon.png")).unwrap(); h.state_mut().doc.insert_image(b, "image/png", 96.0, 96.0); let n = h.state().doc.len(); h.state_mut().doc.select(n - 1, n); let ctx = h.ctx.clone(); h.state_mut().copy(&ctx); let text = h.state().doc.selected_text(); h.state_mut().set_document(word_engine::Document::new(vec![word_engine::Paragraph::new("Other document: ")]), None); let n = h.state().doc.len(); h.state_mut().doc.select(n, n); h.state_mut().paste_text(&text); }, None),
+    ];
+    for (n, setup, after) in cases {
+        let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+        h.run_steps(2);
+        setup(&mut h);
+        h.run_steps(8);
+        let d = dir.join(n);
+        std::fs::create_dir_all(&d).unwrap();
+        h.render().expect("render").save(d.join("qalam.png")).unwrap();
+        if let Some(after) = after {
+            after(&mut h);
+            h.run_steps(8);
+            h.render().expect("render").save(d.join("qalam-after.png")).unwrap();
+        }
+    }
+}

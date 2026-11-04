@@ -351,7 +351,7 @@ impl Table {
     pub fn grid_col(&self, row: usize, cell: usize) -> usize { self.rows[row].grid_before as usize + self.rows[row].cells[..cell].iter().map(|c| c.span as usize).sum::<usize>() }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Asset { pub bytes: Vec<u8>, pub content_type: String }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -630,6 +630,8 @@ impl Document {
         let Some(s) = self.history.pop() else { return false };
         self.future.push(self.snapshot());
         self.restore(s);
+        // Formatting picked at the caret is undone with the step that set it (wordcraft #424).
+        self.typing = None;
         self.last_edit = None;
         true
     }
@@ -644,6 +646,7 @@ impl Document {
         let Some(s) = self.future.pop() else { return false };
         self.history.push(self.snapshot());
         self.restore(s);
+        self.typing = None;
         self.last_edit = None;
         true
     }
@@ -1656,31 +1659,33 @@ impl Document {
     pub fn delete_table_part(&mut self, part: TablePart) {
         let Some(cell) = self.current_cell() else { return };
         let Some(ti) = self.table_of_cell(cell) else { return };
+        // Every selected row or column goes, not only the focus cell's (wordcraft #431).
+        let Some(b) = self.cell_block().filter(|b| b.table == ti) else { return };
         self.checkpoint(EditKind::Other);
-        let (r, c) = self.tables[ti].find_cell(cell).unwrap();
         let mut removed: Vec<u64> = vec![];
+        let cols = self.tables[ti].grid.len();
         let whole = match part {
             TablePart::Table => true,
-            TablePart::Row => self.tables[ti].rows.len() == 1,
-            TablePart::Column => self.tables[ti].rows.iter().all(|row| row.cells.len() == 1),
+            TablePart::Row => b.r0 == 0 && b.r1 + 1 >= self.tables[ti].rows.len(),
+            TablePart::Column => self.tables[ti].rows.iter().all(|row| row.cells.len() == 1) || (b.c0 == 0 && b.c1 + 1 >= cols),
         };
         if whole {
             removed = self.tables[ti].cells().map(|c| c.id).collect();
             self.tables.remove(ti);
         } else if part == TablePart::Row {
-            removed = self.tables[ti].rows[r].cells.iter().map(|c| c.id).collect();
-            self.tables[ti].rows.remove(r);
+            for row in self.tables[ti].rows.drain(b.r0..=b.r1) { removed.extend(row.cells.iter().map(|c| c.id)); }
         } else {
-            let g = self.tables[ti].grid_col(r, c);
             let t = &mut self.tables[ti];
-            for row in &mut t.rows {
-                let mut at = row.grid_before as usize;
-                if let Some(k) = row.cells.iter().position(|cl| { let hit = at <= g && g < at + cl.span as usize; at += cl.span as usize; hit }) {
-                    if row.cells[k].span > 1 { row.cells[k].span -= 1; row.cells[k].width -= t.grid[g]; }
-                    else if row.cells.len() > 1 { removed.push(row.cells[k].id); row.cells.remove(k); }
+            for g in (b.c0..=b.c1).rev() {
+                for row in &mut t.rows {
+                    let mut at = row.grid_before as usize;
+                    if let Some(k) = row.cells.iter().position(|cl| { let hit = at <= g && g < at + cl.span as usize; at += cl.span as usize; hit }) {
+                        if row.cells[k].span > 1 { row.cells[k].span -= 1; row.cells[k].width -= t.grid[g]; }
+                        else if row.cells.len() > 1 { removed.push(row.cells[k].id); row.cells.remove(k); }
+                    }
                 }
+                if g < t.grid.len() { t.grid.remove(g); }
             }
-            if g < t.grid.len() { t.grid.remove(g); }
         }
         let first = self.paragraphs.iter().position(|p| p.cell.is_some_and(|c| removed.contains(&c))).unwrap_or(0);
         self.paragraphs.retain(|p| !p.cell.is_some_and(|c| removed.contains(&c)));
@@ -1955,6 +1960,29 @@ impl Document {
         }
         if e > s && self.locate(e).1 == 0 && self.locate(e).0 > self.locate(s).0 { out.push(Paragraph::default()); }
         out
+    }
+    /// Bring a fragment copied from another document into this one: its pictures' media join
+    /// `assets` (renamed when a part of that name holds other bytes), and their stored drawing
+    /// XML, whose relationship ids belong to the source package, is dropped (wordcraft #375).
+    pub fn adopt_assets(&mut self, fragment: &mut [Paragraph], assets: &HashMap<String, Asset>) {
+        let mut renamed: HashMap<String, String> = HashMap::new();
+        for img in fragment.iter_mut().flat_map(|p| p.runs.iter_mut()).filter_map(|r| r.image.as_mut()) {
+            let mut moved = false;
+            for key in std::iter::once(&mut img.asset).chain(img.original.as_mut()) {
+                let Some(a) = assets.get(key.as_str()) else { continue };
+                if self.assets.get(key.as_str()) == Some(a) { continue; }
+                moved = true;
+                if let Some(n) = renamed.get(key.as_str()) { *key = n.clone(); continue; }
+                let mut name = key.clone();
+                let (stem, ext) = key.rsplit_once('.').map(|(s, e)| (s.to_string(), format!(".{e}"))).unwrap_or((key.clone(), String::new()));
+                let mut n = 1;
+                while self.assets.get(&name).is_some_and(|x| x != a) { n += 1; name = format!("{stem}_{n}{ext}"); }
+                self.assets.insert(name.clone(), a.clone());
+                renamed.insert(key.clone(), name.clone());
+                *key = name;
+            }
+            if moved { img.raw = None; }
+        }
     }
     /// Paste paragraphs from `fragment`, keeping run formatting and paragraph styles.
     pub fn paste_fragment(&mut self, mut fragment: Vec<Paragraph>) {
@@ -2387,6 +2415,59 @@ mod tests {
     use super::*;
 
     fn doc(text: &str) -> Document { Document::new(text.split('\n').map(Paragraph::new).collect()) }
+
+    #[test]
+    fn pictures_paste_into_another_document() {
+        // wordcraft #375: a picture copied from one document pasted into another without its media.
+        let mut a = doc("صورة ");
+        a.select(5, 5);
+        a.insert_image(vec![1, 2, 3], "image/png", 10.0, 10.0);
+        a.select(5, 6);
+        let mut frag = a.fragment();
+        frag[0].runs.iter_mut().for_each(|r| if let Some(i) = &mut r.image { i.raw = Some("<w:drawing/>".into()); });
+        let mut b = doc("x");
+        b.select(1, 1);
+        b.insert_image(vec![9, 9], "image/png", 10.0, 10.0);
+        b.select(0, 0);
+        b.adopt_assets(&mut frag, &a.assets);
+        b.paste_fragment(frag);
+        let imgs: Vec<&Image> = b.paragraphs.iter().flat_map(|p| p.runs.iter()).filter_map(|r| r.image.as_ref()).collect();
+        assert_eq!(imgs.len(), 2);
+        let bytes: Vec<&[u8]> = imgs.iter().map(|i| b.assets[&i.asset].bytes.as_slice()).collect();
+        assert_eq!(bytes, [&[1u8, 2, 3][..], &[9, 9][..]]);
+        assert!(imgs[0].raw.is_none());
+    }
+
+    #[test]
+    fn undoing_bold_at_the_caret_stops_bold_typing() {
+        // wordcraft #424: Undo of Bold in an empty paragraph left bold typing active.
+        let mut d = doc("");
+        d.toggle_bold();
+        d.undo();
+        d.replace("س");
+        assert_ne!(d.paragraphs[0].runs[0].props.bold, Some(true));
+        assert!(!d.current_format().bold);
+    }
+
+    #[test]
+    fn delete_columns_and_rows_take_the_whole_selection() {
+        // wordcraft #431: Delete Columns removed only the focus cell's column.
+        let make = || { let mut d = doc("x"); d.insert_table(2, 3); for t in ["أ", "b", "c", "d", "e", "f"] { d.replace(t); if t != "f" { d.move_cell(true); } } d };
+        let cell = |d: &Document, r: usize, c: usize| { let id = d.tables[0].rows[r].cells[c].id; d.paragraph_start(d.paragraphs.iter().position(|p| p.cell == Some(id)).unwrap()) };
+        for reversed in [false, true] {
+            let mut e = make();
+            let (a, f) = (cell(&e, 0, 0), cell(&e, 0, 1) + 1);
+            if reversed { e.select(f, a) } else { e.select(a, f) }
+            e.delete_table_part(TablePart::Column);
+            assert_eq!(e.tables[0].grid.len(), 1);
+            assert!(e.tables[0].rows.iter().all(|r| r.cells.len() == 1));
+            assert!(e.text().contains('c') && e.text().contains('f') && !e.text().contains('أ') && !e.text().contains('b'), "{:?}", e.text());
+        }
+        let mut d = make();
+        d.select(cell(&d, 0, 2), cell(&d, 1, 2));
+        d.delete_table_part(TablePart::Row);
+        assert!(d.tables.is_empty() && d.paragraphs.iter().all(|p| p.cell.is_none()));
+    }
 
     #[test]
     fn caret_font_survives_enter() {
