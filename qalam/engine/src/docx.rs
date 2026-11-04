@@ -942,15 +942,22 @@ fn read_page(sect: &Element) -> PageSettings {
     s
 }
 
+/// The most a package may unpack to, all parts together.
+const MAX_UNPACKED: u64 = 1 << 30;
+
 /// Open a .docx (or .dotx/.docm) file.
 pub fn read(bytes: &[u8]) -> Result<Document, String> {
     let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|e| format!("Not a DOCX package: {e}"))?;
     let mut parts = BTreeMap::new();
+    // A package's declared sizes can lie: read at most MAX_UNPACKED bytes in all, whatever they claim.
+    let mut left = MAX_UNPACKED;
     for i in 0..zip.len() {
         let mut f = zip.by_index(i).map_err(|e| e.to_string())?;
         if f.is_dir() { continue; }
-        let mut buf = Vec::with_capacity(f.size() as usize);
-        f.read_to_end(&mut buf).map_err(|e| e.to_string())?;
+        let mut buf = Vec::with_capacity((f.size()).min(left).min(1 << 24) as usize);
+        (&mut f).take(left + 1).read_to_end(&mut buf).map_err(|e| e.to_string())?;
+        if buf.len() as u64 > left { return Err("The package is too large to open.".into()); }
+        left -= buf.len() as u64;
         parts.insert(f.name().trim_start_matches('/').to_string(), buf);
     }
     let main = read_rels(&parts, "").into_iter().find(|r| r.kind == REL_DOC || r.kind.ends_with("/officeDocument")).map(|r| r.target.trim_start_matches('/').to_string()).unwrap_or_else(|| "word/document.xml".into());
