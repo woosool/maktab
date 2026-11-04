@@ -434,7 +434,11 @@ impl<'a, 'b> BodyReader<'a, 'b> {
             let in_instr = self.field.iter().any(|f| !f.1);
             match c.name.as_str() {
                 "w:fldChar" => match c.attr("w:fldCharType") {
-                    Some("begin") => self.field.push((String::new(), false, c.attr("w:dirty").is_some_and(|v| v == "true" || v == "1"))),
+                    // A legacy check box (FORMCHECKBOX) keeps its state in w:ffData, not in a result.
+                    Some("begin") => self.field.push((c.child("w:ffData").and_then(|d| d.child("w:checkBox")).map(|b| {
+                        let on = |e: &Element| e.attr("w:val").is_none_or(|v| v != "0" && v != "false");
+                        format!("#checkbox:{} ", b.child("w:checked").or(b.child("w:default")).is_some_and(on))
+                    }).unwrap_or_default(), false, c.attr("w:dirty").is_some_and(|v| v == "true" || v == "1"))),
                     Some("separate") => {
                         let nested_in_instr = self.field.len() >= 2 && !self.field[self.field.len() - 2].1;
                         if nested_in_instr { if let Some(f) = self.field.last_mut() { f.1 = true; } }
@@ -456,6 +460,8 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                             // A field inside another's instruction (IF {MERGEFIELD X} = …) joins it.
                             if let Some(parent) = self.field.last_mut().filter(|p| !p.1) { parent.0.push_str(&format!(" {{{}}} ", instr.trim())); }
                             else if instr == "#block" { flush(&mut text, runs); runs.push(Run::marker(Marker::FieldEnd)); }
+                            // Shown as the box Word draws (the field itself isn't kept on save).
+                            else if let Some(rest) = instr.strip_prefix("#checkbox:") { flush(&mut text, runs); runs.push(base.with(if rest.starts_with("true") { "\u{2612}" } else { "\u{2610}" }.to_string())); }
                             // XE and TA have no result: they end without a separator.
                             else if !separated { if let Some(field @ (Field::IndexEntry(_) | Field::Authority { .. } | Field::NextRecord | Field::NextIf { .. } | Field::SkipIf { .. } | Field::MergeRec | Field::MergeSeq)) = page_field(instr.trim()) { flush(&mut text, runs); runs.push(Run { text: " ".into(), field: Some(field), ..base.with(String::new()) }); } }
                         }

@@ -1781,6 +1781,19 @@ impl Document {
     /// undo and Reset Picture. Returns false when the picture can't be decoded.
     pub fn apply_picture_op(&mut self, pos: usize, op: crate::picture::PictureOp) -> bool {
         let Some(img) = self.image_at(pos).cloned() else { return false };
+        use crate::picture::PictureOp as P;
+        // Transparency and Corrections are settings, not steps: a second one replaces the first,
+        // re-applied from the original pixels (80% then 0% transparency is opaque again, as in Word).
+        let setting = |o: &P| match (o, &op) { (P::Transparency(_), P::Transparency(_)) | (P::Corrections { .. }, P::Corrections { .. }) => true, _ => false };
+        let resizes = |o: &P| matches!(o, P::RotateRight | P::RotateLeft | P::Crop { .. });
+        if let Some(orig) = img.original.clone().filter(|_| img.effects.iter().any(setting) && !img.effects.iter().any(resizes)) {
+            let Some(mut cur) = self.assets.get(&orig).map(|a| a.bytes.clone()) else { return false };
+            let effects: Vec<P> = img.effects.iter().copied().filter(|o| !setting(o)).chain(std::iter::once(op)).collect();
+            for &o in &effects { let Some((png, _)) = crate::picture::apply(&cur, o, (img.width, img.height)) else { return false }; cur = png; }
+            let asset = self.add_png_asset(cur);
+            self.edit_image(pos, |i| { i.asset = asset; i.effects = effects; });
+            return true;
+        }
         let Some(bytes) = self.assets.get(&img.asset).map(|a| a.bytes.clone()) else { return false };
         let Some((png, (w, h))) = crate::picture::apply(&bytes, op, (img.width, img.height)) else { return false };
         let asset = self.add_png_asset(png);

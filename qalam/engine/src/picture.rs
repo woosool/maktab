@@ -235,6 +235,23 @@ mod tests {
         doc.undo();
         assert_eq!(doc.image_at(pos).unwrap().width, 20.0);
     }
+
+    #[test]
+    fn transparency_reapplies_from_the_original() {
+        // 80% then 0% must give the opaque original, not stay faded.
+        let mut doc = crate::model::Document::new(vec![crate::model::Paragraph::new("")]);
+        doc.insert_image(png(4, 2), "image/png", 40.0, 20.0);
+        let alpha = |doc: &crate::model::Document| { let a = &doc.image_at(0).unwrap().asset; image::load_from_memory(&doc.assets[a].bytes).unwrap().into_rgba8().get_pixel(1, 0)[3] };
+        assert!(doc.apply_picture_op(0, PictureOp::Grayscale));
+        assert!(doc.apply_picture_op(0, PictureOp::Transparency(80)));
+        assert_eq!(alpha(&doc), 51);
+        assert!(doc.apply_picture_op(0, PictureOp::Transparency(0)));
+        assert_eq!(alpha(&doc), 255);
+        assert!(doc.apply_picture_op(0, PictureOp::Transparency(50)));
+        assert_eq!(alpha(&doc), 128);
+        let img = doc.image_at(0).unwrap();
+        assert_eq!(img.effects, vec![PictureOp::Grayscale, PictureOp::Transparency(50)], "the grayscale step is kept, one transparency setting");
+    }
 }
 
 /// A picture's opaque outline for tight wrapping, in 0..1 units of its width and height: the
