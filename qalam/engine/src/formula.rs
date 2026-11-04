@@ -20,17 +20,67 @@ enum Dir { Above, Below, Left, Right }
 pub const FUNCTIONS: &[&str] = &["SUM", "PRODUCT", "AVERAGE", "COUNT", "MAX", "MIN", "ABS", "INT", "SIGN", "NOT", "MOD", "ROUND", "AND", "OR", "IF", "TRUE", "FALSE"];
 pub const NUMBER_FORMATS: &[&str] = &["0", "0.00", "#,##0", "#,##0.00", "$#,##0.00;($#,##0.00)", "0%", "0.00%"];
 
+/// How a cell writes its numbers: "1,250.50", "1 250,50" (decimal comma) or "١٬٢٥٠٫٥٠" (Arabic).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NumberStyle { Point, Comma, Arabic }
+
 /// The number leading a cell's text: currency, grouping and accounting negatives allowed.
-pub fn cell_number(text: &str) -> Option<f64> {
+pub fn cell_number(text: &str) -> Option<f64> { cell_number_styled(text).map(|n| n.0) }
+
+/// The leading number and the separators it is written with. A decimal comma is recognised when
+/// the comma is the last separator after dots ("1.250,00"), follows space grouping ("1 250,00"),
+/// or is the only one and is not followed by exactly three digits ("1,5", "3,50"); "1,250" stays
+/// a thousands separator. Arabic-Indic digits with ٫ and ٬ read as Arabic.
+pub fn cell_number_styled(text: &str) -> Option<(f64, NumberStyle)> {
     let t = text.trim_start();
     let (neg_sign, rest) = match t.chars().next() { Some('-' | '−') => (true, &t[t.chars().next().unwrap().len_utf8()..]), Some('+') => (false, &t[1..]), _ => (false, t) };
     let rest = rest.trim_start();
     let paren = rest.starts_with('(');
     let rest = rest.trim_start_matches('(').trim_start().trim_start_matches(['$', '€', '£', '¥']).trim_start();
-    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit() || *c == ',' || *c == '.').collect();
-    if !digits.chars().next().is_some_and(|c| c.is_ascii_digit() || c == '.') { return None; }
-    let v: f64 = digits.replace(',', "").parse().ok()?;
-    Some(if neg_sign || paren && text.contains(')') { -v } else { v })
+    let digit = |c: char| match c { '0'..='9' => Some(c), '\u{660}'..='\u{669}' => char::from_digit(c as u32 - 0x660, 10), '\u{6F0}'..='\u{6F9}' => char::from_digit(c as u32 - 0x6F0, 10), _ => None };
+    let chars: Vec<char> = rest.chars().collect();
+    let mut raw = String::new();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if digit(c).is_some() || matches!(c, ',' | '.' | '\u{66B}' | '\u{66C}') { raw.push(c); i += 1; continue; }
+        // A space groups thousands only between a digit and three more digits.
+        let group = matches!(c, ' ' | '\u{A0}' | '\u{202F}') && raw.chars().last().is_some_and(|l| digit(l).is_some())
+            && chars[i + 1..].iter().take(3).filter(|d| digit(**d).is_some()).count() == 3 && chars.get(i + 4).is_none_or(|d| digit(*d).is_none());
+        if group { raw.push(' '); i += 1; continue; }
+        break;
+    }
+    if !raw.chars().next().is_some_and(|c| digit(c).is_some() || c == '.') { return None; }
+    let arabic = raw.chars().any(|c| matches!(c, '\u{660}'..='\u{669}' | '\u{6F0}'..='\u{6F9}' | '\u{66B}' | '\u{66C}'));
+    let (last_comma, last_dot) = (raw.rfind(','), raw.rfind('.'));
+    let comma_decimal = match (last_comma, last_dot) {
+        (Some(c), Some(d)) => c > d,
+        (Some(c), None) => raw.contains(' ') || (raw.matches(',').count() == 1 && raw[c + 1..].chars().filter(|x| digit(*x).is_some()).count() != 3),
+        _ => false,
+    };
+    let style = if arabic { NumberStyle::Arabic } else if comma_decimal { NumberStyle::Comma } else { NumberStyle::Point };
+    let mut plain = String::new();
+    for c in raw.chars() {
+        match c {
+            ' ' | '\u{66C}' => {}
+            ',' if comma_decimal => plain.push('.'),
+            ',' => {}
+            '.' if comma_decimal => {}
+            '\u{66B}' => plain.push('.'),
+            c => plain.push(digit(c).unwrap_or(c)),
+        }
+    }
+    let v: f64 = plain.parse().ok()?;
+    Some((if neg_sign || paren && text.contains(')') { -v } else { v }, style))
+}
+
+/// A formatted number ("1,234.50") rewritten in a cell's number style.
+pub fn restyle_number(s: &str, style: NumberStyle) -> String {
+    match style {
+        NumberStyle::Point => s.to_string(),
+        NumberStyle::Comma => s.chars().map(|c| match c { ',' => '\u{A0}', '.' => ',', c => c }).collect(),
+        NumberStyle::Arabic => s.chars().map(|c| match c { ',' => '\u{66C}', '.' => '\u{66B}', '0'..='9' => char::from_u32(0x660 + c as u32 - '0' as u32).unwrap(), c => c }).collect(),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -280,7 +330,9 @@ impl Document {
         let ctx = Ctx { doc: self, table, row: r, col, end: col + t.rows[r].cells[k].span.max(1) as usize - 1 };
         let v = ctx.eval(&tree)?;
         if !v.is_finite() { return Err("The result is not a number.".into()); }
-        Ok(format_number(v, picture))
+        // The result is written the way the table writes its numbers.
+        let style = t.rows.iter().flat_map(|r| r.cells.iter()).filter_map(|c| cell_number_styled(&self.paragraphs.iter().filter(|p| p.cell == Some(c.id)).map(|p| p.text()).collect::<String>()).map(|n| n.1)).find(|s| *s != NumberStyle::Point).unwrap_or(NumberStyle::Point);
+        Ok(restyle_number(&format_number(v, picture), style))
     }
     /// The formula Word suggests for the current cell.
     pub fn suggested_formula(&self) -> String {
@@ -305,6 +357,17 @@ mod tests {
         assert_eq!(cell_number("$1,250.50 total"), Some(1250.5));
         assert_eq!(cell_number("(300)"), Some(-300.0));
         assert_eq!(cell_number("Q1"), None);
+        // Wordcraft #836: decimal commas, space grouping and Arabic separators.
+        assert_eq!(cell_number_styled("1,5"), Some((1.5, NumberStyle::Comma)));
+        assert_eq!(cell_number_styled("3,50 zł"), Some((3.5, NumberStyle::Comma)));
+        assert_eq!(cell_number_styled("1 250,00"), Some((1250.0, NumberStyle::Comma)));
+        assert_eq!(cell_number_styled("1.250,75"), Some((1250.75, NumberStyle::Comma)));
+        assert_eq!(cell_number_styled("1,250"), Some((1250.0, NumberStyle::Point)));
+        assert_eq!(cell_number_styled("١٬٢٥٠٫٥ ريال"), Some((1250.5, NumberStyle::Arabic)));
+        assert_eq!(cell_number("۱۲"), Some(12.0));
+        assert_eq!(cell_number("10 apples"), Some(10.0));
+        assert_eq!(restyle_number("1,234.50", NumberStyle::Comma), "1\u{A0}234,50");
+        assert_eq!(restyle_number("5.75", NumberStyle::Arabic), "٥٫٧٥");
         assert_eq!(format_number(1234.5, "#,##0.00"), "1,234.50");
         assert_eq!(format_number(-12.0, "$#,##0.00;($#,##0.00)"), "($12.00)");
         assert_eq!(format_number(0.256, "0%"), "0%");
@@ -333,5 +396,28 @@ mod tests {
         assert!(d.evaluate_formula("=FOO(1)", "").is_err());
         d.insert_formula("=SUM(ABOVE)", "#,##0.00").unwrap();
         assert_eq!(d.paragraphs.iter().find(|p| p.cell == Some(cell)).unwrap().text(), "30.00");
+    }
+
+    #[test]
+    fn decimal_comma_and_arabic_tables() {
+        let fill = |vals: &[&str]| {
+            let mut d = Document::new(vec![Paragraph::new("x")]);
+            d.insert_table(vals.len() + 1, 1);
+            for v in vals { d.replace(v); d.move_cell(true); }
+            d
+        };
+        let d = fill(&["3,50", "2,25"]);
+        assert_eq!(d.evaluate_formula("=SUM(ABOVE)", "").unwrap(), "5,75");
+        let d2 = fill(&["1 250,00", "100"]);
+        assert_eq!(d2.evaluate_formula("=SUM(ABOVE)", "").unwrap(), "1350");
+        let d3 = fill(&["٣٫٥", "٢"]);
+        assert_eq!(d3.evaluate_formula("=SUM(ABOVE)", "").unwrap(), "٥٫٥");
+        // Sorting reads "1,5" as one and a half, not fifteen.
+        let mut s = fill(&["2", "12", "1,5"]);
+        let first = s.paragraph_start(s.paragraphs.iter().position(|p| p.cell.is_some()).unwrap());
+        s.select(first, first);
+        assert!(s.sort_table(0, false, false));
+        let cells: Vec<String> = s.paragraphs.iter().filter(|p| p.cell.is_some()).map(|p| p.text()).collect();
+        assert_eq!(&cells[..3], ["1,5", "2", "12"]);
     }
 }

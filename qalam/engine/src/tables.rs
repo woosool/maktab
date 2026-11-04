@@ -647,7 +647,7 @@ impl Document {
             id.map(|id| self.paragraphs.iter().filter(|p| p.cell == Some(id)).map(|p| p.text()).collect::<Vec<_>>().join(" ")).unwrap_or_default()
         };
         let mut body: Vec<(String, Row)> = t.rows[skip..].iter().map(|r| (key(r), r.clone())).collect();
-        let num = |s: &str| s.trim().replace([',', '$', '%', '€', '£'], "").parse::<f64>().ok();
+        let num = |s: &str| crate::formula::cell_number(s);
         body.sort_by(|a, b| {
             let o = match (num(&a.0), num(&b.0)) {
                 (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
