@@ -1038,7 +1038,9 @@ impl Document {
     }
 
     /// Accept or reject every change intersecting [s, e] (all changes when `all`).
+    /// A document protected for tracked changes keeps them: nothing is accepted or rejected.
     pub fn resolve_revisions(&mut self, accept: bool, s: usize, e: usize, all: bool) -> usize {
+        if self.protection.as_ref().is_some_and(|p| p.kind == crate::review::Restriction::TrackedChanges) { return 0; }
         let hits = |a: usize, b: usize, s: usize, e: usize| all || (a < e.max(s + 1) && b > s) || (s == e && a <= s && s <= b);
         // A change is resolved whole, even when comment marks or formatting split its runs.
         let (s, e) = self.revisions().iter().filter(|r| hits(r.0, r.1, s, e)).fold((s, e), |(s, e), r| (s.min(r.0), e.max(r.1)));
@@ -2894,5 +2896,19 @@ mod more_tests {
             d.resolve_revisions(true, 8, 8, false);
             assert!(d.revisions().is_empty(), "comment={comment} {:?}", d.revisions());
         }
+    }
+    #[test]
+    fn protection_for_tracked_changes_keeps_them() {
+        let mut d = Document::new(vec![Paragraph::new("x")]);
+        d.set_track_changes(true);
+        d.select(1, 1);
+        d.replace("yz");
+        d.protection = Some(crate::review::Protection::new(crate::review::Restriction::TrackedChanges, ""));
+        let n = d.len();
+        assert_eq!(d.resolve_revisions(true, 0, n, true), 0);
+        assert_eq!(d.revisions().len(), 1);
+        d.protection = None;
+        d.resolve_revisions(true, 0, n, true);
+        assert!(d.revisions().is_empty());
     }
 }
