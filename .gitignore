@@ -3,6 +3,7 @@
 # ============================================================================
 # Ignores 'target' directories in the root and any subfolders
 **/target/
+/.claude/*
 
 # Cargo backup/workspace files
 Cargo.lock.workspace

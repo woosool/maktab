@@ -197,7 +197,7 @@ impl<'a> Reader<'a> {
                 "w:shd" => p.shading = Some(c.attr("w:fill").filter(|f| *f != "auto").and_then(Color::from_hex)),
                 "w:pBdr" => {
                     let side = |n: &str| c.child(n).filter(|b| !matches!(b.attr("w:val"), Some("nil" | "none"))).map(|b| Border {
-                        width: b.attr("w:sz").and_then(|v| v.parse::<f32>().ok()).unwrap_or(4.0) / 8.0,
+                        width: b.attr("w:sz").and_then(|v| v.parse::<f32>().ok()).map(|v| v / 8.0).unwrap_or(OMITTED_BORDER_WIDTH),
                         space: b.attr("w:space").and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0),
                         color: b.attr("w:color").and_then(Color::from_hex),
                     });
@@ -318,7 +318,7 @@ impl<'a, 'b> BodyReader<'a, 'b> {
             fixed: tblpr.and_then(|p| p.child("w:tblLayout")).and_then(|l| l.attr("w:type")) == Some("fixed"),
         };
         let start = self.paragraphs.len();
-        for tr in e.children_named("w:tr") {
+        for tr in flatten_wrappers(e, "w:tr") {
             let trpr = tr.child("w:trPr");
             let height = trpr.and_then(|t| t.child("w:trHeight"));
             let mut row = Row {
@@ -330,14 +330,7 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                 grid_after: trpr.and_then(|t| t.val("w:gridAfter")).and_then(|v| v.parse().ok()).unwrap_or(0),
                 extra: trpr.map(|t| t.elements().filter(|c| !matches!(c.name.as_str(), "w:trHeight" | "w:tblHeader" | "w:cantSplit" | "w:gridBefore" | "w:gridAfter")).map(|c| c.to_xml()).collect()).unwrap_or_default(),
             };
-            let mut cells: Vec<&Element> = vec![];
-            for c in tr.elements() {
-                match c.name.as_str() {
-                    "w:tc" => cells.push(c),
-                    "w:sdt" => if let Some(x) = c.child("w:sdtContent") { cells.extend(x.children_named("w:tc")); },
-                    _ => {}
-                }
-            }
+            let cells: Vec<&Element> = flatten_wrappers(tr, "w:tc");
             for tc in cells {
                 let tcpr = tc.child("w:tcPr");
                 let mut cell = Cell::new(tcpr.and_then(|p| p.child("w:tcW")).filter(|w| w.attr("w:type").is_none_or(|t| t == "dxa")).and_then(|w| twip_attr(w, "w:w")).unwrap_or(0));
@@ -726,11 +719,36 @@ fn anchorize(mut d: Element, anchor: Option<crate::model::Anchor>, id: u32) -> E
     d
 }
 
+/// Children of `parent` named `name`, looking through content controls (`w:sdt`) and
+/// markup-compatibility blocks (`mc:AlternateContent`, wordcraft#5219) that wrap table rows or cells.
+fn flatten_wrappers<'e>(parent: &'e Element, name: &str) -> Vec<&'e Element> {
+    let mut out = vec![];
+    for c in parent.elements() {
+        match c.name.as_str() {
+            n if n == name => out.push(c),
+            "w:sdt" => if let Some(x) = c.child("w:sdtContent") { out.extend(flatten_wrappers(x, name)); },
+            "mc:AlternateContent" => if let Some(x) = alternate_branch(c) { out.extend(flatten_wrappers(x, name)); },
+            _ => {}
+        }
+    }
+    out
+}
+
+/// The `mc:Choice` whose requirements we understand, else the `mc:Fallback`.
+fn alternate_branch(ac: &Element) -> Option<&Element> {
+    const KNOWN: &[&str] = &["wps", "wpg", "wpc", "wpi", "wp14", "w14", "w15", "w16se", "a14", "v"];
+    ac.children_named("mc:Choice").find(|ch| ch.attr("Requires").unwrap_or("").split_whitespace().all(|r| KNOWN.contains(&r)))
+        .or_else(|| ac.child("mc:Fallback"))
+}
+
+/// Word draws a border side without `w:sz` as a hairline (about 0.12 pt), thinner than `w:sz="2"`.
+const OMITTED_BORDER_WIDTH: f32 = 0.125;
+
 /// A border side (§17.4.38): nil/none read as width 0, "no border".
 fn read_border(b: &Element) -> Border {
     if matches!(b.attr("w:val"), Some("nil" | "none")) { return Border { width: 0.0, space: 0.0, color: None }; }
     Border {
-        width: (b.attr("w:sz").and_then(|v| v.parse::<f32>().ok()).unwrap_or(4.0) / 8.0).max(0.25),
+        width: b.attr("w:sz").and_then(|v| v.parse::<f32>().ok()).map(|v| (v / 8.0).max(0.25)).unwrap_or(OMITTED_BORDER_WIDTH),
         space: b.attr("w:space").and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0),
         color: b.attr("w:color").and_then(Color::from_hex),
     }
@@ -835,7 +853,7 @@ fn read_page(sect: &Element) -> PageSettings {
         if let Some(first) = sides.iter().flatten().next() {
             s.borders = Some(crate::page::PageBorders {
                 style: crate::page::BorderStyle::from_val(first.attr("w:val").unwrap_or("single")),
-                width: first.attr("w:sz").and_then(|v| v.parse::<f32>().ok()).map(|v| v / 8.0).unwrap_or(0.5),
+                width: first.attr("w:sz").and_then(|v| v.parse::<f32>().ok()).map(|v| v / 8.0).unwrap_or(OMITTED_BORDER_WIDTH),
                 color: first.attr("w:color").and_then(Color::from_hex).unwrap_or(Color::BLACK),
                 space: first.attr("w:space").and_then(|v| v.parse::<f32>().ok()).unwrap_or(24.0),
                 from_text: b.attr("w:offsetFrom") == Some("text"),
@@ -2193,5 +2211,38 @@ mod tests {
         }
         assert!(failed.is_empty(), "{failed:#?}");
         eprintln!("{ok} fixtures opened, laid out and round-tripped");
+    }
+
+    #[test]
+    fn border_without_size_is_a_hairline() {
+        // wordcraft#5065: Word draws a border side without w:sz at about 0.12 pt, not 0.5 pt.
+        let doc = r#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pBdr><w:bottom w:val="single"/></w:pBdr></w:pPr><w:r><w:t>a</w:t></w:r></w:p><w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="4"/></w:pBdr></w:pPr><w:r><w:t>b</w:t></w:r></w:p></w:body></w:document>"#;
+        let d = read(&raw_docx(doc)).unwrap();
+        let w = |i: usize| d.para_format(&d.paragraphs[i]).borders.bottom.unwrap().width;
+        assert!((w(0) - 0.125).abs() < 1e-4, "omitted w:sz: {}", w(0));
+        assert!((w(1) - 0.5).abs() < 1e-4);
+    }
+
+    fn raw_docx(doc: &str) -> Vec<u8> {
+        let rels = r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>"#;
+        let mut out = Cursor::new(Vec::new());
+        {
+            let mut zip = zip::ZipWriter::new(&mut out);
+            let opts = zip::write::SimpleFileOptions::default();
+            for (n, x) in [("_rels/.rels", rels), ("word/document.xml", doc)] { zip.start_file(n, opts).unwrap(); zip.write_all(x.as_bytes()).unwrap(); }
+            zip.finish().unwrap();
+        }
+        out.into_inner()
+    }
+
+    #[test]
+    fn alternate_content_around_table_rows_and_cells() {
+        // wordcraft#5219: rows or cells wrapped in mc:AlternateContent keep their content.
+        let doc = r#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><w:body><w:tbl><w:tblGrid><w:gridCol w:w="2000"/><w:gridCol w:w="2000"/></w:tblGrid><mc:AlternateContent><mc:Choice Requires="wps"><w:tr><w:tc><w:p><w:r><w:t>Kept row</w:t></w:r></w:p></w:tc></w:tr></mc:Choice><mc:Fallback><w:tr><w:tc><w:p><w:r><w:t>Fallback row</w:t></w:r></w:p></w:tc></w:tr></mc:Fallback></mc:AlternateContent><w:tr><w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc><mc:AlternateContent><mc:Choice Requires="xyz"><w:tc><w:p><w:r><w:t>Unknown</w:t></w:r></w:p></w:tc></mc:Choice><mc:Fallback><w:tc><w:p><w:r><w:t>Fallback cell</w:t></w:r></w:p></w:tc></mc:Fallback></mc:AlternateContent></w:tr></w:tbl><w:p/></w:body></w:document>"#;
+        let d = read(&raw_docx(doc)).unwrap();
+        let t = d.text();
+        assert!(t.contains("Kept row") && !t.contains("Fallback row"), "{t:?}");
+        assert!(t.contains("Fallback cell") && !t.contains("Unknown"), "{t:?}");
+        assert_eq!(d.tables[0].rows.len(), 2);
     }
 }

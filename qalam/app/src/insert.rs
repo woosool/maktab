@@ -661,9 +661,13 @@ pub fn shape_controls(ui: &mut Ui, s: &mut Shape, pairs: usize) -> bool {
         row(ui);
         ui.label(crate::i18n::tr("Fill"));
         crate::theme::hrow(ui, |ui| {
+            // Text left in the old fill's contrasting color follows the fill, so a new shape's
+            // white text doesn't vanish when its fill is turned off or made light.
+            let before = s.fill;
             let mut on = s.fill.is_some();
             if crate::theme::check(ui, &mut on, "").changed() { s.fill = on.then_some(PALETTE[0]); changed = true; }
             if let Some(c) = &mut s.fill { changed |= crate::ribbon::color_button(ui, c); }
+            if s.fill != before && s.text_color == Shape::contrast(before) { s.text_color = Shape::contrast(s.fill); }
         });
         row(ui);
         ui.label(crate::i18n::tr("Outline"));

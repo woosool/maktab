@@ -416,4 +416,16 @@ mod bidi_tests {
         let last = l.chars[text.chars().count() - 1].x0;
         assert!(first > last, "first {first} last {last}");
     }
+
+    #[test]
+    fn arabic_with_numbers_keeps_digit_order() {
+        // "السنة الجامعية:2026" — the year sits left of the Arabic and its digits read left to right.
+        let text = "السنة الجامعية:2026";
+        let body = TextBody { paras: vec![Para { runs: vec![Run { text: text.into(), font: "Calibri".into(), size: 24.0, color: Rgba::BLACK, ..Default::default() }], end_size: 24.0, ..Default::default() }], wrap: true, ..Default::default() };
+        let l = layout(&body, 600.0, 200.0);
+        let n = text.chars().count();
+        let x = |k: usize| l.chars[k].x0;
+        assert!(x(n - 4) < x(n - 3) && x(n - 3) < x(n - 2) && x(n - 2) < x(n - 1), "digits left to right");
+        assert!(x(n - 1) < x(0), "number left of the first Arabic letter");
+    }
 }

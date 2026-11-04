@@ -269,51 +269,67 @@ pub fn geometry(kind: ShapeKind, w: f32, h: f32) -> Vec<(f32, f32)> {
 
 /// One line of text as glyph runs, shaped per fallback face. Returns the items and the width.
 pub fn text_line(text: &str, font: &str, bold: bool, size_pt: f32, color: Color, x: f32, baseline: f32) -> (Vec<DrawItem>, f32) {
+    text_line_dir(text, text_is_rtl(text), font, bold, size_pt, color, x, baseline)
+}
+
+/// A line of a wrapped paragraph, laid out in the paragraph's direction (a line of an Arabic
+/// paragraph that starts with a number still reads right to left).
+fn text_line_dir(text: &str, rtl: bool, font: &str, bold: bool, size_pt: f32, color: Color, x: f32, baseline: f32) -> (Vec<DrawItem>, f32) {
     let size = size_pt * 4.0 / 3.0;
     let base = fonts::resolve(font, bold, false);
-    let rtl = text.chars().any(fonts::is_complex);
     let mut items = vec![];
     let mut pen = x;
-    // Split into runs drawn by one face.
-    let chars: Vec<char> = text.chars().collect();
-    let mut i = 0;
-    let mut segments: Vec<(fonts::FontKey, String)> = vec![];
-    while i < chars.len() {
-        let key = fonts::fallback(base, chars[i]);
-        let mut seg = String::new();
-        while i < chars.len() && fonts::fallback(base, chars[i]) == key { seg.push(chars[i]); i += 1; }
-        segments.push((key, seg));
+    // Bidi (UAX #9): the line's direction comes from its first strong letter; level runs are
+    // laid out in visual order, each shaped in its own direction, so "السنة الجامعية:2026"
+    // keeps its word order and its digits left to right.
+    let info = unicode_bidi::BidiInfo::new(text, Some(if rtl { unicode_bidi::Level::rtl() } else { unicode_bidi::Level::ltr() }));
+    let mut runs: Vec<(bool, std::ops::Range<usize>)> = vec![];
+    for para in &info.paragraphs {
+        let (levels, visual) = info.visual_runs(para, para.range.clone());
+        for r in visual { if !r.is_empty() { runs.push((levels[r.start].is_rtl(), r)); } }
     }
-    if rtl { segments.reverse(); }
-    for (key, seg) in segments {
-        let shaped = fonts::shape(key, &seg, rtl, size);
-        let first = seg.chars().next().unwrap_or(' ');
-        let glyphs: Vec<Glyph> = shaped.iter().scan(pen, |p, g| { let gl = Glyph { ch: first, gid: g.gid, x: *p + g.dx, dy: g.dy }; *p += g.advance; Some(gl) }).collect();
-        pen += shaped.iter().map(|g| g.advance).sum::<f32>();
-        items.push(DrawItem::Glyphs { glyphs, baseline, font: key, size, color, effects: Effects::default() });
+    for (rtl, r) in runs {
+        // Split the run into pieces drawn by one face; a right-to-left run's pieces go right to left.
+        let mut segments: Vec<(fonts::FontKey, String)> = vec![];
+        for c in text[r].chars() {
+            let key = fonts::fallback(base, c);
+            match segments.last_mut() { Some((k, seg)) if *k == key => seg.push(c), _ => segments.push((key, c.to_string())) }
+        }
+        if rtl { segments.reverse(); }
+        for (key, seg) in segments {
+            let shaped = fonts::shape(key, &seg, rtl, size);
+            let first = seg.chars().next().unwrap_or(' ');
+            let glyphs: Vec<Glyph> = shaped.iter().scan(pen, |p, g| { let gl = Glyph { ch: first, gid: g.gid, x: *p + g.dx, dy: g.dy }; *p += g.advance; Some(gl) }).collect();
+            pen += shaped.iter().map(|g| g.advance).sum::<f32>();
+            items.push(DrawItem::Glyphs { glyphs, baseline, font: key, size, color, effects: Effects::default() });
+        }
     }
     (items, pen - x)
 }
+
+/// Whether a line of shape text reads right to left (its first strong letter is Arabic/Hebrew).
+pub fn text_is_rtl(text: &str) -> bool { unicode_bidi::get_base_direction(text) == unicode_bidi::Direction::Rtl }
 
 pub fn text_width(text: &str, font: &str, bold: bool, size_pt: f32) -> f32 { text_line(text, font, bold, size_pt, Color::BLACK, 0.0, 0.0).1 }
 
 /// Text wrapped to `width` and centered in a box (shape text, diagram boxes).
 fn centered_text(text: &str, size_pt: f32, bold: bool, color: Color, x: f32, y: f32, w: f32, h: f32) -> Vec<DrawItem> {
-    let mut lines: Vec<String> = vec![];
+    let mut lines: Vec<(String, bool)> = vec![];
     for para in text.split('\n') {
+        let rtl = text_is_rtl(para);
         let mut cur = String::new();
         for word in para.split_whitespace() {
             let try_line = if cur.is_empty() { word.to_string() } else { format!("{cur} {word}") };
-            if !cur.is_empty() && text_width(&try_line, "Calibri", bold, size_pt) > w - 8.0 { lines.push(std::mem::take(&mut cur)); cur = word.to_string(); } else { cur = try_line; }
+            if !cur.is_empty() && text_width(&try_line, "Calibri", bold, size_pt) > w - 8.0 { lines.push((std::mem::take(&mut cur), rtl)); cur = word.to_string(); } else { cur = try_line; }
         }
-        lines.push(cur);
+        lines.push((cur, rtl));
     }
     let lh = size_pt * 4.0 / 3.0 * 1.2;
     let mut by = y + (h - lh * lines.len() as f32) / 2.0 + lh * 0.8;
     let mut out = vec![];
-    for l in lines {
+    for (l, rtl) in lines {
         let lw = text_width(&l, "Calibri", bold, size_pt);
-        out.extend(text_line(&l, "Calibri", bold, size_pt, color, x + (w - lw) / 2.0, by).0);
+        out.extend(text_line_dir(&l, rtl, "Calibri", bold, size_pt, color, x + (w - lw) / 2.0, by).0);
         by += lh;
     }
     out
@@ -327,6 +343,10 @@ fn shifted(points: Vec<(f32, f32)>, x: f32, y: f32) -> Vec<(f32, f32)> { points.
 // Shapes
 
 impl Shape {
+    /// The text color that reads on a fill: white on dark fills, black on light ones or none.
+    pub fn contrast(fill: Option<Color>) -> Color {
+        match fill { Some(c) if 0.299 * c.0 as f32 + 0.587 * c.1 as f32 + 0.114 * c.2 as f32 <= 140.0 => Color::WHITE, _ => Color::BLACK }
+    }
     /// Map a point of the unrotated w×h box: mirror, then rotate about the center.
     pub fn transform(&self, (px, py): (f32, f32)) -> (f32, f32) {
         let (cx, cy) = (self.width / 2.0, self.height / 2.0);
@@ -392,9 +412,12 @@ fn box_text(s: &Shape, x: f32, y: f32) -> Vec<DrawItem> {
             if !cur.is_empty() && text_width(&t, "Calibri", s.bold, s.font_size) > w { lines.push(std::mem::take(&mut cur)); cur = word.to_string(); } else { cur = t; }
         }
         lines.push(cur);
+        // A right-to-left paragraph starts at the right inset.
+        let rtl = text_is_rtl(para);
         for l in lines {
             if by > y + s.height { return out; }
-            out.extend(text_line(&l, "Calibri", s.bold, s.font_size, s.text_color, x + ix, by).0);
+            let lx = if rtl { x + ix + (w - text_width(&l, "Calibri", s.bold, s.font_size)).max(0.0) } else { x + ix };
+            out.extend(text_line_dir(&l, rtl, "Calibri", s.bold, s.font_size, s.text_color, lx, by).0);
             by += lh;
         }
     }
@@ -709,6 +732,37 @@ pub fn render_diagram(d: &Diagram, x: f32, y: f32) -> Vec<DrawItem> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// Glyph runs left to right: (first char of the run, glyph ids).
+    fn runs(text: &str) -> Vec<(char, Vec<u16>)> {
+        let mut v: Vec<(f32, char, Vec<u16>)> = text_line(text, "Calibri", false, 12.0, Color::BLACK, 0.0, 0.0).0.into_iter()
+            .filter_map(|d| if let DrawItem::Glyphs { glyphs, .. } = d { Some((glyphs[0].x, glyphs[0].ch, glyphs.iter().map(|g| g.gid).collect())) } else { None }).collect();
+        v.sort_by(|a, b| a.0.total_cmp(&b.0));
+        v.into_iter().map(|(_, c, g)| (c, g)).collect()
+    }
+    #[test]
+    fn shape_text_mixed_arabic_and_digits_keeps_bidi_order() {
+        // An Arabic line ending in a year range: each number keeps its digits left to right
+        // (never "7202"), and, as in Word, the backslash between them takes the line's
+        // direction, so the later year sits leftmost; the first word is rightmost.
+        let r = runs("السنة الجامعية:2026\\2027");
+        assert_eq!(r[0].1, runs("2027")[0].1, "leftmost run is 2027, digits in order");
+        assert_eq!(r.last().unwrap().0, 'ا', "the first word ends up rightmost");
+        assert!(text_is_rtl("السنة 2026") && !text_is_rtl("2026 Hello"));
+        // A wrapped line of an Arabic paragraph that starts with a number keeps the paragraph's
+        // direction: the number sits at the right end.
+        let d: Vec<f32> = text_line_dir("2026 السنة", true, "Calibri", false, 12.0, Color::BLACK, 0.0, 0.0).0.into_iter().filter_map(|d| if let DrawItem::Glyphs { glyphs, .. } = d { (glyphs[0].ch == '2').then_some(glyphs[0].x) } else { None }).collect();
+        assert!(d[0] > 20.0, "number at the right of an rtl line: {d:?}");
+        // Plain Latin text is unaffected.
+        assert_eq!(runs("Hello 2026").len(), 1);
+        // A right-to-left text box paragraph is right-aligned within its insets.
+        let mut s = Shape::new(ShapeKind::Rect);
+        s.textbox = true; s.width = 300.0; s.height = 60.0; s.text = "مرحبا".into();
+        let xs: Vec<f32> = render_shape(&s, 0.0, 0.0).into_iter().filter_map(|d| if let DrawItem::Glyphs { glyphs, .. } = d { Some(glyphs[0].x) } else { None }).collect();
+        assert!(xs[0] > 150.0, "rtl text box line starts near the right edge: {xs:?}");
+        // A new shape's white text contrasts with its default fill; no fill wants black text.
+        assert_eq!(Shape::contrast(Shape::new(ShapeKind::Rect).fill), Shape::new(ShapeKind::Rect).text_color);
+        assert_eq!(Shape::contrast(None), Color::BLACK);
+    }
     #[test]
     fn objects_render_and_round_trip_specs() {
         for (k, _, _) in SHAPES { assert!(!render_shape(&Shape::new(*k), 0.0, 0.0).is_empty()); }
