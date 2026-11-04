@@ -1604,7 +1604,7 @@ fn table(app: &mut WordApp, ui: &mut Ui) {
                     if ui.add(egui::DragValue::new(&mut w).speed(0.01).range(0.15..=22.0).max_decimals(2).suffix("\"")).changed() { set_w = Some(w); }
                 });
                 if let Some(h) = set_h { app.doc.set_row_height((h * 1440.0).round() as i32, false); }
-                if let Some(w) = set_w { app.doc.set_column_width(b.table, b.c0, (w * 1440.0).round() as i32, false); }
+                if let Some(w) = set_w { app.doc.set_selected_column_widths((w * 1440.0).round() as i32); }
             }
             ui.horizontal(|ui| {
                 if small(ui, "distributeRows", None, false, true, "Distribute rows evenly").clicked() {

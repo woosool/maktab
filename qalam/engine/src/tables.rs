@@ -511,6 +511,19 @@ impl Document {
         self.changed();
     }
 
+    /// Give every selected column the same width (Table Layout's Width box), as one undo step.
+    pub fn set_selected_column_widths(&mut self, twips: i32) {
+        let Some(b) = self.cell_block() else { return };
+        let t = &self.tables[b.table];
+        if t.grid.is_empty() { return; }
+        self.checkpoint(EditKind::Other);
+        let t = &mut self.tables[b.table];
+        let c1 = b.c1.min(t.grid.len() - 1);
+        for g in &mut t.grid[b.c0.min(c1)..=c1] { *g = twips.max(216); }
+        t.sync_cell_widths();
+        self.changed();
+    }
+
     /// Set one grid column's width, taking the difference from its right neighbor (border drag).
     pub fn set_column_width(&mut self, table: usize, col: usize, twips: i32, keep_total: bool) {
         let t = &self.tables[table];
@@ -832,6 +845,18 @@ mod tests {
         assert_eq!(d.tables[0].rows[1].cells[0].v_merge, VMerge::None);
         d.undo(); d.undo();
         assert_eq!(cell_text(&d, 1, 1), "11");
+    }
+
+    #[test]
+    fn width_box_sizes_every_selected_column() {
+        let mut d = grid(2, 3);
+        let p = d.paragraph_start(d.paragraphs.iter().position(|p| p.text() == "00").unwrap());
+        d.select(p, p);
+        d.select_table_part(TablePart::Table);
+        d.set_selected_column_widths(1800);
+        assert_eq!(d.tables[0].grid, vec![1800; 3], "each column of a whole-table selection gets the width");
+        d.undo();
+        assert_ne!(d.tables[0].grid, vec![1800; 3], "one undo step");
     }
 
     #[test]
