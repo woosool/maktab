@@ -144,7 +144,7 @@ impl WordApp {
         self.doc.object_at(s).cloned().map(|o| (s, o))
     }
     /// Insert a downloaded picture with an attribution caption (online pictures, video thumbnails).
-    fn insert_picture_bytes(&mut self, bytes: Vec<u8>, link: Option<String>, caption: Option<(String, String)>) -> Result<(), String> {
+    pub(crate) fn insert_picture_bytes(&mut self, bytes: Vec<u8>, link: Option<String>, caption: Option<(String, String)>) -> Result<(), String> {
         let img = image::load_from_memory(&bytes).map_err(|e| e.to_string())?;
         let (bytes, ct) = match image::guess_format(&bytes) {
             Ok(image::ImageFormat::Png) => (bytes, "image/png"),

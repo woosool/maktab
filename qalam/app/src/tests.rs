@@ -105,6 +105,20 @@ fn pasting_an_image_inserts_a_picture() {
 }
 
 #[test]
+fn dropping_a_picture_file_inserts_it() {
+    // A picture dragged in from the file manager goes in at the caret instead of opening.
+    let mut h = harness(None);
+    h.run_steps(3);
+    let path = out_dir().join("dropped.png");
+    image::RgbaImage::from_pixel(4, 3, image::Rgba([255, 0, 0, 255])).save(&path).unwrap();
+    let ctx = h.ctx.clone();
+    h.state_mut().drop_file(&ctx, path);
+    h.run_steps(2);
+    let d = &h.state().doc;
+    assert!(d.paragraphs.iter().flat_map(|p| &p.runs).any(|r| r.image.is_some()), "a picture is inserted");
+}
+
+#[test]
 fn opens_document_and_clicks_place_caret() {
     let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../documents/public/fixtures/tables.docx");
     if !fixture.exists() { return; }

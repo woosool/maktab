@@ -522,6 +522,16 @@ impl WordApp {
         });
     }
 
+    /// A file dropped on the window: a picture is inserted at the caret, anything else opens.
+    pub fn drop_file(&mut self, ctx: &egui::Context, p: std::path::PathBuf) {
+        let ext = p.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
+        if !matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "bmp") { return self.guarded(ctx, Pending::OpenPath(p)); }
+        match std::fs::read(&p).map_err(|e| e.to_string()).and_then(|bytes| self.insert_picture_bytes(bytes, None, None)) {
+            Ok(()) => { self.scroll_to_caret = true; self.canvas_focus = true; }
+            Err(e) => self.dialogs.error = Some(crate::i18n::trf("Couldn't insert the picture.\n\n{}", &[&e])),
+        }
+    }
+
     pub fn insert_picture(&mut self) {
         let Some(p) = rfd::FileDialog::new().add_filter("Pictures", &["png", "jpg", "jpeg", "gif", "bmp"]).pick_file() else { return };
         match std::fs::read(&p).map_err(|e| e.to_string()).and_then(|bytes| image::load_from_memory(&bytes).map(|i| (bytes, i)).map_err(|e| e.to_string())) {
@@ -753,8 +763,8 @@ impl WordApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.dialogs.confirm = Some(Pending::Quit);
         }
-        // Files dropped on the window open.
-        if let Some(p) = ctx.input(|i| i.raw.dropped_files.first().and_then(|f| Some(f.path().to_path_buf()).filter(|p| !p.as_os_str().is_empty()))) { self.guarded(&ctx, Pending::OpenPath(p)); }
+        // Files dropped on the window open; dropped pictures go in at the caret.
+        if let Some(p) = ctx.input(|i| i.raw.dropped_files.first().and_then(|f| Some(f.path().to_path_buf()).filter(|p| !p.as_os_str().is_empty()))) { self.drop_file(&ctx, p); }
         self.open_sent_files(&ctx);
         // Fonts added (imported or downloaded): lay the document out again with them.
         if qalam_kit::font_manager::show(&ctx) { self.layout.pages.clear(); self.measure_cache = Default::default(); }
