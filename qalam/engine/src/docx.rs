@@ -966,6 +966,14 @@ pub fn read(bytes: &[u8]) -> Result<Document, String> {
         theme_minor_cs: font_of("a:minorFont", "a:cs"), theme_major_cs: font_of("a:majorFont", "a:cs"),
     };
 
+    // Missing fonts are drawn in their font table's alternate name or generic family, as Word does.
+    if let Some(ft) = rels.iter().find(|r| r.kind.ends_with("/fontTable")).and_then(|r| part_text(&parts, &resolve_target(&main, &r.target))).and_then(|t| xml::parse(&t).ok()) {
+        for f in ft.children_named("w:font") {
+            let Some(name) = f.attr("w:name") else { continue };
+            let alt = f.child("w:altName").and_then(|a| a.attr("w:val"));
+            crate::fonts::register_font_table_entry(name, alt, f.child("w:family").and_then(|a| a.attr("w:val")).unwrap_or("auto"));
+        }
+    }
     let styles = rels.iter().find(|r| r.kind == REL_STYLES).and_then(|r| part_text(&parts, &resolve_target(&main, &r.target))).and_then(|t| xml::parse(&t).ok())
         .map(|s| reader.styles(&s)).unwrap_or_default();
     let numbering = rels.iter().find(|r| r.kind == REL_NUMBERING).and_then(|r| part_text(&parts, &resolve_target(&main, &r.target))).and_then(|t| xml::parse(&t).ok())

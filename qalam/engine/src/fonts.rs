@@ -390,7 +390,30 @@ pub fn resolve(name: &str, bold: bool, italic: bool) -> FontKey {
         if let Some(a) = close_families(name).iter().find(|a| !a.eq_ignore_ascii_case(name.trim()) && embedded_face(a, false, false).is_some()) { return resolve(a, bold, italic); }
     }
     let installed = system_family(name).or_else(|| close_families(name).iter().find_map(|a| system_family(a)));
+    if installed.is_none() && !FAMILIES.iter().any(|(d, _)| d.eq_ignore_ascii_case(name.trim())) {
+        if let Some(sub) = table_substitute(name) { return resolve(&sub, bold, italic); }
+    }
     match installed.filter(|_| !exact_bundled) { Some(f) => resolve_family(f, bold, italic), None => resolve_family(bundled_family(name), bold, italic) }
+}
+
+/// Font table entries of opened documents: name → (alternate name, generic family).
+static FONT_TABLE: Mutex<Option<HashMap<String, (Option<String>, String)>>> = Mutex::new(None);
+
+/// Remember a document font table entry (w:altName, w:family), used when the font is missing.
+pub fn register_font_table_entry(name: &str, alt: Option<&str>, family: &str) {
+    let mut t = FONT_TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    t.get_or_insert_with(HashMap::new).insert(name.trim().to_ascii_lowercase(), (alt.map(|a| a.trim().to_string()).filter(|a| !a.is_empty()), family.to_string()));
+}
+
+/// The font Word draws a missing font in: its font table's alternate name when that font is
+/// available, else Cambria for a roman (serif) font and Calibri for the rest. Fonts the font
+/// table doesn't list, and fonts with a known close substitute, keep their usual substitute.
+fn table_substitute(name: &str) -> Option<String> {
+    let key = name.trim().to_ascii_lowercase();
+    let (alt, family) = FONT_TABLE.lock().unwrap_or_else(|e| e.into_inner()).as_ref()?.get(&key).cloned()?;
+    if let Some(a) = alt.filter(|a| !a.eq_ignore_ascii_case(name.trim()) && is_available(a)) { return Some(a); }
+    if bundled_family(name) != "Noto Sans" || key == "noto sans" { return None; }
+    Some(if family == "roman" { "Cambria" } else { "Calibri" }.to_string())
 }
 
 /// installed designs that stand in for a missing font far better than the
@@ -712,6 +735,20 @@ mod tests {
         let m = metrics(resolve("Arial", false, false));
         assert!(m.ascent > 0.8 && m.descent > 0.1);
         assert!(advance(resolve("Courier New", false, false), 'i', 16.0) == advance(resolve("Courier New", false, false), 'W', 16.0));
+    }
+
+    #[test]
+    fn missing_font_uses_font_table_alternate_or_family() {
+        let fam = |name: &str| face(resolve(name, false, false).face).family;
+        register_font_table_entry("Qx Museo Sans 300", Some("Courier New"), "roman");
+        register_font_table_entry("Qx Missing Alt", Some("Qx Nowhere"), "roman");
+        register_font_table_entry("Qx Plain Swiss", None, "swiss");
+        assert_eq!(fam("Qx Museo Sans 300"), "Liberation Mono", "altName comes before the family rule");
+        assert_eq!(fam("Qx Missing Alt"), "Caladea", "a roman font with no usable altName is drawn in Cambria");
+        assert_eq!(fam("Qx Plain Swiss"), "Carlito", "other families are drawn in Calibri");
+        assert_eq!(fam("Qx Not In Table"), "Noto Sans");
+        register_font_table_entry("Georgia Qx Serif", None, "swiss");
+        assert_eq!(fam("Georgia Qx Serif"), "Liberation Serif", "known substitutes stay");
     }
 
     #[test]
