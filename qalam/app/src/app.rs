@@ -415,6 +415,8 @@ impl WordApp {
         let result = std::fs::read(&path).map_err(|e| e.to_string()).and_then(|bytes| match ext.as_str() {
             "md" | "markdown" => Ok((import::from_markdown(&String::from_utf8_lossy(&bytes)), false)),
             "txt" | "text" => Ok((import::from_text(&import::decode_text(&bytes)), false)),
+            // An empty file (as Explorer's New › Word Document makes) opens as a new document saved back to it.
+            _ if bytes.is_empty() => Ok((Self::welcome(), true)),
             _ => docx::read(&bytes).map(|d| (d, true)),
         });
         match result {

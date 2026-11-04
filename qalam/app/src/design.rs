@@ -58,7 +58,7 @@ impl WordApp {
         };
         if let (Some(p), Ok(json)) = (defaults_path(), serde_json::to_string_pretty(&d)) {
             if let Some(dir) = p.parent() { let _ = std::fs::create_dir_all(dir); }
-            match std::fs::write(&p, json) { Ok(()) => self.notify(ctx, "New documents will use these settings"), Err(e) => self.dialogs.error = Some(crate::i18n::trf("Couldn't save the defaults.\n\n{}", &[&e])) }
+            match crate::app::write_replacing(&p, json.as_bytes()) { Ok(()) => self.notify(ctx, "New documents will use these settings"), Err(e) => self.dialogs.error = Some(crate::i18n::trf("Couldn't save the defaults.\n\n{}", &[&e])) }
         }
     }
 }

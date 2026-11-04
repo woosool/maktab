@@ -1236,6 +1236,8 @@ fn context_menu_options_and_view_reset() {
     st.hidden_groups.insert("Home/Voice".into());
     st.window = Some(([1000.0, 700.0], Some([40.0, 50.0]), false));
     st.save();
+    // Saved by replacing the file whole: no temporary file is left beside it.
+    assert!(std::fs::read_dir(crate::config_dir()).unwrap().all(|e| !e.unwrap().file_name().to_string_lossy().ends_with(".tmp")));
     let back = crate::options::Settings::load();
     assert_eq!(back.hidden_groups, st.hidden_groups);
     assert_eq!(back.window, st.window);
@@ -1811,3 +1813,19 @@ fn saving_replaces_the_file_whole_or_not_at_all() {
     assert_eq!(std::fs::read_to_string(&file).unwrap(), "جديد");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn an_empty_docx_opens_as_a_new_document_saved_back_to_it() {
+    let mut h = harness(None);
+    let file = std::env::temp_dir().join(format!("qalam-empty-{}.docx", std::process::id()));
+    std::fs::write(&file, b"").unwrap();
+    h.state_mut().open_path(file.clone());
+    assert!(h.state().dialogs.error.is_none());
+    assert_eq!(h.state().path.as_deref(), Some(file.as_path()));
+    h.state_mut().doc.replace("مرحبا");
+    let ctx = h.ctx.clone();
+    assert!(h.state_mut().save(&ctx, false));
+    assert_eq!(word_engine::docx::read(&std::fs::read(&file).unwrap()).unwrap().paragraphs[0].text(), "مرحبا");
+    std::fs::remove_file(&file).unwrap();
+}
+

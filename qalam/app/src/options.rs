@@ -111,7 +111,8 @@ impl Settings {
         });
         let p = path();
         let _ = std::fs::create_dir_all(p.parent().unwrap());
-        let _ = std::fs::write(p, serde_json::to_string_pretty(&v).unwrap_or_default());
+        // Replaced whole, so an interrupted write never leaves the settings truncated.
+        let _ = crate::app::write_replacing(&p, serde_json::to_string_pretty(&v).unwrap_or_default().as_bytes());
     }
 }
 
