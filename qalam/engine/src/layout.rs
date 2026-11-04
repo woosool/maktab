@@ -1509,7 +1509,10 @@ impl<'a> Placer<'a> {
             let l = &cur.lines[k];
             let (page, y) = (self.page, self.y);
             self.emit(&cur, l, page, left, y, None);
-            self.y += l.height;
+            // A page break that ends its paragraph keeps the mark (and space after) on the old page: the
+            // empty line after it holds the caret but takes no room, so the next paragraph starts at the top.
+            let mark_after_break = k + 1 == n && k > 0 && cur.lines[k - 1].page_break_after && l.start == l.end;
+            if !mark_after_break { self.y += l.height; }
             let (page_break, column_break) = (l.page_break_after, l.column_break_after);
             if page_break || column_break {
                 self.paint_paragraph_box(&cur, self.page, left, width, frag_top, self.y, frag_first, false);
@@ -2160,6 +2163,20 @@ mod tests {
         let l = layout_document(&d);
         let x = l.caret_rect(0).unwrap().x;
         assert!(x > 200.0, "centered text starts mid-page ({x})");
+    }
+
+    #[test]
+    fn page_break_ending_a_paragraph_leaves_next_at_page_top() {
+        // wordcraft #1304: the space after a paragraph that ends in a page break stays on the old page.
+        let mut d = Document::new(vec![Paragraph::new("a\u{000C}"), Paragraph::new("b")]);
+        d.select(0, 4);
+        d.set_paragraph_spacing(Some(30.0), Some(30.0));
+        let l = layout_document(&d);
+        let b = l.lines.iter().find(|x| x.paragraph == 1).unwrap();
+        let mark = l.lines.iter().find(|x| x.paragraph == 0 && x.page == 1).unwrap();
+        assert_eq!(b.page, 1);
+        assert!((b.y - mark.y).abs() < 0.01, "next paragraph starts at the top ({} vs {})", b.y, mark.y);
+        assert!(l.caret_rect(2).is_some_and(|c| c.page == 1));
     }
 
     #[test]
