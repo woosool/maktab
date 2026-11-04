@@ -135,6 +135,11 @@ mod tests {
     use crate::model::Paragraph;
 
     #[test]
+    fn common_compound_words_are_known() {
+        for w in ["desktop", "downside", "laptop", "website", "online", "email", "smartphone", "Desktop", "downsides"] { assert!(super::correct(w), "{w} is a word"); }
+    }
+
+    #[test]
     fn spelling_and_grammar() {
         assert!(correct("houses") && correct("running") && correct("don't") && correct("NASA") && correct("well-known"));
         assert!(!correct("recieve") && !correct("teh"));

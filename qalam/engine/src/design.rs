@@ -131,6 +131,15 @@ impl Document {
         self.changed();
     }
 
+    /// Update Style to Match Selection: the style takes the selection's character formatting
+    /// (every paragraph using it follows) and the selected paragraphs take the style.
+    pub fn update_style_to_match_selection(&mut self, id: &str) {
+        let mut run = self.current_run_props();
+        run.rtl = None; // direction belongs to the text, not the style
+        self.update_style(id, |s| s.run.overlay(&run));
+        self.set_paragraph_style(id);
+    }
+
     /// Edit the document defaults (docDefaults).
     pub fn update_defaults(&mut self, f: impl FnOnce(&mut RunProps, &mut ParaProps)) {
         let sheet = &mut self.styles;
@@ -372,6 +381,42 @@ pub const SPACING: &[(&str, f32, f32, f32)] = &[("No Paragraph Space", 0.0, 0.0,
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn character_spacing_reads_back_for_the_font_dialog() {
+        let mut d = Document::new(vec![Paragraph::new("111111111 مرحبا")]);
+        d.select(0, 9);
+        d.set_run_props(RunProps { spacing: Some(4.1), ..Default::default() });
+        assert!((d.current_format().spacing - 4.1).abs() < 1e-3);
+        d.select(3, 3);
+        assert!((d.current_format().spacing - 4.1).abs() < 1e-3);
+        let e = crate::docx::read(&crate::docx::write(&d).unwrap()).unwrap();
+        let mut e = e; e.select(0, 9);
+        assert!((e.current_format().spacing - 4.1).abs() < 0.06, "spacing survives a save: {}", e.current_format().spacing);
+    }
+
+    #[test]
+    fn update_style_to_match_selection_restyles_every_user() {
+        let mut d = Document::new(vec![Paragraph::new("عنوان أول"), Paragraph::new("Body text in red"), Paragraph::new("Second heading")]);
+        d.select(0, 0);
+        d.set_paragraph_style("Heading2");
+        let start = d.paragraphs[0].text().chars().count() + 1;
+        let third = start + "Body text in red".len() + 1;
+        d.select(third, third);
+        d.set_paragraph_style("Heading2");
+        d.select(start, start + "Body text in red".len());
+        d.set_run_props(RunProps { color: Some(Some(Color(0xC0, 0, 0))), italic: Some(true), ..Default::default() });
+        d.update_style_to_match_selection("Heading2");
+        let st = &d.styles.styles["Heading2"];
+        assert_eq!(st.run.color, Some(Some(Color(0xC0, 0, 0))));
+        assert_eq!(st.run.italic, Some(true));
+        assert_eq!(st.run.rtl, None);
+        assert_eq!(d.paragraphs[1].style.as_deref(), Some("Heading2"));
+        let f = d.run_format(&d.paragraphs[2], &d.paragraphs[2].runs[0]);
+        assert!(f.italic && f.color == Some(Color(0xC0, 0, 0)), "other Heading 2 paragraphs follow the style");
+        let a = d.run_format(&d.paragraphs[0], &d.paragraphs[0].runs[0]);
+        assert!(a.italic, "the Arabic heading follows too");
+    }
 
     #[test]
     fn stories_styles_page_and_drop_caps_round_trip() {

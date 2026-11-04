@@ -2071,3 +2071,115 @@ fn wordcraft_task05_screenshots() {
         }
     }
 }
+
+/// wordcraft #512: the Paragraph dialog's Formatting exceptions reach the paragraph.
+#[test]
+fn paragraph_dialog_formatting_exceptions() {
+    let mut h = typed("فقرة عربية لا تُقسّم الكلمات فيها");
+    crate::ui::open_paragraph_dialog(h.state_mut());
+    h.run_steps(3);
+    h.get_by_label("Suppress line numbers").click();
+    h.get_by_label("Don't hyphenate").click();
+    h.run_steps(2);
+    h.get_by_label("Apply").click();
+    h.run_steps(3);
+    let f = h.state().doc.current_para_format();
+    assert!(f.suppress_line_numbers && f.suppress_hyphens);
+    crate::ui::open_paragraph_dialog(h.state_mut());
+    let d = h.state().dialogs.paragraph.as_ref().unwrap();
+    assert!(d.no_line_numbers && d.no_hyphenate, "the dialog reads them back");
+}
+
+/// wordcraft #555: right-clicking a gallery style offers Update … to Match Selection.
+#[test]
+fn style_gallery_update_to_match_selection() {
+    let mut h = typed("Red italic words");
+    h.state_mut().doc.select_all();
+    h.state_mut().doc.set_run_props(word_engine::RunProps { italic: Some(true), ..Default::default() });
+    h.state_mut().tab = crate::ribbon::Tab::Home;
+    h.run_steps(3);
+    let at = h.get_by_label("Apply the Heading 2 style").rect().center();
+    h.event(Event::PointerMoved(at));
+    h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: true, modifiers: Modifiers::NONE });
+    h.step();
+    h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: false, modifiers: Modifiers::NONE });
+    h.run_steps(3);
+    h.get_by_label("Update Heading 2 to Match Selection").click();
+    h.run_steps(3);
+    let doc = &h.state().doc;
+    assert_eq!(doc.styles.styles["Heading2"].run.italic, Some(true));
+    assert_eq!(doc.paragraphs[0].style.as_deref(), Some("Heading2"));
+}
+
+/// Qalam renders of wordcraft task07 issue scenarios (WORDCRAFT_IMG=<img dir>).
+#[test]
+#[ignore]
+fn wordcraft_task07_renders() {
+    let dir = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
+    let shot = |h: &mut Harness<'static, WordApp>, n: &str, name: &str| {
+        h.run_steps(6);
+        let d = dir.join(n);
+        std::fs::create_dir_all(&d).unwrap();
+        h.render().expect("render").save(d.join(format!("{name}.png"))).unwrap();
+    };
+    let new = || { let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().allow_missing_glyphs().build_eframe(|cc| WordApp::new(cc, None)); h.run_steps(2); h };
+    let only = std::env::var("WORDCRAFT_ONLY").unwrap_or_default();
+    let want = |n: &str| only.is_empty() || only == n;
+    // #552: character spacing read back by the Font dialog.
+    if want("552") {
+        let mut h = new();
+        h.event(Event::Text("111111111 مرحبا".into()));
+        h.run_steps(2);
+        h.state_mut().doc.select(0, 9);
+        h.state_mut().doc.set_run_props(word_engine::RunProps { spacing: Some(4.1), ..Default::default() });
+        h.state_mut().open_font_dialog();
+        shot(&mut h, "552", "qalam");
+    }
+    // #512: Paragraph dialog with Formatting exceptions.
+    if want("512") {
+        let mut h = new();
+        h.event(Event::Text("فقرة عربية".into()));
+        crate::ui::open_paragraph_dialog(h.state_mut());
+        shot(&mut h, "512", "qalam-after");
+    }
+    // #555: style gallery right-click menu.
+    if want("555") {
+        let mut h = new();
+        h.event(Event::Text("Red italic words".into()));
+        h.run_steps(2);
+        h.state_mut().doc.select_all();
+        h.state_mut().doc.set_run_props(word_engine::RunProps { italic: Some(true), color: Some(Some(word_engine::Color(0xC0, 0, 0))), ..Default::default() });
+        h.run_steps(3);
+        let at = h.get_by_label("Apply the Heading 2 style").rect().center();
+        h.event(Event::PointerMoved(at));
+        h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: true, modifiers: Modifiers::NONE });
+        h.step();
+        h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: false, modifiers: Modifiers::NONE });
+        shot(&mut h, "555", "qalam-after");
+    }
+    // #565 / #505: Bengali and Chinese text in the document.
+    if want("565") {
+        word_engine::fonts::load_system_fonts(None);
+        let mut h = new();
+        h.event(Event::Text("ওয়ার্ড বাংলা লেখা".into()));
+        h.run_steps(1);
+        h.key_press(Key::Enter);
+        h.event(Event::Text("中文字体 微软雅黑".into()));
+        h.state_mut().preedit = "ওয়ার্ড".into();
+        shot(&mut h, "565", "qalam");
+    }
+    // #535: right-click mini toolbar on a selection.
+    if want("535") {
+        let mut h = new();
+        h.event(Event::Text("Select this text to see the mini toolbar buttons.".into()));
+        h.run_steps(2);
+        h.state_mut().doc.select(0, 11);
+        h.run_steps(2);
+        let at = egui::pos2(560.0, 330.0);
+        h.event(Event::PointerMoved(at));
+        h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: true, modifiers: Modifiers::NONE });
+        h.step();
+        h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: false, modifiers: Modifiers::NONE });
+        shot(&mut h, "535", "qalam");
+    }
+}

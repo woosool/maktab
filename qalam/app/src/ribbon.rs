@@ -607,7 +607,12 @@ fn style_gallery(app: &mut WordApp, ui: &mut Ui) {
         let preview = FontId::new((rf.size * 1.0).clamp(10.0, 17.0), FontFamily::Name(crate::app::face_name(key.face as usize).into()));
         ui.painter().with_clip_rect(rect.shrink(3.0)).text(pos2(rect.min.x + 7.0, rect.min.y + 24.0), Align2::LEFT_CENTER, "AaBbCc", preview, color);
         ui.painter().text(pos2(rect.min.x + 7.0, rect.max.y - 12.0), Align2::LEFT_CENTER, &name, FontId::proportional(10.5), c_ink3());
-        if r.on_hover_text(crate::i18n::trf("Apply the {} style", &[&name])).clicked() { app.doc.set_paragraph_style(&id); }
+        let r = r.on_hover_text(crate::i18n::trf("Apply the {} style", &[&name]));
+        if r.clicked() { app.doc.set_paragraph_style(&id); }
+        r.context_menu(|ui| {
+            if ui.button(crate::i18n::trf("Update {} to Match Selection", &[&name])).clicked() { app.doc.update_style_to_match_selection(&id); ui.close(); }
+            if ui.button(crate::i18n::tr("Apply")).clicked() { app.doc.set_paragraph_style(&id); ui.close(); }
+        });
     }
 }
 

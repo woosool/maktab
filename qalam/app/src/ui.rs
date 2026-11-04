@@ -66,7 +66,7 @@ pub fn open_paragraph_dialog(app: &mut WordApp) {
     app.dialogs.paragraph = Some(ParagraphDraft {
         left: f.indent_left as f32 / 1440.0, right: f.indent_right as f32 / 1440.0, first: f.first_line as f32 / 1440.0,
         before: f.space_before, after: f.space_after, rule: f.line_rule, spacing: f.line_spacing,
-        alignment: f.alignment, rtl, outline: f.outline_level, contextual: f.contextual_spacing,
+        alignment: f.alignment, rtl, outline: f.outline_level, contextual: f.contextual_spacing, no_line_numbers: f.suppress_line_numbers, no_hyphenate: f.suppress_hyphens,
         widow: f.widow_control, keep_next: f.keep_next, keep_lines: f.keep_lines, page_break_before: f.page_break_before,
     });
 }
@@ -266,6 +266,9 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
             crate::theme::check(ui, &mut d.keep_next, crate::i18n::tr("Keep with next"));
             crate::theme::check(ui, &mut d.keep_lines, crate::i18n::tr("Keep lines together"));
             crate::theme::check(ui, &mut d.page_break_before, crate::i18n::tr("Page break before"));
+            crate::theme::section(ui, "Formatting exceptions");
+            crate::theme::check(ui, &mut d.no_line_numbers, crate::i18n::tr("Suppress line numbers"));
+            crate::theme::check(ui, &mut d.no_hyphenate, crate::i18n::tr("Don't hyphenate"));
             ui.add_space(4.0);
             crate::theme::footer(ui, |ui| if crate::theme::primary(ui, "Apply").clicked() { apply = true; });
         });
@@ -273,7 +276,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
             app.doc.set_para_props(word_engine::ParaProps {
                 indent_left: Some((d.left * 1440.0).round() as i32), indent_right: Some((d.right * 1440.0).round() as i32), first_line: Some((d.first * 1440.0).round() as i32),
                 space_before: Some(d.before), space_after: Some(d.after), line_rule: Some(d.rule), line_spacing: Some(d.spacing),
-                alignment: Some(d.alignment), rtl: Some(d.rtl), outline_level: Some(d.outline), contextual_spacing: Some(d.contextual),
+                alignment: Some(d.alignment), rtl: Some(d.rtl), outline_level: Some(d.outline), contextual_spacing: Some(d.contextual), suppress_line_numbers: Some(d.no_line_numbers), suppress_hyphens: Some(d.no_hyphenate),
                 widow_control: Some(d.widow), keep_next: Some(d.keep_next), keep_lines: Some(d.keep_lines), page_break_before: Some(d.page_break_before), ..Default::default()
             });
             app.dialogs.paragraph = None;
