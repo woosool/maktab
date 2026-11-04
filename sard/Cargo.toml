@@ -10,3 +10,6 @@ debug = false
 [profile.release]
 lto = "thin"
 strip = true
+
+[patch.crates-io]
+epaint = { path = "../vendor/epaint" }

@@ -55,3 +55,6 @@ egui_kittest = { version = "0.37", features = ["wgpu", "snapshot", "eframe"] }
 # Keep the build cache small: no debug info for dependencies.
 [profile.dev.package."*"]
 debug = false
+
+[patch.crates-io]
+epaint = { path = "../vendor/epaint" }

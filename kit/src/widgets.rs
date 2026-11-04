@@ -545,3 +545,26 @@ mod align_tests {
         assert_eq!(super::text_align("Hello"), egui::Align::LEFT);
     }
 }
+
+#[cfg(test)]
+mod bidi_tests {
+    /// egui (patched epaint) lays Arabic out right to left: the first word on the right, numbers
+    /// and Latin left to right, one glyph per char so carets line up.
+    #[test]
+    fn arabic_words_run_right_to_left() {
+        let ctx = egui::Context::default();
+        crate::fonts::install_fonts(&ctx);
+        let mut out = ctx.run_pass(Default::default(), |ctx| {
+            let text = "هل انت بخير 2026 ok";
+            let g = ctx.fonts_mut(|f| f.layout_no_wrap(text.into(), egui::FontId::proportional(14.0), egui::Color32::WHITE));
+            let glyphs = &g.rows[0].glyphs;
+            assert_eq!(glyphs.len(), text.chars().count());
+            let x = |i: usize| glyphs[i].pos.x;
+            assert!(x(0) > x(1), "letters of a word run right to left");
+            assert!(x(0) > x(3) && x(3) > x(7), "first word on the right");
+            assert!(x(12) < x(13) && x(13) < x(15), "digits run left to right");
+            assert!(x(17) < x(12), "the Latin word is left of the number");
+        });
+        out.textures_delta.clear();
+    }
+}

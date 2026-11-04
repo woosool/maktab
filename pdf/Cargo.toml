@@ -15,3 +15,6 @@ strip = true
 [profile.dev]
 debug = "line-tables-only"
 incremental = false
+
+[patch.crates-io]
+epaint = { path = "../vendor/epaint" }

@@ -2035,3 +2035,26 @@ fn wheel_over_the_status_bar_zoom_slider_zooms() {
     h.run_steps(2);
     assert!((h.state().zoom - before - 0.1).abs() < 0.01, "wheel up zooms in: {before} -> {}", h.state().zoom);
 }
+
+#[test]
+fn arabic_comment_reads_right_to_left() {
+    let mut h = harness(None);
+    h.run_steps(2);
+    h.event(Event::Text("هلا كيف الحال".into()));
+    h.run_steps(1);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.run_steps(1);
+    h.state_mut().new_comment();
+    h.run_steps(3);
+    h.event(Event::Text("هل انت بخير 2026".into()));
+    h.run_steps(2);
+    let post = h.get_by_label("Post").rect().center();
+    click(&mut h, post);
+    h.run_steps(2);
+    h.state_mut().new_comment();
+    h.run_steps(3);
+    h.event(Event::Text("يبدو أن النص المكتوب".into()));
+    h.run_steps(3);
+    assert_eq!(h.state().doc.comments[0].text, "هل انت بخير 2026");
+    save(&mut h, "arabic_comment");
+}
