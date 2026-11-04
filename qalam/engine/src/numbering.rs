@@ -138,9 +138,20 @@ impl Numbering {
 
     /// A new instance of `num_id`'s definition starting at `start` (restartList).
     pub fn restart(&mut self, num_id: u32, ilvl: u8, start: u32) -> Option<u32> {
-        let abs = self.nums.iter().find(|n| n.id == num_id)?.abstract_id;
+        let source = self.nums.iter().find(|n| n.id == num_id)?;
+        let abs = source.abstract_id;
         let id = self.nums.iter().map(|n| n.id + 1).max().unwrap_or(1);
-        self.nums.push(NumInstance { id, abstract_id: abs, start_overrides: HashMap::from([(ilvl, start)]), raw: None });
+        let mut start_overrides = source.start_overrides.clone();
+        start_overrides.insert(ilvl, start);
+        // Keep the source instance's own level overrides (format, label, indent) and change only the start.
+        let raw = source.raw.as_deref().and_then(|r| crate::xml::parse(r).ok()).map(|mut e| {
+            e.set_attr("w:numId", id.to_string());
+            let level = ilvl.to_string();
+            let found = e.elements_mut().find(|o| o.name == "w:lvlOverride" && o.attr("w:ilvl") == Some(level.as_str())).map(|o| { o.remove("w:startOverride"); o.children.insert(0, crate::xml::Node::Element(crate::xml::Element::new("w:startOverride").with_attr("w:val", start.to_string()))); }).is_some();
+            if !found { e.push(crate::xml::Element::new("w:lvlOverride").with_attr("w:ilvl", level).with_child(crate::xml::Element::new("w:startOverride").with_attr("w:val", start.to_string()))); }
+            e.to_xml()
+        });
+        self.nums.push(NumInstance { id, abstract_id: abs, start_overrides, raw });
         self.changed = true;
         Some(id)
     }
@@ -257,6 +268,23 @@ impl MarkerCounter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn restart_keeps_the_instance_level_overrides() {
+        let mut n = Numbering::default();
+        let id = n.new_list(ListKind::Number);
+        let abs = n.nums[0].abstract_id;
+        n.nums[0].raw = Some(format!(r#"<w:num w:numId="{id}"><w:abstractNumId w:val="{abs}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="4"/><w:lvl w:ilvl="0"><w:numFmt w:val="upperRoman"/><w:lvlText w:val="(%1)"/></w:lvl></w:lvlOverride></w:num>"#));
+        n.nums[0].start_overrides.insert(0, 4);
+        let new_id = n.restart(id, 0, 1).unwrap();
+        let raw = n.nums.iter().find(|x| x.id == new_id).unwrap().raw.clone().unwrap();
+        assert!(raw.contains(&format!(r#"w:numId="{new_id}""#)));
+        assert!(raw.contains(r#"<w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/><w:lvl"#));
+        assert!(raw.contains("upperRoman") && raw.contains("(%1)"));
+        assert_eq!(n.start(new_id, 0), 1);
+        let id2 = n.restart(new_id, 1, 7).unwrap();
+        let raw2 = n.nums.iter().find(|x| x.id == id2).unwrap().raw.clone().unwrap();
+        assert!(raw2.contains(r#"<w:lvlOverride w:ilvl="1"><w:startOverride w:val="7"/></w:lvlOverride>"#) && raw2.contains("upperRoman"));
+    }
     #[test]
     fn markers_count_and_nest() {
         let mut n = Numbering::default();
