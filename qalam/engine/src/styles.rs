@@ -32,19 +32,19 @@ pub struct StyleSheet {
 impl Default for StyleSheet {
     /// BASIC_STYLES in docx.js: Noto Sans 12pt, 9pt after, Normal / Heading 1–2 / Emphasis / Strong.
     fn default() -> Self {
-        let mut s = StyleSheet { doc_run: RunProps { font: Some("Noto Sans".into()), size: Some(12.0), ..Default::default() }, doc_para: ParaProps { space_after: Some(9.0), line_spacing: Some(1.0), line_rule: Some(LineRule::Auto), ..Default::default() }, styles: HashMap::new(), order: vec![], default_paragraph: Some("Normal".into()), default_table: None };
+        let mut s = StyleSheet { doc_run: RunProps { font: Some("Noto Sans".into()), size: Some(12.0), size_cs: Some(12.0), ..Default::default() }, doc_para: ParaProps { space_after: Some(9.0), line_spacing: Some(1.0), line_rule: Some(LineRule::Auto), ..Default::default() }, styles: HashMap::new(), order: vec![], default_paragraph: Some("Normal".into()), default_table: None };
         s.add(Style { id: "Normal".into(), name: "Normal".into(), kind: StyleKind::Paragraph, based_on: None, next: None, para: ParaProps::default(), run: RunProps::default(), table_borders: false });
         for (level, size, before, after) in [(0u8, 20.0, 12.0, 6.0), (1, 16.0, 9.0, 4.5), (2, 13.0, 8.0, 4.0)] {
             s.add(Style {
                 id: format!("Heading{}", level + 1), name: format!("Heading {}", level + 1), kind: StyleKind::Paragraph,
                 based_on: Some("Normal".into()), next: Some("Normal".into()),
                 para: ParaProps { keep_next: Some(true), keep_lines: Some(true), space_before: Some(before), space_after: Some(after), outline_level: Some(level), ..Default::default() },
-                run: RunProps { bold: Some(true), size: Some(size), ..Default::default() }, table_borders: false,
+                run: RunProps { bold: Some(true), bold_cs: Some(true), size: Some(size), size_cs: Some(size), ..Default::default() }, table_borders: false,
             });
         }
-        s.add(Style { id: "Title".into(), name: "Title".into(), kind: StyleKind::Paragraph, based_on: Some("Normal".into()), next: Some("Normal".into()), para: ParaProps { space_after: Some(12.0), ..Default::default() }, run: RunProps { size: Some(28.0), ..Default::default() }, table_borders: false });
-        s.add(Style { id: "Emphasis".into(), name: "Emphasis".into(), kind: StyleKind::Character, based_on: None, next: None, para: ParaProps::default(), run: RunProps { italic: Some(true), ..Default::default() }, table_borders: false });
-        s.add(Style { id: "Strong".into(), name: "Strong".into(), kind: StyleKind::Character, based_on: None, next: None, para: ParaProps::default(), run: RunProps { bold: Some(true), ..Default::default() }, table_borders: false });
+        s.add(Style { id: "Title".into(), name: "Title".into(), kind: StyleKind::Paragraph, based_on: Some("Normal".into()), next: Some("Normal".into()), para: ParaProps { space_after: Some(12.0), ..Default::default() }, run: RunProps { size: Some(28.0), size_cs: Some(28.0), ..Default::default() }, table_borders: false });
+        s.add(Style { id: "Emphasis".into(), name: "Emphasis".into(), kind: StyleKind::Character, based_on: None, next: None, para: ParaProps::default(), run: RunProps { italic: Some(true), italic_cs: Some(true), ..Default::default() }, table_borders: false });
+        s.add(Style { id: "Strong".into(), name: "Strong".into(), kind: StyleKind::Character, based_on: None, next: None, para: ParaProps::default(), run: RunProps { bold: Some(true), bold_cs: Some(true), ..Default::default() }, table_borders: false });
         s.add(Style { id: "TableGrid".into(), name: "Table Grid".into(), kind: StyleKind::Table, based_on: None, next: None, para: ParaProps::default(), run: RunProps::default(), table_borders: true });
         s
     }
