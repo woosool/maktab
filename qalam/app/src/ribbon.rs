@@ -283,9 +283,9 @@ fn home(app: &mut WordApp, ui: &mut Ui, ctx: &egui::Context) {
                     if ui.button(crate::i18n::tr("Clear Text Effects")).clicked() { app.doc.set_run_props(RunProps { outline: Some(false), shadow: Some(false), glow: Some(None), reflection: Some(false), gradient: Some(None), ..Default::default() }); ui.close(); }
                 });
                 let (main, arrow) = color_split(ui, "highlight", hl, "Text highlight color");
-                if main.clicked() { let name = app.last_highlight.clone(); app.doc.set_run_props(RunProps { highlight: Some(Some(name)), ..Default::default() }); }
+                if main.clicked() { app.apply_last_highlight(); }
                 crate::theme::menu(&arrow, |ui| {
-                    if none_row(ui, "No Color") { app.doc.set_run_props(RunProps { highlight: Some(None), shading: Some(None), ..Default::default() }); ui.close(); }
+                    if none_row(ui, "No Color") { app.last_highlight.clear(); app.doc.set_run_props(RunProps { highlight: Some(None), shading: Some(None), ..Default::default() }); ui.close(); }
                     let names: Vec<(&str, Color)> = word_engine::HIGHLIGHTS.iter().map(|(n, c)| (&**n, *c)).collect();
                     for row in names.chunks(5) {
                         ui.allocate_ui_with_layout(vec2(5.0 * 30.0, 28.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {

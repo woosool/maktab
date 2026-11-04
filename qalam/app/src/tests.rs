@@ -1913,3 +1913,21 @@ fn status_bar_zoom_controls_stay_put_as_the_percentage_changes() {
     let (a, b) = (slider_x(&mut h, 1.0), slider_x(&mut h, 0.5));
     assert!((a - b).abs() < 0.5, "slider moved from {a} to {b} when 100% became 50%");
 }
+
+#[test]
+fn highlight_button_after_no_color_removes_highlight() {
+    let mut h = harness(None);
+    h.run_steps(3);
+    h.event(Event::Text("نص مظلل".into()));
+    h.run_steps(2);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.run_steps(1);
+    h.state_mut().apply_last_highlight();
+    assert!(h.state().doc.current_format().highlight.is_some());
+    // No Color, as the menu does: it becomes the button's choice.
+    h.state_mut().last_highlight.clear();
+    h.state_mut().apply_last_highlight();
+    assert!(h.state().doc.current_format().highlight.is_none());
+    h.state_mut().apply_last_highlight();
+    assert!(h.state().doc.current_format().highlight.is_none());
+}

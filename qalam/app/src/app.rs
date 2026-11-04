@@ -488,6 +488,13 @@ impl WordApp {
     }
 
     /// Paste matching the formatting at the caret (Merge Formatting).
+    /// The Highlight button applies the last colour picked, or removes highlighting once No Color was picked.
+    pub fn apply_last_highlight(&mut self) {
+        let h = self.last_highlight.clone();
+        let props = if h.is_empty() { word_engine::RunProps { highlight: Some(None), shading: Some(None), ..Default::default() } } else { word_engine::RunProps { highlight: Some(Some(h)), ..Default::default() } };
+        self.doc.set_run_props(props);
+    }
+
     pub fn paste_merged(&mut self) {
         if let Ok(text) = arboard::Clipboard::new().and_then(|mut c| c.get_text()) { self.doc.replace(&text.replace("\r\n", "\n")); self.scroll_to_caret = true; }
     }

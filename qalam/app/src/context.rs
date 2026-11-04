@@ -43,7 +43,7 @@ fn toolbar(app: &mut WordApp, ui: &mut Ui) {
             if small(ui, "bold", None, f.bold, true, "Bold").clicked() { app.doc.toggle_bold(); }
             if small(ui, "italic", None, f.italic, true, "Italic").clicked() { app.doc.toggle_italic(); }
             if small(ui, "underline", None, f.underline, true, "Underline").clicked() { app.doc.toggle_underline(); }
-            if small(ui, "highlight", None, false, true, "Text Highlight Color").clicked() { let h = app.last_highlight.clone(); app.doc.set_run_props(RunProps { highlight: Some(Some(h)), ..Default::default() }); }
+            if small(ui, "highlight", None, false, true, "Text Highlight Color").clicked() { app.apply_last_highlight(); }
             let c = app.last_color;
             let r = small(ui, "textColor", None, false, true, "Font Color");
             ui.painter().rect_filled(egui::Rect::from_min_size(r.rect.left_bottom() + vec2(5.0, -5.0), vec2(16.0, 3.0)), 0.0, Color32::from_rgb(c.0, c.1, c.2));
