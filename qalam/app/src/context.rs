@@ -86,6 +86,13 @@ pub fn menu(app: &mut WordApp, ui: &mut Ui) {
         if picture || object.is_some() { picture_items(app, ui, object); return; }
         if shown(app, "font") && row(ui, "fontDialog", "Font…", true) { app.open_font_dialog(); ui.close(); }
         if shown(app, "paragraph") && row(ui, "paragraphDialog", "Paragraph…", true) { crate::ui::open_paragraph_dialog(app); ui.close(); }
+        // Right-clicking a table of contents offers to update or remove it, as in Word.
+        let para = app.doc.locate(app.doc.range().0).0;
+        if word_engine::references::blocks(&app.doc).iter().any(|b| (b.0..=b.1).contains(&para) && b.2.split_whitespace().next().is_some_and(|k| k.eq_ignore_ascii_case("TOC")) && !b.2.contains("\\c")) {
+            ui.separator();
+            if row(ui, "updateTable", "Update Table", true) { app.doc.update_tables_of("TOC"); ui.close(); }
+            if row(ui, "toc", "Remove Table of Contents", true) { app.doc.remove_toc(); ui.close(); }
+        }
         // The word or selection under the caret, for Search and Synonyms.
         let word = { let t = app.doc.selected_text(); if t.trim().is_empty() { let (a, b) = app.doc.word_at(app.doc.range().0); app.doc.text_between(a, b) } else { t } };
         let word = word.trim().chars().take(40).collect::<String>();

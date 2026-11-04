@@ -1790,6 +1790,28 @@ fn paragraph_dialog_changes_only_what_was_edited() {
     assert_eq!(b.indent_left, 0);
 }
 
+/// The right-click menu on a table of contents removes it.
+#[test]
+fn context_menu_removes_the_table_of_contents() {
+    let mut h = typed("مقدمة");
+    h.state_mut().doc.set_paragraph_style("Heading1");
+    h.state_mut().doc.select(0, 0);
+    h.state_mut().doc.insert_toc(word_engine::references::TocOptions::default());
+    h.run_steps(2);
+    let toc = word_engine::references::blocks(&h.state().doc)[0].clone();
+    let at = h.state().doc.paragraph_start(toc.1);
+    h.state_mut().doc.select(at, at);
+    h.state_mut().canvas_focus = true;
+    h.run_steps(2);
+    h.key_press_modifiers(Modifiers::SHIFT, Key::F10);
+    h.run_steps(3);
+    h.get_by_label("Remove Table of Contents").click();
+    h.run_steps(3);
+    let doc = &h.state().doc;
+    assert!(word_engine::references::blocks(doc).is_empty(), "the table of contents is gone");
+    assert!(doc.text().contains("مقدمة"), "the heading stays");
+}
+
 /// right-clicking a gallery style offers Update … to Match Selection.
 #[test]
 fn style_gallery_update_to_match_selection() {
