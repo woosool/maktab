@@ -2139,6 +2139,15 @@ mod tests {
         assert_eq!(again.text(), d.text());
     }
 
+    /// wordcraft #4197/#4198: new documents' styles give complex-script (Arabic) runs the same size and bold as Latin ones in Word.
+    #[test]
+    fn basic_styles_set_complex_script_size_and_bold() {
+        let bytes = write(&Document::new(vec![Paragraph::new("مرحبا")])).unwrap();
+        let mut x = String::new();
+        zip::ZipArchive::new(Cursor::new(&bytes)).unwrap().by_name("word/styles.xml").unwrap().read_to_string(&mut x).unwrap();
+        assert!(x.contains(r#"<w:sz w:val="24"/><w:szCs w:val="24"/>"#) && x.contains("<w:b/><w:bCs/>"), "{x}");
+    }
+
     #[test]
     fn document_properties_are_saved_and_the_save_is_stamped() {
         // wordcraft #260/#262: typed Title/Author survive Save; revision and modified time advance.
