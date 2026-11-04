@@ -343,6 +343,10 @@ pub struct Table {
 }
 
 impl Table {
+    /// A right-to-left table (w:bidiVisual): its columns run from the right.
+    pub fn rtl(&self) -> bool {
+        self.raw_props.as_deref().is_some_and(|p| p.contains("<w:bidiVisual") && !p.contains("<w:bidiVisual w:val=\"0\"") && !p.contains("<w:bidiVisual w:val=\"false\""))
+    }
     pub fn cells(&self) -> impl Iterator<Item = &Cell> { self.rows.iter().flat_map(|r| r.cells.iter()) }
     pub fn has_cell(&self, id: u64) -> bool { self.cells().any(|c| c.id == id) }
     /// (row, column index in row) of a cell.

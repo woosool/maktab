@@ -1688,9 +1688,18 @@ impl<'a> Placer<'a> {
         let spans = cell_spans(table, paragraphs, doc);
         if !table.fixed { self.autofit_grid(ti, paragraphs, &spans, &mut grid, writing); }
         let table_w: f32 = grid.iter().sum();
-        let x0 = col_left + twips(table.indent) + match table.alignment { Alignment::Center => (writing - table_w) / 2.0, Alignment::Right => writing - table_w, _ => 0.0 };
-        let mut col_x = vec![x0];
-        for g in &grid { col_x.push(col_x.last().unwrap() + g); }
+        let shift = match table.alignment { Alignment::Center => (writing - table_w) / 2.0, Alignment::Right => writing - table_w, _ => 0.0 };
+        // A right-to-left table (w:bidiVisual) is mirrored: its first column is on the right,
+        // its indent and alignment count from the right margin.
+        let col_x = if table.rtl() {
+            let mut xs = vec![col_left + writing - twips(table.indent) - shift];
+            for g in &grid { xs.push(xs.last().unwrap() - g); }
+            xs
+        } else {
+            let mut xs = vec![col_left + twips(table.indent) + shift];
+            for g in &grid { xs.push(xs.last().unwrap() + g); }
+            xs
+        };
         let t = TableGeo {
             spans,
             col_x,
@@ -1788,7 +1797,8 @@ impl<'a> Placer<'a> {
             // Only this cell's own paragraphs (and tables nested in it).
             let paragraphs = t.spans.get(&cell.id).map(|&(a, b)| &paragraphs[a..b]).unwrap_or(&[]);
             let span = cell.span.max(1) as usize;
-            let (cx0, cx1) = (t.col_x[g.min(last_x)], t.col_x[(g + span).min(last_x)]);
+            let (ea, eb) = (t.col_x[g.min(last_x)], t.col_x[(g + span).min(last_x)]);
+            let (cx0, cx1) = (ea.min(eb), ea.max(eb));
             g += span;
             if cell.v_merge == VMerge::Continue { results.push((cell, cx0, cx1, row_top_page, row_top, vec![])); continue; }
             let m4 = cell_margins(table, cell);
@@ -2493,6 +2503,22 @@ mod tests {
         edit(&mut d);
         let l = layout_document(&d);
         (d, l)
+    }
+
+    #[test]
+    fn rtl_tables_put_the_first_column_on_the_right() {
+        let mut d = doc("نص");
+        d.select(0, 0);
+        d.insert_table(1, 3);
+        let ltr = layout_document(&d);
+        d.tables[0].raw_props = Some(r#"<w:tblPr><w:bidiVisual/></w:tblPr>"#.into());
+        let rtl = layout_document(&d);
+        let col = |l: &Layout, c: usize| l.cells.iter().find(|x| x.col == c).map(|x| (x.x0, x.x1)).unwrap();
+        assert!(col(&ltr, 0).0 < col(&ltr, 2).0, "left to right: first column on the left");
+        assert!(col(&rtl, 0).0 > col(&rtl, 2).0, "right to left: first column on the right");
+        let geo = d.page.geometry();
+        assert!((col(&rtl, 0).1 - (geo.width - geo.right)).abs() < 1.0, "it starts at the right margin");
+        assert!((col(&rtl, 0).1 - col(&rtl, 0).0 - (col(&ltr, 0).1 - col(&ltr, 0).0)).abs() < 0.5, "same widths");
     }
 
     #[test]
