@@ -385,7 +385,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             let top = to_screen(c.page, c.x, c.y);
             let caret = Rect::from_min_size(top, vec2(1.5_f32.max(zoom), c.height * zoom));
             if focused && app.doc.selection.is_caret() && ((now - app.caret_blink) % 1.0) < 0.6 {
-                painter.rect_filled(caret, 0.0, Color32::BLACK);
+                painter.rect_filled(caret, 0.0, caret_color(app.doc.page.color));
             }
             if focused {
                 if !app.preedit.is_empty() {
@@ -1119,4 +1119,12 @@ pub fn paint_preview(app: &mut WordApp, ui: &Ui, items: &[DrawItem], origin: Pos
         for it in items { paint_item(textures, assets, ui, &painter, it, 0, scale, &ts, &mut pen); }
     }
     painter.add(egui::Shape::mesh(mesh));
+}
+
+/// The caret stands out from the page: black on a light page, white on a dark page color.
+pub fn caret_color(page: Option<word_engine::Color>) -> Color32 {
+    match page {
+        Some(c) if 0.299 * c.0 as f32 + 0.587 * c.1 as f32 + 0.114 * (c.2 as f32) < 128.0 => Color32::WHITE,
+        _ => Color32::BLACK,
+    }
 }

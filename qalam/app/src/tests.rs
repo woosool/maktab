@@ -112,6 +112,14 @@ fn length_units_are_translated() {
 }
 
 #[test]
+fn caret_shows_on_dark_page_colors() {
+    use crate::canvas::caret_color;
+    assert_eq!(caret_color(None), egui::Color32::BLACK);
+    assert_eq!(caret_color(Some(word_engine::Color(0xFF, 0xF8, 0xE7))), egui::Color32::BLACK);
+    assert_eq!(caret_color(Some(word_engine::Color(0x10, 0x18, 0x30))), egui::Color32::WHITE);
+}
+
+#[test]
 fn window_title_sent_only_when_it_changes() {
     // sending the title every frame requested a repaint every frame.
     let mut h = harness(None);
