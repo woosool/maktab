@@ -45,6 +45,8 @@ pub struct Package {
     /// Root start tag attributes of the main document (namespace declarations, mc:Ignorable).
     pub root_attrs: Vec<(String, String)>,
     pub body_sect: Option<Element>,
+    /// The original w:background, whose picture, texture or gradient fill (v:background) is kept on save.
+    pub background: Option<Element>,
     pub rels: Vec<Rel>,
 }
 
@@ -1003,7 +1005,7 @@ pub fn read(bytes: &[u8]) -> Result<Document, String> {
     doc.comments = comments;
     doc.notes = notes;
     doc.note_specials = note_specials;
-    doc.package = Some(Package { root_attrs: root.attrs.clone(), body_sect: sect, rels, main, parts });
+    doc.package = Some(Package { root_attrs: root.attrs.clone(), body_sect: sect, background: root.child("w:background").cloned(), rels, main, parts });
     Ok(doc)
 }
 
@@ -1615,7 +1617,15 @@ impl<'a> Writer<'a> {
         // Word 2010 effects (w14) are ignorable for older consumers.
         if !attrs.iter().any(|(k, _)| k == "mc:Ignorable") { attrs.push(("mc:Ignorable".into(), "w14 w15 wp14".into())); }
         root.attrs = attrs;
-        if let Some(c) = doc.page.color { root.push(el("w:background").with_attr("w:color", c.hex())); }
+        let original = doc.package.as_ref().and_then(|p| p.background.as_ref());
+        match (doc.page.color, original) {
+            // Keep the original fill; only the color follows the model.
+            (Some(c), Some(b)) => { let mut b = b.clone(); b.set_attr("w:color", c.hex()); root.push(b); }
+            (Some(c), None) => root.push(el("w:background").with_attr("w:color", c.hex())),
+            // A fill without a page color (or whose color was never cleared) survives.
+            (None, Some(b)) if b.attr("w:color").is_none_or(|c| Color::from_hex(c).is_none()) && b.elements().next().is_some() => root.push(b.clone()),
+            (None, _) => {}
+        }
         let mut body = el("w:body");
         let mut i = 0;
         while i < doc.paragraphs.len() {
@@ -2209,6 +2219,20 @@ mod tests {
         assert_eq!(d.para_format(&outside).space_after, 8.0);
         assert!(!d.run_format(&outside, &outside.runs[0]).bold);
         assert!(d.styles.table_style_borders("RedGrid"));
+    }
+
+    #[test]
+    fn page_background_picture_fill_survives_save() {
+        let doc = r#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:background w:color="FFF2CC"><v:background id="_x0000_s1025" filled="t"><v:fill r:id="rId9" type="tile"/></v:background></w:background><w:body><w:p><w:r><w:t>نص</w:t></w:r></w:p></w:body></w:document>"#;
+        let mut d = read(&raw_docx(doc)).unwrap();
+        let xml = String::from_utf8(read_part(&write(&d).unwrap(), "word/document.xml")).unwrap();
+        assert!(xml.contains(r#"<v:fill r:id="rId9" type="tile"/>"#) && xml.contains("FFF2CC"), "{xml}");
+        d.page.color = Color::from_hex("DDEEFF");
+        let xml = String::from_utf8(read_part(&write(&d).unwrap(), "word/document.xml")).unwrap();
+        assert!(xml.contains("DDEEFF") && xml.contains("<v:fill"), "{xml}");
+        d.page.color = None;
+        let xml = String::from_utf8(read_part(&write(&d).unwrap(), "word/document.xml")).unwrap();
+        assert!(!xml.contains("w:background"), "clearing the page color removes the background: {xml}");
     }
 
     #[test]
