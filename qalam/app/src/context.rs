@@ -20,7 +20,7 @@ fn row(ui: &mut Ui, icon: &str, label: &str, enabled: bool) -> bool { small(ui, 
 
 /// The mini toolbar: two rows of formatting buttons.
 fn toolbar(app: &mut WordApp, ui: &mut Ui) {
-    let f = app.doc.current_format();
+    let f = app.doc.current_format_shown();
     egui::Frame::NONE.inner_margin(egui::Margin::symmetric(4, 4)).show(ui, |ui| {
         crate::theme::IN_MENU.with(|m| m.set(false));
         ui.spacing_mut().item_spacing = vec2(2.0, 4.0);

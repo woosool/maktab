@@ -192,7 +192,7 @@ fn file_menu(app: &mut WordApp, ui: &mut Ui, ctx: &egui::Context) {
 }
 
 fn home(app: &mut WordApp, ui: &mut Ui, ctx: &egui::Context) {
-    let f = app.doc.current_format();
+    let f = app.doc.current_format_shown();
     let pf = app.doc.current_para_format();
     group(ui, "Clipboard", |ui| {
         let (paste, options) = large_split(ui, "paste", "Paste", "Paste (⌘V)");

@@ -567,6 +567,16 @@ impl Document {
         if let Some(t) = &self.typing { f.apply(t); }
         f
     }
+    /// The formatting the Font group shows: at Arabic or Hebrew text (or an rtl run) its
+    /// complex-script font, size, bold and italic, the ones that text is drawn with.
+    pub fn current_format_shown(&self) -> RunFormat {
+        let f = self.current_format();
+        let (s, _) = self.range();
+        let (i, o) = self.locate(s);
+        let at = if self.selection.is_caret() && o > 0 { o - 1 } else { o };
+        let c = self.paragraphs[i].text().chars().nth(at);
+        if f.rtl || c.is_some_and(crate::fonts::is_complex) { f.complex() } else { f }
+    }
     /// The selection's character formatting as explicit properties (Format Painter's copy).
     pub fn current_run_props(&self) -> RunProps {
         let f = self.current_format();
@@ -1190,7 +1200,7 @@ impl Document {
         r
     }
     #[allow(non_snake_case)]
-    fn toggle_bold__impl(&mut self) { let v = !self.current_format().bold; self.set_run_props(RunProps { bold: Some(v), bold_cs: Some(v), ..Default::default() }); }
+    fn toggle_bold__impl(&mut self) { let v = !self.current_format_shown().bold; self.set_run_props(RunProps { bold: Some(v), bold_cs: Some(v), ..Default::default() }); }
     pub fn toggle_italic(&mut self) {
         let rec = self.rec_enter(|| "italic();".to_string());
         let r = self.toggle_italic__impl();
@@ -1198,7 +1208,7 @@ impl Document {
         r
     }
     #[allow(non_snake_case)]
-    fn toggle_italic__impl(&mut self) { let v = !self.current_format().italic; self.set_run_props(RunProps { italic: Some(v), italic_cs: Some(v), ..Default::default() }); }
+    fn toggle_italic__impl(&mut self) { let v = !self.current_format_shown().italic; self.set_run_props(RunProps { italic: Some(v), italic_cs: Some(v), ..Default::default() }); }
     pub fn toggle_underline(&mut self) {
         let rec = self.rec_enter(|| "underline();".to_string());
         let r = self.toggle_underline__impl();
@@ -2439,6 +2449,23 @@ mod tests {
     use super::*;
 
     fn doc(text: &str) -> Document { Document::new(text.split('\n').map(Paragraph::new).collect()) }
+
+    #[test]
+    fn the_font_group_shows_the_arabic_font_at_arabic_text() {
+        let mut d = doc("Hello مرحبا");
+        d.select(0, 11);
+        d.set_run_props(RunProps { font: Some("Arial".into()), cs_font: Some("Amiri".into()), bold_cs: Some(true), ..Default::default() });
+        d.select(9, 9);
+        let f = d.current_format_shown();
+        assert_eq!((f.font.as_str(), f.bold), ("Amiri", true));
+        d.select(3, 3);
+        assert_eq!((d.current_format_shown().font.as_str(), d.current_format_shown().bold), ("Arial", false));
+        // Bold at the Arabic word follows the button shown there: bold Arabic text turns plain.
+        d.select(6, 11);
+        d.toggle_bold();
+        let r = d.paragraphs[0].runs.iter().find(|r| r.text == "مرحبا").unwrap();
+        assert_eq!(d.run_format(&d.paragraphs[0], r).bold_cs, false);
+    }
 
     #[test]
     fn pictures_paste_into_another_document() {
