@@ -16,12 +16,16 @@ fn c32(c: Color) -> Color32 { Color32::from_rgb(c.0, c.1, c.2) }
 /// Top of each page and the canvas size, in unzoomed px.
 /// Page positions (unzoomed, from the canvas origin) and the canvas size. Print layout stacks
 /// pages; Read Mode lays them out side by side in rows of `columns`.
-fn page_places(app: &WordApp, columns: usize) -> (Vec<f32>, Vec<f32>, f32, f32) {
+pub(crate) fn page_places(app: &WordApp, columns: usize) -> (Vec<f32>, Vec<f32>, f32, f32) {
     let (mut lefts, mut tops) = (vec![], vec![]);
     let (w, h) = app.layout.pages.iter().fold((0.0f32, 0.0f32), |a, p| (a.0.max(p.width), a.1.max(p.height)));
     let columns = columns.max(1);
+    // A right-to-left document (its first paragraph reads right to left) lays pages out from
+    // the right, as a bound Arabic book opens.
+    let rtl = app.layout.lines.iter().find(|l| l.cell.is_none()).is_some_and(|l| l.rtl);
     for i in 0..app.layout.pages.len() {
         let (col, row) = (i % columns, i / columns);
+        let col = if rtl { columns - 1 - col } else { col };
         lefts.push(GAP + col as f32 * (w + GAP));
         tops.push(GAP + row as f32 * (h + GAP));
     }

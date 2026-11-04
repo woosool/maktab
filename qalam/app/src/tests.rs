@@ -2132,3 +2132,16 @@ fn typing_with_a_shape_selected_writes_into_the_shape() {
     h.state_mut().doc.select(0, 0);
     assert!(h.state().doc.object_at(pos).is_some());
 }
+
+#[test]
+fn rtl_documents_lay_pages_out_from_the_right() {
+    let mut h = harness(None);
+    h.run_steps(2);
+    let text = vec!["سطر من النص العربي"; 120].join("\n");
+    h.event(Event::Text(text.replace('\n', " ")));
+    for _ in 0..60 { h.key_press(Key::Enter); }
+    h.run_steps(2);
+    assert!(h.state().layout.pages.len() >= 2);
+    let (lefts, ..) = crate::canvas::page_places(h.state(), 2);
+    assert!(lefts[0] > lefts[1], "page 1 is right of page 2: {lefts:?}");
+}
