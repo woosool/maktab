@@ -1483,12 +1483,24 @@ impl<'a> Placer<'a> {
             // Orphan control: never leave a paragraph's first line alone at a column bottom.
             self.break_column();
         }
+        // A first line that won't fit moves the paragraph on before its floats are placed, so
+        // they land on the page the paragraph starts on.
+        if let Some(l0) = m.lines.first() {
+            if !self.at_column_top() && self.y + l0.skip + l0.height + self.notes_need(l0) > self.bottom() + 0.01 { self.break_column(); }
+        }
         let (mut left, mut width) = self.col_geom();
         // Floats anchored here land relative to this paragraph's top; lines then wrap around any
         // float on the page.
         let para_top = self.y;
         let page = self.page;
-        self.place_floats(m, page, left, width, para_top, true);
+        // Page ink anchored inside the paragraph, past its first line, waits for the page that
+        // line lands on (ink drawn on a page the paragraph continues onto); other floats go with
+        // the paragraph's first page, as in Word.
+        let first_end = m.lines.first().map_or(usize::MAX, |l| l.end);
+        let later = |f: &FloatSpec| f.pos >= first_end && f.anchor.y_from == crate::model::RelFrom::Page && matches!(f.object.as_deref(), Some(crate::objects::Object::Ink(i)) if !i.canvas);
+        let mut pending: Vec<FloatSpec> = m.floats.iter().filter(|f| later(f)).cloned().collect();
+        if pending.is_empty() { self.place_floats(m, page, left, width, para_top, true); }
+        else { let now = Measured { floats: m.floats.iter().filter(|f| !later(f)).cloned().collect(), ..m.clone() }; self.place_floats(&now, page, left, width, para_top, true); }
         // Lines wrap around the page's floats; after a column or page break the rest of the
         // paragraph is measured again for the new place's floats (or none) and width.
         let measured_width = m.lines.first().map(|_| width).unwrap_or(width);
@@ -1531,6 +1543,15 @@ impl<'a> Placer<'a> {
             }
             let l = &cur.lines[k];
             let (page, y) = (self.page, self.y);
+            if !pending.is_empty() {
+                // An anchor that ends a line (it takes no room, so wrapping leaves it there) goes
+                // with the next line.
+                let next = cur.lines.get(k + 1).map_or(usize::MAX, |n| n.start);
+                let (here, rest): (Vec<FloatSpec>, Vec<FloatSpec>) = pending.drain(..).partition(|f| f.pos + 1 < next || next == usize::MAX);
+                pending = rest;
+                if !here.is_empty() { let now = Measured { floats: here, ..m.clone() }; self.place_floats(&now, page, left, width, para_top, false); }
+            }
+            let l = &cur.lines[k];
             self.emit(&cur, l, page, left, y, None);
             // A page break that ends its paragraph keeps the mark (and space after) on the old page: the
             // empty line after it holds the caret but takes no room, so the next paragraph starts at the top.

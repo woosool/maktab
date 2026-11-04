@@ -1721,3 +1721,37 @@ fn style_set_previews_stay_white_in_dark_mode() {
     }
 }
 
+
+#[test]
+fn draw_ink_lands_on_the_page_drawn_on() {
+    use crate::draw::Tool;
+    use word_engine::objects::Object;
+    // One long paragraph running over three pages, then short paragraphs on each page: ink
+    // drawn on any page stays on that page.
+    let long = "نص عربي طويل يمتد على عدة صفحات. Long text that runs on. ".repeat(260);
+    let mut h = typed(&long);
+    h.state_mut().tab = crate::ribbon::Tab::Draw;
+    h.state_mut().extras.draw.tool = Tool::Pen(0);
+    h.run_steps(2);
+    let pages = h.state().layout.pages.len();
+    assert!(pages >= 3, "{pages} pages");
+    for page in 1..pages {
+        h.state_mut().commit_stroke(page, vec![(100.0, 200.0), (300.0, 260.0)]);
+        h.run_steps(2);
+        let mut on = vec![]; let mut pos = 0;
+        for p in &h.state().doc.paragraphs { for r in &p.runs { if let Some(Object::Ink(_)) = &r.object { on.push(h.state().layout.object_box(pos).map(|b| b.0)); } pos += r.len(); } pos += 1; }
+        assert!(on.contains(&Some(page)), "ink drawn on page {page} shows on pages {on:?}");
+    }
+    // Short paragraphs: the ink anchors in a paragraph that starts on the page drawn on.
+    let mut h = typed("فقرة");
+    for _ in 0..120 { h.key_press(Key::Enter); h.event(Event::Text("سطر قصير. Short line.".into())); h.run_steps(1); }
+    h.state_mut().extras.draw.tool = Tool::Pen(0);
+    h.run_steps(2);
+    let last = h.state().layout.pages.len() - 1;
+    assert!(last >= 1);
+    h.state_mut().commit_stroke(last, vec![(100.0, 200.0), (300.0, 260.0)]);
+    h.run_steps(2);
+    let mut on = vec![]; let mut pos = 0;
+    for p in &h.state().doc.paragraphs { for r in &p.runs { if let Some(Object::Ink(_)) = &r.object { on.push(h.state().layout.object_box(pos).map(|b| b.0)); } pos += r.len(); } pos += 1; }
+    assert_eq!(on, vec![Some(last)]);
+}

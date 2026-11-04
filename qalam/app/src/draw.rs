@@ -145,9 +145,12 @@ impl WordApp {
         out
     }
 
-    /// The body paragraph that page-anchored ink on `page` belongs to.
+    /// Where page-anchored ink on `page` is anchored: the first paragraph that starts on the
+    /// page, else the page's first line (a paragraph that began on an earlier page; layout then
+    /// draws the ink on the page of that line, not where the paragraph starts).
     fn page_anchor_pos(&self, page: usize) -> Option<usize> {
-        self.layout.lines.iter().find(|l| l.page == page && l.cell.is_none()).map(|l| self.doc.paragraph_start(self.doc.locate(l.start).0))
+        let body = || self.layout.lines.iter().filter(|l| l.page == page && l.cell.is_none());
+        body().find(|l| l.start == self.doc.paragraph_start(self.doc.locate(l.start).0)).or_else(|| body().next()).map(|l| l.start)
     }
 
     /// Add a finished stroke: into a drawing canvas or the page's ink (pen ink in front of the
