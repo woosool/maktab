@@ -2122,13 +2122,17 @@ impl Document {
     }
     /// Delete a comment; deleting a thread root deletes its replies and anchor.
     pub fn delete_comment(&mut self, id: &str) {
-        let is_root = self.comments.iter().any(|c| c.id == id && c.parent.is_none());
         self.checkpoint(EditKind::Other);
-        let doomed: Vec<String> = self.comments.iter().filter(|c| c.id == id || is_root && c.parent.as_deref() == Some(id)).map(|c| c.id.clone()).collect();
+        // The comment and every reply beneath it, however deeply nested.
+        let mut doomed: Vec<String> = vec![id.to_string()];
+        while let Some(c) = self.comments.iter().find(|c| !doomed.contains(&c.id) && c.parent.as_ref().is_some_and(|p| doomed.contains(p))) { doomed.push(c.id.clone()); }
         self.comments.retain(|c| !doomed.contains(&c.id));
-        for p in &mut self.paragraphs {
-            p.runs.retain(|r| !matches!(&r.marker, Some(Marker::CommentStart(m) | Marker::CommentEnd(m)) if doomed.contains(m)));
-        }
+        let anchor = |r: &Run| matches!(&r.marker, Some(Marker::CommentStart(m) | Marker::CommentEnd(m)) if doomed.contains(m));
+        for p in &mut self.paragraphs { p.runs.retain(|r| !anchor(r)); }
+        // Anchors may also sit in headers, footers and notes.
+        let mut strip = |p: &mut Paragraph| { let before = p.runs.len(); p.runs.retain(|r| !anchor(r)); p.runs.len() != before };
+        if self.header.iter_mut().chain(self.footer.iter_mut()).flat_map(|s| s.paragraphs.iter_mut()).fold(false, |a, p| strip(p) | a) { self.stories_changed = true; }
+        if self.notes.iter_mut().flat_map(|n| n.paragraphs.iter_mut()).fold(false, |a, p| strip(p) | a) { self.notes_changed = true; }
         self.comments_changed = true;
         self.changed();
     }
@@ -2613,6 +2617,26 @@ mod tests {
         assert!(d.comments.is_empty() && d.comment_anchors().is_empty());
         d.undo();
         assert_eq!(d.comments.len(), 2);
+    }
+
+    #[test]
+    fn deleting_a_comment_removes_nested_replies_and_story_anchors() {
+        let mut d = doc("تعليق على النص");
+        d.select(0, 5);
+        let id = d.add_comment("سلمى", "ملاحظة", "2026-01-01T00:00:00Z");
+        let reply = d.reply_to_comment(&id, "علي", "رد", "2026-01-02T00:00:00Z").unwrap();
+        // An imported reply to a reply.
+        let mut nested = d.comments.iter().find(|c| c.id == reply).unwrap().clone();
+        nested.id = "99".into();
+        nested.parent = Some(reply.clone());
+        d.comments.push(nested);
+        let mut p = Paragraph::new("رأس");
+        p.runs.insert(0, Run { marker: Some(Marker::CommentStart(id.clone())), ..Default::default() });
+        p.runs.push(Run { marker: Some(Marker::CommentEnd(id.clone())), ..Default::default() });
+        d.header = Some(Story { paragraphs: vec![p] });
+        d.delete_comment(&id);
+        assert!(d.comments.is_empty(), "{:?}", d.comments);
+        assert!(d.header.as_ref().unwrap().paragraphs[0].runs.iter().all(|r| r.marker.is_none()));
     }
 
     #[test]
