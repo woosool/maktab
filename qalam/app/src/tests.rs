@@ -92,6 +92,15 @@ fn ctrl_shift_2_inserts_zwnj() {
 }
 
 #[test]
+fn cover_page_date_is_the_local_day() {
+    let mut h = harness(None);
+    h.run_steps(2);
+    h.state_mut().open_cover_page(word_engine::editing::CoverDesign::Simple);
+    let date = h.state().insert.cover.as_ref().unwrap().date.clone();
+    assert_eq!(date, chrono::Local::now().format("%Y-%m-%d").to_string());
+}
+
+#[test]
 fn window_title_sent_only_when_it_changes() {
     // sending the title every frame requested a repaint every frame.
     let mut h = harness(None);

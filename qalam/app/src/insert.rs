@@ -100,7 +100,7 @@ impl WordApp {
     }
     pub fn open_cover_page(&mut self, design: CoverDesign) {
         let title = self.path.as_ref().and_then(|p| p.file_stem()).map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "Document Title".into());
-        let date = crate::app::now_iso()[..10].to_string();
+        let date = crate::app::local_iso()[..10].to_string();
         self.insert.cover = Some(CoverDraft { design, title, subtitle: "Document subtitle".into(), author: self.author.clone(), date, accent: PALETTE[0] });
     }
     pub fn insert_shape(&mut self, kind: ShapeKind) { self.doc.insert_object(Object::Shape(Shape::new(kind))); self.canvas_focus = true; }
