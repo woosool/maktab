@@ -2052,9 +2052,11 @@ impl Layout {
         let key = |l: &Line| (l.page, l.y);
         let ahead = |l: &&Line| if down { key(l) > (cur.page, cur.y + cur.height - 0.5) } else { key(l) < (cur.page, cur.y - cur.height + 0.5) && (l.page < cur.page || l.y + l.height <= cur.y + 0.5) };
         let candidates: Vec<&Line> = self.lines.iter().filter(ahead).collect();
-        let contains = |l: &&Line| goal_x >= l.left - 1.0 && goal_x <= l.right + 1.0;
-        let pool: Vec<&Line> = if candidates.iter().any(contains) { candidates.iter().copied().filter(contains).collect() } else { candidates };
-        let target = if down { pool.iter().min_by(|a, b| key(a).partial_cmp(&key(b)).unwrap()) } else { pool.iter().max_by(|a, b| key(a).partial_cmp(&key(b)).unwrap()) }?;
+        let nearest = if down { candidates.iter().min_by(|a, b| key(a).partial_cmp(&key(b)).unwrap()) } else { candidates.iter().max_by(|a, b| key(a).partial_cmp(&key(b)).unwrap()) }?;
+        // Stay on the nearest visual row (e.g. a table's first row), then prefer the line under goal_x there.
+        let row: Vec<&Line> = candidates.iter().copied().filter(|l| l.page == nearest.page && l.y < nearest.y + nearest.height && nearest.y < l.y + l.height).collect();
+        let gap = |l: &&Line| if goal_x < l.left { l.left - goal_x } else if goal_x > l.right { goal_x - l.right } else { 0.0 };
+        let target = row.iter().min_by(|a, b| gap(a).total_cmp(&gap(b)).then(if down { key(a).partial_cmp(&key(b)).unwrap() } else { key(b).partial_cmp(&key(a)).unwrap() }))?;
         Some(self.pos_in_line(target, goal_x))
     }
 
@@ -2227,6 +2229,22 @@ mod tests {
         // Cells in one row share a top.
         let cells: Vec<&Line> = l.lines.iter().filter(|x| x.cell.is_some()).collect();
         assert!((cells[0].y - cells[1].y).abs() < 0.01 && cells[1].stops[0] > cells[0].stops[0]);
+    }
+
+    #[test]
+    fn down_from_line_start_enters_table_below() {
+        // From the start of the paragraph above a table, Down lands in the first cell, not past the table.
+        let mut d = doc("above\nبعد الجدول");
+        d.select(0, 0);
+        d.insert_table(2, 2);
+        let l = layout_document(&d);
+        let above = l.lines.iter().position(|x| x.cell.is_some()).unwrap() - 1;
+        let start = l.lines[above].start;
+        let down = l.vertical(start, true, l.caret_rect(start).unwrap().x).unwrap();
+        let first_cell = l.lines.iter().find(|x| x.cell.is_some()).unwrap();
+        assert_eq!(down, first_cell.start);
+        let up = l.vertical(down, false, l.caret_rect(down).unwrap().x).unwrap();
+        assert_eq!(l.lines[l.line_index(up).unwrap()].start, start);
     }
 
     #[test]
