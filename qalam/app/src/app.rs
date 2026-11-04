@@ -541,6 +541,13 @@ impl WordApp {
     }
 
     /// A file dropped on the window: a picture is inserted at the caret, anything else opens.
+    /// Dropped files: every picture is inserted, one after another; otherwise the first file opens.
+    pub fn drop_files(&mut self, ctx: &egui::Context, paths: Vec<std::path::PathBuf>) {
+        let picture = |p: &std::path::PathBuf| matches!(p.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).as_deref(), Some("png" | "jpg" | "jpeg" | "gif" | "bmp"));
+        if paths.iter().any(picture) { for p in paths.into_iter().filter(picture) { self.drop_file(ctx, p); } }
+        else if let Some(p) = paths.into_iter().next() { self.drop_file(ctx, p); }
+    }
+
     pub fn drop_file(&mut self, ctx: &egui::Context, p: std::path::PathBuf) {
         let ext = p.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
         if !matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "bmp") { return self.guarded(ctx, Pending::OpenPath(p)); }
@@ -781,8 +788,9 @@ impl WordApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.dialogs.confirm = Some(Pending::Quit);
         }
-        // Files dropped on the window open; dropped pictures go in at the caret.
-        if let Some(p) = ctx.input(|i| i.raw.dropped_files.first().and_then(|f| Some(f.path().to_path_buf()).filter(|p| !p.as_os_str().is_empty()))) { self.drop_file(&ctx, p); }
+        // Files dropped on the window open; dropped pictures (all of them) go in at the caret.
+        let dropped: Vec<std::path::PathBuf> = ctx.input(|i| i.raw.dropped_files.iter().map(|f| f.path().to_path_buf()).filter(|p| !p.as_os_str().is_empty()).collect());
+        self.drop_files(&ctx, dropped);
         self.open_sent_files(&ctx);
         // Fonts added (imported or downloaded): lay the document out again with them.
         if qalam_kit::font_manager::show(&ctx) { self.layout.pages.clear(); self.measure_cache = Default::default(); }

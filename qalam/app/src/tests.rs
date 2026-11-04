@@ -1857,3 +1857,17 @@ fn word_being_typed_is_not_flagged_until_finished() {
     assert!(typing(&h).is_empty());
     assert!(h.state().extras.review.issues.iter().any(|i| i.word == "recie"));
 }
+
+/// several pictures dropped at once all go in, in order.
+#[test]
+fn dropping_several_pictures_inserts_them_all() {
+    let mut h = typed("صور ");
+    let paths: Vec<_> = (0..3).map(|k| { let p = out_dir().join(format!("dropped-{k}.png")); image::RgbaImage::from_pixel(4 + k, 3, image::Rgba([0, 0, 255, 255])).save(&p).unwrap(); p }).collect();
+    let ctx = h.ctx.clone();
+    h.state_mut().drop_files(&ctx, paths);
+    h.run_steps(2);
+    let d = &h.state().doc;
+    let widths: Vec<f32> = d.paragraphs.iter().flat_map(|p| &p.runs).filter_map(|r| r.image.as_ref().map(|i| i.width)).collect();
+    assert_eq!(widths.len(), 3, "{widths:?}");
+    assert!(d.text().starts_with("صور "));
+}
