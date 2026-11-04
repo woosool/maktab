@@ -64,6 +64,17 @@ fn ctrl_click_on_a_link_opens_it_with_the_system_opener() {
 }
 
 #[test]
+fn only_web_and_mail_links_are_handed_to_the_system_opener() {
+    use crate::context::web_url;
+    assert_eq!(web_url(" https://example.com/ar ").as_deref(), Some("https://example.com/ar"));
+    assert_eq!(web_url("mailto:a@b.c").as_deref(), Some("mailto:a@b.c"));
+    assert_eq!(web_url("www.example.com").as_deref(), Some("https://www.example.com"));
+    for bad in ["file:///Applications/Calculator.app", "/bin/sh", "-a Terminal", "C:\\Windows\\calc.exe", "javascript:alert(1)", "smb://host/share", "https://a\nb"] {
+        assert_eq!(web_url(bad), None, "{bad}");
+    }
+}
+
+#[test]
 fn enter_on_an_empty_nested_list_item_moves_it_up_a_level() {
     let mut h = harness(None);
     h.run_steps(3);

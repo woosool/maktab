@@ -213,10 +213,25 @@ pub static OPENED: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::ne
 
 /// Open a link with the system's opener (open, explorer, xdg-open), which finds the default
 /// browser where egui's lookup reports none (SteamOS and other Linux desktops).
+/// Only web and mail links are handed over: a document's `file:`, app-scheme or bare-path
+/// target would otherwise launch programs or open local files.
 pub fn open_url(url: &str) {
+    let Some(url) = web_url(url) else { return };
+    let url = url.as_str();
     #[cfg(test)]
     { OPENED.lock().unwrap().push(url.to_string()); return; }
     #[allow(unreachable_code)]
     let cmd = if cfg!(target_os = "macos") { "open" } else if cfg!(target_os = "windows") { "explorer" } else { "xdg-open" };
     let _ = std::process::Command::new(cmd).arg(url).spawn();
+}
+
+/// The link as an http(s), mailto or ftp URL (`www.` gets https), or None for anything else.
+pub fn web_url(url: &str) -> Option<String> {
+    let url = url.trim();
+    if url.chars().any(|c| c.is_control()) { return None; }
+    let lower = url.to_ascii_lowercase();
+    if lower.starts_with("www.") { return Some(format!("https://{url}")); }
+    let (scheme, rest) = lower.split_once(':')?;
+    let ok = matches!(scheme, "http" | "https" | "ftp") && rest.starts_with("//") && rest.len() > 2 || scheme == "mailto" && rest.len() > 0;
+    ok.then(|| url.to_string())
 }
