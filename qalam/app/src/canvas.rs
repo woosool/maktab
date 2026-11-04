@@ -591,6 +591,23 @@ fn paint_marks(app: &WordApp, painter: &egui::Painter, page: usize, zoom: f32, t
         if l.last_in_paragraph {
             let x = *l.stops.last().unwrap_or(&l.left);
             painter.text(to_screen(page, x + 1.0, l.baseline), egui::Align2::LEFT_BOTTOM, "¶", font.clone(), color);
+            // A section break shows as a labelled double dotted line after the mark (as in Word).
+            if let Some(kind) = app.doc.section_break_after(l.paragraph) {
+                use word_engine::page::SectionKind;
+                let label = crate::i18n::tr(match kind { SectionKind::NextPage => "Section Break (Next Page)", SectionKind::Continuous => "Section Break (Continuous)", SectionKind::EvenPage => "Section Break (Even Page)", SectionKind::OddPage => "Section Break (Odd Page)" });
+                // Right-to-left paragraphs end at the left: the line runs from the margin to the mark.
+                let (x0, x1) = if l.rtl { (l.left, x - 4.0) } else { (x + 10.0, l.right) };
+                let (a, b) = (to_screen(page, x0, l.baseline - 4.0), to_screen(page, x1, l.baseline - 4.0));
+                if b.x > a.x {
+                    for dy in [-1.5 * zoom, 1.5 * zoom] {
+                        painter.add(egui::Shape::dashed_line(&[a + egui::vec2(0.0, dy), b + egui::vec2(0.0, dy)], egui::Stroke::new(1.0, color), 2.0 * zoom, 2.0 * zoom));
+                    }
+                    let mid = egui::pos2((a.x + b.x) / 2.0, a.y);
+                    let g = painter.layout_no_wrap(label, font.clone(), color);
+                    painter.rect_filled(egui::Rect::from_center_size(mid, g.size() + egui::vec2(6.0, 0.0)), 0.0, Color32::WHITE);
+                    painter.galley(mid - g.size() / 2.0, g, color);
+                }
+            }
         }
     }
 }

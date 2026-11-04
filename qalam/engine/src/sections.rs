@@ -11,6 +11,13 @@ impl Document {
     /// The caret's section.
     pub fn current_section(&self) -> usize { self.section_index(self.locate(self.range().0).0) }
 
+    /// The kind of section break paragraph `para` ends with (named after how the next section
+    /// starts, as Word labels it), if it ends a section.
+    pub fn section_break_after(&self, para: usize) -> Option<SectionKind> {
+        self.paragraphs.get(para)?.section.as_ref()?;
+        Some(self.section_at(self.section_index(para) + 1).kind)
+    }
+
     pub fn section_at(&self, k: usize) -> &Section {
         self.paragraphs.iter().filter_map(|p| p.section.as_ref()).nth(k).unwrap_or(&self.page.section)
     }
@@ -94,6 +101,21 @@ impl Document {
 mod tests {
     use crate::model::{Document, Paragraph};
     use crate::page::{Columns, Hyphenation, LineNumbering, LineRestart, SectionKind};
+
+    #[test]
+    fn section_break_kind_after_paragraph() {
+        // wordcraft #42: the break is shown with Show/Hide ¶, so its kind must be known.
+        let mut d = Document::new(vec![Paragraph::new("مرحبا"), Paragraph::new("Two"), Paragraph::new("Three")]);
+        let p1 = d.paragraph_start(1);
+        d.select(p1, p1);
+        d.insert_section_break(SectionKind::Continuous);
+        let p2 = d.paragraph_start(d.paragraphs.len() - 1);
+        d.select(p2, p2);
+        d.insert_section_break(SectionKind::OddPage);
+        let kinds: Vec<_> = (0..d.paragraphs.len()).map(|i| d.section_break_after(i)).collect();
+        assert_eq!(kinds.iter().flatten().copied().collect::<Vec<_>>(), vec![SectionKind::Continuous, SectionKind::OddPage]);
+        assert_eq!(*kinds.last().unwrap(), None, "the last paragraph ends the document, not a section");
+    }
 
     #[test]
     fn columns_sections_line_numbers_and_hyphenation() {
