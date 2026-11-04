@@ -113,7 +113,8 @@ impl<'a> Reader<'a> {
                 }
                 "w:b" => p.bold = Some(on),
                 "w:i" => p.italic = Some(on),
-                "w:u" => p.underline = Some(val.unwrap_or("single").into()),
+                // A w:u without w:val (only w:color, say) draws no underline in Word.
+                "w:u" => p.underline = Some(val.unwrap_or("none").into()),
                 "w:strike" => p.strike = Some(if on { Strike::Single } else { Strike::None }),
                 "w:dstrike" => { if on { p.strike = Some(Strike::Double); } else if p.strike.is_none() { p.strike = Some(Strike::None); } }
                 "w:color" => p.color = Some(match val { Some("auto") | None => None, Some(v) => Color::from_hex(v) }),
@@ -2319,6 +2320,31 @@ mod tests {
         let f = read(&write(&e).unwrap()).unwrap();
         assert_eq!(f.anchor_at(0).map(|a| a.wrap), Some(Wrap::Square));
         assert!(f.image_at(0).unwrap().original.is_some());
+    }
+
+    #[test]
+    fn underline_without_val_draws_nothing() {
+        use std::io::{Read, Write};
+        let mut d = Document::new(vec![Paragraph::new("plain")]);
+        d.select(0, 5);
+        d.toggle_underline();
+        let bytes = write(&d).unwrap();
+        let mut z = zip::ZipArchive::new(std::io::Cursor::new(&bytes)).unwrap();
+        let mut out = std::io::Cursor::new(vec![]);
+        {
+            let mut w = zip::ZipWriter::new(&mut out);
+            for i in 0..z.len() {
+                let mut f = z.by_index(i).unwrap();
+                let mut data = vec![];
+                f.read_to_end(&mut data).unwrap();
+                if f.name() == "word/document.xml" { data = String::from_utf8(data).unwrap().replace(r#"<w:u w:val="single"/>"#, r#"<w:u w:color="FF0000"/>"#).into_bytes(); }
+                w.start_file(f.name().to_string(), zip::write::SimpleFileOptions::default()).unwrap();
+                w.write_all(&data).unwrap();
+            }
+            w.finish().unwrap();
+        }
+        let e = read(&out.into_inner()).unwrap();
+        assert!(!e.run_format(&e.paragraphs[0], &e.paragraphs[0].runs[0]).underline);
     }
 
     pub(super) fn read_part(docx: &[u8], name: &str) -> Vec<u8> {
