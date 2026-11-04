@@ -631,7 +631,11 @@ pub fn goto_comment(app: &mut WordApp, forward: bool) {
 }
 
 /// Short local-looking date from an OOXML timestamp.
-fn short_date(iso: &str) -> String { iso.get(..10).map(|d| format!("{d} {}", iso.get(11..16).unwrap_or(""))).unwrap_or_default() }
+/// A comment's date and time in local time; the file keeps UTC times (with a zone).
+pub(crate) fn short_date(iso: &str) -> String {
+    if let Ok(t) = chrono::DateTime::parse_from_rfc3339(iso) { return t.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string(); }
+    iso.get(..10).map(|d| format!("{d} {}", iso.get(11..16).unwrap_or(""))).unwrap_or_default()
+}
 
 /// Comment threads in document order (review.js margin column, as a side pane).
 pub fn comments_panel(app: &mut WordApp, ui: &mut Ui) {

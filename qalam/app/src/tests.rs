@@ -112,6 +112,14 @@ fn ctrl_shift_2_inserts_zwnj() {
 }
 
 #[test]
+fn comment_times_show_in_local_time() {
+    let utc = "2026-03-01T19:53:00Z";
+    let local = chrono::DateTime::parse_from_rfc3339(utc).unwrap().with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string();
+    assert_eq!(crate::ui::short_date(utc), local);
+    assert_eq!(crate::ui::short_date("2026-03-01T19:53:00"), "2026-03-01 19:53", "a time with no zone shows as written");
+}
+
+#[test]
 fn cover_page_date_is_the_local_day() {
     let mut h = harness(None);
     h.run_steps(2);
