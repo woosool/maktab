@@ -40,11 +40,13 @@ pub struct Settings {
     pub skipped_version: Option<String>,
     /// When updates were last checked (Unix seconds).
     pub last_update_check: u64,
+    /// The User name from Options (comments, tracked changes); None until one is set.
+    pub author: Option<String>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { lang: Default::default(), dark: false, units: default_units(system_region().as_deref()), ruler: true, nav_pane: false, zoom: 1.0, autosave_minutes: 10, backup: false, default_folder: None, remember_window: true, window: None, hidden_tabs: HashSet::new(), hidden_groups: HashSet::new(), custom_tab: vec![], custom_tab_name: "My Tab".into(), hidden_context: HashSet::new(), recent: vec![], auto_update: true, skipped_version: None, last_update_check: 0 }
+        Settings { lang: Default::default(), dark: false, units: default_units(system_region().as_deref()), ruler: true, nav_pane: false, zoom: 1.0, autosave_minutes: 10, backup: false, default_folder: None, remember_window: true, window: None, hidden_tabs: HashSet::new(), hidden_groups: HashSet::new(), custom_tab: vec![], custom_tab_name: "My Tab".into(), hidden_context: HashSet::new(), recent: vec![], auto_update: true, skipped_version: None, last_update_check: 0, author: None }
     }
 }
 
@@ -93,6 +95,7 @@ impl Settings {
             hidden_tabs: set("hidden_tabs"), hidden_groups: set("hidden_groups"), custom_tab: list("custom_tab"),
             custom_tab_name: v["custom_tab_name"].as_str().unwrap_or("My Tab").to_string(), hidden_context: set("hidden_context"), recent: list("recent"),
             auto_update: v["auto_update"].as_bool().unwrap_or(true), skipped_version: v["skipped_version"].as_str().map(String::from), last_update_check: v["last_update_check"].as_u64().unwrap_or(0),
+            author: v["author"].as_str().map(str::trim).filter(|a| !a.is_empty()).map(String::from),
         }
     }
 
@@ -104,7 +107,7 @@ impl Settings {
             "autosave_minutes": self.autosave_minutes, "backup": self.backup, "default_folder": self.default_folder, "remember_window": self.remember_window,
             "window": window, "hidden_tabs": sorted(&self.hidden_tabs), "hidden_groups": sorted(&self.hidden_groups), "custom_tab": self.custom_tab,
             "custom_tab_name": self.custom_tab_name, "hidden_context": sorted(&self.hidden_context), "recent": self.recent,
-            "auto_update": self.auto_update, "skipped_version": self.skipped_version, "last_update_check": self.last_update_check,
+            "auto_update": self.auto_update, "skipped_version": self.skipped_version, "last_update_check": self.last_update_check, "author": self.author,
         });
         let p = path();
         let _ = std::fs::create_dir_all(p.parent().unwrap());
@@ -143,6 +146,7 @@ impl WordApp {
         if s.dark { self.set_dark(ctx, true); }
         self.extras.options.hidden_context = s.hidden_context.clone();
         crate::i18n::set(s.lang);
+        if let Some(a) = &s.author { self.author = a.clone(); }
         self.extras.options.settings = s;
         let files: Vec<PathBuf> = std::fs::read_dir(recovery_dir()).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "docx")).collect();
         if !files.is_empty() { self.extras.options.recovered = Some(files); }
@@ -156,6 +160,8 @@ impl WordApp {
         s.nav_pane = self.show_outline;
         s.zoom = self.zoom;
         s.hidden_context = self.extras.options.hidden_context.clone();
+        let author = self.author.trim();
+        if !author.is_empty() { s.author = Some(author.to_string()); }
         s.save();
     }
 

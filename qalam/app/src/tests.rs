@@ -1225,6 +1225,10 @@ fn context_menu_options_and_view_reset() {
     let back = crate::options::Settings::load();
     assert_eq!(back.hidden_groups, st.hidden_groups);
     assert_eq!(back.window, st.window);
+    // The User name is kept between sessions (wordcraft #32).
+    st.author = Some("سارة".into());
+    st.save();
+    assert_eq!(crate::options::Settings::load().author.as_deref(), Some("سارة"));
     // Opening a document resets Split and Web Layout.
     h.state_mut().extras.view.split = true;
     h.state_mut().set_view(crate::view::ViewMode::Web);
