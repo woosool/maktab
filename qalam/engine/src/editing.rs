@@ -209,6 +209,22 @@ impl Document {
         // Replace character by character so every run keeps its formatting.
         self.checkpoint(EditKind::Other);
         let new: Vec<char> = out.chars().collect();
+        // With Track Changes on, each changed stretch becomes a tracked deletion and insertion.
+        if self.track_changes {
+            let mut spans = vec![];
+            let mut k = 0;
+            while k < new.len() {
+                if new[k] == text[s + k] { k += 1; continue; }
+                let a = k;
+                while k < new.len() && new[k] != text[s + k] { k += 1; }
+                spans.push((a, k));
+            }
+            let grown: usize = spans.iter().map(|(a, b)| b - a).sum();
+            for &(a, b) in spans.iter().rev() { self.tracked_replace(s + a, s + b, &new[a..b].iter().collect::<String>()); }
+            self.select(s, e + grown);
+            self.changed();
+            return;
+        }
         let mut pos = s;
         let starts = self.paragraph_starts();
         for (i, p) in self.paragraphs.iter_mut().enumerate() {
@@ -377,6 +393,20 @@ impl Document {
 mod tests {
     use super::*;
     fn doc(t: &str) -> Document { Document::new(t.split('\n').map(Paragraph::new).collect()) }
+
+    #[test]
+    fn change_case_is_tracked_when_tracking() {
+        let mut d = doc("مرحبا hello world");
+        d.set_track_changes(true);
+        d.select(6, 17);
+        d.change_case(CaseMode::Capitalize);
+        let kinds: Vec<_> = d.revisions().iter().map(|r| r.2).collect();
+        assert_eq!(kinds, vec![RevKind::Del, RevKind::Ins, RevKind::Del, RevKind::Ins]);
+        assert_eq!(d.text(), "مرحبا hHello wWorld");
+        d.undo();
+        assert_eq!(d.text(), "مرحبا hello world");
+        assert!(d.revisions().is_empty());
+    }
 
     #[test]
     fn list_libraries() {

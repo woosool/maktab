@@ -985,7 +985,7 @@ impl Document {
     }
 
     /// Tracked replacement: the old text is marked deleted and the new text inserted after it.
-    fn tracked_replace(&mut self, s: usize, e: usize, text: &str) {
+    pub(crate) fn tracked_replace(&mut self, s: usize, e: usize, text: &str) {
         let mut run = self.typing_run(s);
         let at = self.tracked_delete(s, e);
         if text.is_empty() { self.selection = Selection { anchor: s, focus: s }; self.changed(); return; }
