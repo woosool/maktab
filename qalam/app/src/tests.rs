@@ -43,6 +43,27 @@ fn click(h: &mut Harness<'_, WordApp>, pos: Pos2) {
 }
 
 #[test]
+fn ctrl_click_on_a_link_opens_it_with_the_system_opener() {
+    let mut h = harness(None);
+    h.run_steps(3);
+    h.event(Event::Text("زوروا الموقع".into()));
+    h.run_steps(1);
+    h.state_mut().doc.select(6, 12);
+    h.state_mut().doc.set_link(Some("https://example.com/ar".into()));
+    h.state_mut().doc.select(0, 0);
+    h.run_steps(2);
+    let at = h.state().screen_of(9);
+    h.event(Event::ModifiersChanged(Modifiers::COMMAND));
+    h.event(Event::PointerMoved(at));
+    h.event(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::COMMAND });
+    h.step();
+    h.event(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: false, modifiers: Modifiers::COMMAND });
+    h.event(Event::ModifiersChanged(Modifiers::NONE));
+    h.run_steps(2);
+    assert!(crate::context::OPENED.lock().unwrap().contains(&"https://example.com/ar".to_string()));
+}
+
+#[test]
 fn enter_on_an_empty_nested_list_item_moves_it_up_a_level() {
     let mut h = harness(None);
     h.run_steps(3);

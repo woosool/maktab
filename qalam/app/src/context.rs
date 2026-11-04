@@ -207,7 +207,16 @@ fn synonyms(app: &mut WordApp, ui: &mut Ui, word: &str) {
     if ui.button(crate::i18n::tr("Thesaurus…")).clicked() { app.open_thesaurus(); ui.close(); }
 }
 
+/// Links opened while testing, instead of starting a browser.
+#[cfg(test)]
+pub static OPENED: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// Open a link with the system's opener (open, explorer, xdg-open), which finds the default
+/// browser where egui's lookup reports none (SteamOS and other Linux desktops).
 pub fn open_url(url: &str) {
+    #[cfg(test)]
+    { OPENED.lock().unwrap().push(url.to_string()); return; }
+    #[allow(unreachable_code)]
     let cmd = if cfg!(target_os = "macos") { "open" } else if cfg!(target_os = "windows") { "explorer" } else { "xdg-open" };
     let _ = std::process::Command::new(cmd).arg(url).spawn();
 }

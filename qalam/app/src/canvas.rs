@@ -725,7 +725,7 @@ fn handle_pointer(app: &mut WordApp, ui: &Ui, response: &egui::Response, from_sc
                 // Internal links (cross-references) jump to their bookmark.
                 match link.strip_prefix('#') {
                     Some(name) => match app.doc.bookmarks().into_iter().find(|b| b.0 == name) { Some((_, s, e)) => { app.doc.select(s, e); app.scroll_to_caret = true; } None => app.doc.select(pos, pos) },
-                    None => { ui.ctx().open_url(egui::OpenUrl::new_tab(link)); app.doc.select(pos, pos); }
+                    None => { crate::context::open_url(&link); app.doc.select(pos, pos); }
                 }
                 return;
             }
