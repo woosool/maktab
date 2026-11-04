@@ -1490,10 +1490,13 @@ impl<'a> Placer<'a> {
             self.y += cur.lines[k].skip;
             let need = self.notes_need(&cur.lines[k]);
             let lh = cur.lines[k].height;
-            let mut must_break = self.y + lh + need > self.bottom() + 0.01 && !self.at_column_top();
+            // Above footnotes a paragraph's last line also needs its space after clear of the separator.
+            let notes = self.foot_space + need > 0.0;
+            let after = if notes { f.space_after * PT } else { 0.0 };
+            let mut must_break = self.y + lh + need + if k + 1 == n { after } else { 0.0 } > self.bottom() + 0.01 && !self.at_column_top();
             // Widow control: carry one more line so the last column holds two.
             if !must_break && f.widow_control && n > 2 && k == n - 2 && k > 0 {
-                let need = lh + cur.lines[n - 1].height;
+                let need = lh + cur.lines[n - 1].height + after;
                 if self.y + need > self.bottom() + 0.01 && !self.at_column_top() { must_break = true; }
             }
             if must_break {
@@ -2288,6 +2291,25 @@ mod tests {
         assert!(last_body < note_glyph_y.unwrap() - 20.0, "body text stops above the notes");
         // The reference shows its number.
         assert!(page.items.iter().any(|i| matches!(i, DrawItem::Glyphs { glyphs, .. } if glyphs.len() == 1 && glyphs[0].ch == '1')));
+    }
+
+    #[test]
+    fn space_after_clears_the_footnote_separator() {
+        // A page with notes ends with a paragraph's last line only if its space after fits too.
+        for after in [6.0, 9.0, 12.0, 15.0, 18.0] {
+            let mut d = doc(&(0..80).map(|i| format!("Line {i}")).collect::<Vec<_>>().join("\n"));
+            for p in &mut d.paragraphs { p.props.space_before = Some(0.0); p.props.space_after = Some(after); }
+            d.select(3, 3);
+            let id = d.insert_note(NoteKind::Foot);
+            d.set_note_text(NoteKind::Foot, &id, "A note.");
+            let l = layout_document(&d);
+            let geo = d.page.geometry();
+            let sep = l.pages[0].items.iter().filter_map(|i| match i { DrawItem::Line { x1, y1, x2, width, .. } if *x1 == geo.left && *x2 == geo.left + 144.0 && *width == 0.75 => Some(*y1), _ => None }).next().expect("separator");
+            let last = l.lines.iter().filter(|x| x.page == 0).map(|x| x.y + x.height).fold(0.0, f32::max);
+            // The separator sits half its band below the writing area's bottom.
+            let gap = sep - NOTE_SEPARATOR / 2.0 - last;
+            assert!(gap >= after * PT - 0.01, "space after {after} pt clears the separator: gap {gap}");
+        }
     }
 
     #[test]
