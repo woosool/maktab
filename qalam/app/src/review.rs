@@ -183,9 +183,9 @@ fn wavy(painter: &egui::Painter, x0: f32, x1: f32, y: f32, color: Color32) {
 }
 
 /// Squiggles under spelling (red) and grammar (blue) issues on one page.
-pub fn paint_squiggles(r: &ReviewState, layout: &word_engine::Layout, painter: &egui::Painter, page: usize, zoom: f32, to_screen: &dyn Fn(usize, f32, f32) -> egui::Pos2) {
+pub fn paint_squiggles(r: &ReviewState, doc: &word_engine::Document, layout: &word_engine::Layout, painter: &egui::Painter, page: usize, zoom: f32, to_screen: &dyn Fn(usize, f32, f32) -> egui::Pos2) {
     if !r.check_as_you_type && !r.editor_open { return; }
-    for i in &r.issues {
+    for i in r.issues.iter().filter(|i| !typing_word(doc, i)) {
         let color = if i.kind.is_grammar() { Color32::from_rgb(40, 90, 220) } else { Color32::from_rgb(220, 40, 40) };
         for (pg, x, y, w, h) in layout.selection_rects(i.start, i.end) {
             if pg != page { continue; }
@@ -193,6 +193,14 @@ pub fn paint_squiggles(r: &ReviewState, layout: &word_engine::Layout, painter: &
             wavy(painter, a.x, a.x + w * zoom, a.y - 2.0, color);
         }
     }
+}
+
+/// The word still being typed at the caret: as in Word, it isn't flagged until it's finished.
+pub fn typing_word(doc: &word_engine::Document, i: &Issue) -> bool {
+    // The issues may be from a keystroke ago: match the word's start, not its end.
+    let caret = doc.selection.focus;
+    !i.kind.is_grammar() && doc.typing_in_progress() && i.start < caret
+        && caret.checked_sub(1).and_then(|p| doc.char_at(p)).is_some_and(char::is_alphanumeric) && doc.word_boundary(caret, false) == i.start
 }
 
 /// Suggestions for the issue under the right-click, at the top of the context menu.

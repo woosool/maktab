@@ -628,6 +628,8 @@ impl Document {
     }
     /// Break typing coalescing (e.g. at word boundaries or caret moves).
     pub fn seal(&mut self) { self.last_edit = None; }
+    /// Whether the last edit was typing, with the caret not moved since.
+    pub fn typing_in_progress(&self) -> bool { self.last_edit == Some(EditKind::Typing) && self.selection.is_caret() }
     pub fn can_undo(&self) -> bool { !self.history.is_empty() }
     pub fn history_len(&self) -> usize { self.history.len() }
     pub fn can_redo(&self) -> bool { !self.future.is_empty() }

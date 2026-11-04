@@ -214,7 +214,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             let mut pen = Pen { atlas, mesh: &mut text, ppp: ui.ctx().pixels_per_point() };
             for item in page.under.iter() { paint_item(textures, assets, ui, &painter, item, i, zoom, &to_screen, &mut pen); }
             for &((pg, x, y, w, h), strong) in &comment_rects { if pg == i { painter.rect_filled(Rect::from_min_size(to_screen(pg, x, y), vec2(w * zoom, h * zoom)), 0.0, if strong { Color32::from_rgba_unmultiplied(250, 190, 60, 110) } else { Color32::from_rgba_unmultiplied(250, 215, 110, 60) }); } }
-            crate::review::paint_squiggles(&app.extras.review, &app.layout, &painter, i, zoom, &to_screen);
+            crate::review::paint_squiggles(&app.extras.review, &app.doc, &app.layout, &painter, i, zoom, &to_screen);
             for &(pg, x, y, w, h) in &merge_rects { if pg == i { painter.rect_filled(Rect::from_min_size(to_screen(pg, x, y), vec2(w * zoom, h * zoom)), 0.0, Color32::from_rgba_unmultiplied(150, 150, 150, 70)); } }
             for &(pg, x, y, w, h) in &find_rects { if pg == i { painter.rect_filled(Rect::from_min_size(to_screen(pg, x, y), vec2(w * zoom, h * zoom)), 0.0, Color32::from_rgba_unmultiplied(255, 200, 0, 90)); } }
             // A selected picture or object shows its frame and handles, not a text highlight.

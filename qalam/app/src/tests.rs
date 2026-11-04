@@ -1841,3 +1841,19 @@ fn an_empty_docx_opens_as_a_new_document_saved_back_to_it() {
     std::fs::remove_file(&file).unwrap();
 }
 
+
+/// the word being typed isn't flagged as misspelled until it's finished.
+#[test]
+fn word_being_typed_is_not_flagged_until_finished() {
+    let mut h = harness(None);
+    h.run_steps(2);
+    h.state_mut().extras.review.check_as_you_type = true;
+    for c in "The recie".chars() { h.event(Event::Text(c.to_string())); h.step(); }
+    h.run_steps(4);
+    let typing = |h: &Harness<'_, WordApp>| h.state().extras.review.issues.iter().filter(|i| crate::review::typing_word(&h.state().doc, i)).map(|i| i.word.clone()).collect::<Vec<_>>();
+    assert_eq!(typing(&h).len(), 1);
+    h.event(Event::Text(" ".into()));
+    h.run_steps(60);
+    assert!(typing(&h).is_empty());
+    assert!(h.state().extras.review.issues.iter().any(|i| i.word == "recie"));
+}
