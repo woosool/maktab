@@ -1015,7 +1015,10 @@ impl Document {
 
     /// Accept or reject every change intersecting [s, e] (all changes when `all`).
     pub fn resolve_revisions(&mut self, accept: bool, s: usize, e: usize, all: bool) -> usize {
-        let hits = |a: usize, b: usize| all || (a < e.max(s + 1) && b > s) || (s == e && a <= s && s <= b);
+        let hits = |a: usize, b: usize, s: usize, e: usize| all || (a < e.max(s + 1) && b > s) || (s == e && a <= s && s <= b);
+        // A change is resolved whole, even when comment marks or formatting split its runs.
+        let (s, e) = self.revisions().iter().filter(|r| hits(r.0, r.1, s, e)).fold((s, e), |(s, e), r| (s.min(r.0), e.max(r.1)));
+        let hits = |a: usize, b: usize| hits(a, b, s, e);
         let starts = self.paragraph_starts();
         let mut touched = 0;
         let mut changed = false;
@@ -2655,5 +2658,32 @@ mod tests {
         d.select(11, 11);
         d.paste_fragment(f);
         assert_eq!(d.text(), "Hello\nWorldlo\nWo");
+    }
+}
+#[cfg(test)]
+mod wordcraft_task10 {
+    use super::*;
+    #[test]
+    fn accept_all_after_deleting_from_paragraph_end() {
+        let mut d = Document::new(["Alpha","Bravo","Charlie","Delta","Echo"].iter().map(|t| Paragraph::new(t)).collect());
+        d.set_track_changes(true);
+        d.select(5, 19);
+        d.delete(false, false);
+        let n = d.len();
+        d.resolve_revisions(true, 0, n, true);
+        assert_eq!(d.text(), "Alpha\nDelta\nEcho");
+    }
+    #[test]
+    fn accept_at_caret_resolves_whole_change_across_comment() {
+        for comment in [true, false] {
+            let mut d = Document::new(vec![Paragraph::new("x")]);
+            d.set_track_changes(true);
+            d.select(1, 1);
+            d.replace("Test by me");
+            if comment { d.select(1, 5); d.add_comment("A", "c", "2026-01-01T10:00:00Z"); } else { d.select(5,5); d.toggle_bold(); d.replace("Z"); }
+            d.select(8, 8);
+            d.resolve_revisions(true, 8, 8, false);
+            assert!(d.revisions().is_empty(), "comment={comment} {:?}", d.revisions());
+        }
     }
 }
