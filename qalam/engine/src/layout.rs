@@ -1268,15 +1268,22 @@ impl<'a> Placer<'a> {
         let mut by_pos: Vec<Option<f32>> = vec![None; n + 1];
         let mut boxes: Vec<(f32, f32)> = vec![(0.0, 0.0); n];
         let mut last: Option<(f32, f32, bool)> = None;
+        // Spaces hanging past the margin keep the caret at the margin (or at the end of text that
+        // already overflows it), as in Word, instead of running off the page.
+        let hang = l.atoms.get(l.trail).map(|a| if l.rtl { (left + l.left).min(left + l.x[l.trail] + a.width) } else { (left + l.right).max(left + l.x[l.trail]) });
         for (k, a) in l.atoms.iter().enumerate() {
-            let ax = left + l.x[k];
+            let (mut ax, mut aw) = (left + l.x[k], a.width);
+            if let (Some(edge), true) = (hang, k >= l.trail && a.kind == Kind::Space) {
+                let (x0, x1) = if l.rtl { (ax.max(edge), (ax + aw).max(edge)) } else { (ax.min(edge), (ax + aw).min(edge)) };
+                ax = x0; aw = x1 - x0;
+            }
             let odd = a.level % 2 == 1 || k >= l.trail && l.rtl;
             if let Some(p) = a.pos {
                 if p >= l.start && p - l.start < n {
-                    by_pos[p - l.start] = Some(if odd { ax + a.width } else { ax });
-                    boxes[p - l.start] = (ax, ax + a.width);
+                    by_pos[p - l.start] = Some(if odd { ax + aw } else { ax });
+                    boxes[p - l.start] = (ax, ax + aw);
                 }
-                last = Some((ax, ax + a.width, odd));
+                last = Some((ax, ax + aw, odd));
             }
         }
         // A ligature (Arabic lam-alef, "ffi") gives its whole width to its first character; the
@@ -2846,5 +2853,20 @@ mod tests {
         let geo = d.page.geometry();
         let last_char_end = first.stops[first.end - first.start - 1];
         assert!((last_char_end - (geo.width - geo.right)).abs() < 8.0);
+    }
+
+    #[test]
+    fn caret_stays_at_the_margin_after_hanging_spaces() {
+        // Held-down spacebar: the spaces hang past the margin, the caret stays at it.
+        for (t, rtl) in [("Word", false), ("مرحبا", true)] {
+            let d = Document::new(vec![Paragraph::new(&format!("{t}{}", " ".repeat(400)))]);
+            let lay = layout_document(&d);
+            assert_eq!(lay.lines.len(), 1);
+            let l = &lay.lines[0];
+            let x = lay.caret_rect(d.len()).unwrap().x;
+            assert!(x >= l.left - 0.5 && x <= l.right + 0.5, "{t}: caret at {x} inside {}..{}", l.left, l.right);
+            let edge = if rtl { l.left } else { l.right };
+            assert!((x - edge).abs() < 0.5, "{t}: caret at the end-side margin");
+        }
     }
 }
