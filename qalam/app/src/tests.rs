@@ -1811,3 +1811,27 @@ fn wordcraft_task08_qalam_renders() {
     h.state_mut().set_dark(&ctx, true);
     for n in [655, 656, 657, 663] { shot_as(&mut h, n, "qalam.png"); }
 }
+
+/// Wordcraft #861: the unsaved-changes prompt answers to the keyboard alone.
+#[test]
+fn save_prompt_works_from_keyboard() {
+    let mut h = harness(None);
+    h.event(Event::Text("abc".into()));
+    h.run_steps(2);
+    h.state_mut().dialogs.confirm = Some(crate::app::Pending::New);
+    h.run_steps(3);
+    assert!(h.get_by_label("Save").is_focused(), "Save starts focused");
+    h.key_press(Key::Escape);
+    h.run_steps(2);
+    assert!(h.state().dialogs.confirm.is_none(), "Esc cancels");
+    assert_eq!(h.state().doc.text(), "abc");
+    h.state_mut().dialogs.confirm = Some(crate::app::Pending::New);
+    h.run_steps(3);
+    h.key_press(Key::Tab);
+    h.run_steps(1);
+    assert!(!h.get_by_label("Save").is_focused(), "Tab moves to the next button");
+    h.key_press(Key::Enter);
+    h.run_steps(2);
+    assert!(h.state().dialogs.confirm.is_none(), "Enter presses the focused button");
+    assert!(!h.state().doc.text().contains('\n'), "Enter does not reach the page");
+}

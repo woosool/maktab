@@ -147,18 +147,23 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
     // Unsaved changes.
     if let Some(action) = app.dialogs.confirm.clone() {
         let mut close = false;
-        egui::Modal::new(egui::Id::unique("confirm")).show(ctx, |ui| {
+        let modal = egui::Modal::new(egui::Id::unique("confirm")).show(ctx, |ui| {
             ui.set_width(340.0);
             ui.heading(crate::i18n::tr("Save changes?"));
             ui.label(crate::i18n::tr("Your changes will be lost if you don't save them."));
             ui.add_space(8.0);
             crate::theme::footer(ui, |ui| {
-                if crate::theme::primary(ui, "Save").clicked() { close = true; if app.save(ctx, false) { app.run_pending(ctx, action.clone()); } }
+                let save = crate::theme::primary(ui, "Save");
+                // Save starts focused, so the keyboard alone answers: Tab or arrows move, Enter or Space press, Esc cancels.
+                let opened = egui::Id::new("confirm-focused");
+                if !ui.data(|d| d.get_temp::<bool>(opened).unwrap_or(false)) { save.request_focus(); ui.data_mut(|d| d.insert_temp(opened, true)); }
+                if save.clicked() { close = true; if app.save(ctx, false) { app.run_pending(ctx, action.clone()); } }
                 if crate::theme::secondary(ui, "Cancel").clicked() { close = true; }
                 if crate::theme::secondary(ui, "Don't Save").clicked() { close = true; app.doc.dirty = false; app.run_pending(ctx, action.clone()); }
             });
         });
-        if close { app.dialogs.confirm = None; }
+        if modal.should_close() { close = true; }
+        if close { app.dialogs.confirm = None; ctx.data_mut(|d| d.remove::<bool>(egui::Id::new("confirm-focused"))); }
     }
 
     if let Some(msg) = app.dialogs.error.clone() {
