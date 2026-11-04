@@ -113,6 +113,24 @@ fn multilevel_levels(kind: Multilevel) -> Vec<Level> {
     }).map(|mut l| { if kind == Multilevel::Legal { l.hanging = 360 + 180 * (l.text.len() as i32 / 3); } l }).collect()
 }
 
+/// A sort key that files a letter with diacritics right after its base letter ("ą" after "a" and
+/// before "b", "Ł" between "L" and "M"), and Persian letters after their Arabic base ("پ" after
+/// "ب", "گ" after "ک"), Arabic hamza seats with alef; it ignores case, combining marks, Arabic
+/// short vowels and tatweel. Other characters keep code-point order.
+pub fn collation_key(s: &str) -> Vec<(char, u8)> {
+    const FOLD: &[(char, &str)] = &[
+        ('a', "àáâãäåāăą"), ('c', "çćĉċč"), ('d', "ďđ"), ('e', "èéêëēĕėęě"), ('g', "ĝğġģ"), ('h', "ĥħ"), ('i', "ìíîïĩīĭįı"),
+        ('j', "ĵ"), ('k', "ķ"), ('l', "ĺļľŀł"), ('n', "ñńņňŉ"), ('o', "òóôõöøōŏő"), ('r', "ŕŗř"), ('s', "śŝşšș"), ('t', "ţťŧț"),
+        ('u', "ùúûüũūŭůűų"), ('w', "ŵ"), ('y', "ýÿŷ"), ('z', "źżž"),
+        ('\u{627}', "\u{623}\u{625}\u{622}\u{671}"), ('\u{628}', "\u{67E}"), ('\u{62C}', "\u{686}"), ('\u{632}', "\u{698}"),
+        ('\u{643}', "\u{6A9}\u{6AF}"), ('\u{648}', "\u{624}"), ('\u{64A}', "\u{6CC}\u{649}\u{626}"),
+    ];
+    s.chars().flat_map(char::to_lowercase)
+        .filter(|c| !matches!(c, '\u{300}'..='\u{36F}' | '\u{64B}'..='\u{65F}' | '\u{670}' | '\u{640}'))
+        .map(|c| FOLD.iter().find_map(|(base, v)| v.chars().position(|x| x == c).map(|i| (*base, i as u8 + 1))).unwrap_or((c, 0)))
+        .collect()
+}
+
 impl Document {
     /// Apply a new list definition: a list already at the caret switches as a whole (keeping each
     /// paragraph's level), otherwise the selected paragraphs start the list at level 1.
@@ -210,7 +228,7 @@ impl Document {
         block.sort_by(|a, b| {
             let o = match (num(a), num(b)) {
                 (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
-                _ => (a.is_empty(), a.text().to_lowercase()).cmp(&(b.is_empty(), b.text().to_lowercase())),
+                _ => (a.is_empty(), collation_key(&a.text())).cmp(&(b.is_empty(), collation_key(&b.text()))),
             };
             if descending { o.reverse() } else { o }
         });
@@ -429,6 +447,19 @@ mod tests {
         d.select_all();
         assert!(d.sort_paragraphs(false));
         assert_eq!(d.text(), "9\n10\napple\npear");
+        // Wordcraft #837: letters with diacritics sort next to their base letter.
+        for (input, sorted) in [
+            ("Zakopane\nŁódź\nKraków\nLublin", "Kraków\nLublin\nŁódź\nZakopane"),
+            ("zebra\nćma\ndom\ncebula", "cebula\nćma\ndom\nzebra"),
+            // Hamza seats file with alef, short vowels are ignored, Persian letters follow their base.
+            ("بيت\nأحمد\nابراهيم\nمُحَمَّد\nمحمود", "ابراهيم\nأحمد\nبيت\nمُحَمَّد\nمحمود"),
+            ("گل\nپدر\nکتاب\nتاج\nبرادر", "برادر\nپدر\nتاج\nکتاب\nگل"),
+        ] {
+            let mut d = doc(input);
+            d.select_all();
+            assert!(d.sort_paragraphs(false));
+            assert_eq!(d.text(), sorted);
+        }
         let mut d = doc("top\nmiddle\nend");
         d.select(0, 0);
         d.insert_table(2, 2);

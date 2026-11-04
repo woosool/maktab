@@ -652,7 +652,7 @@ impl Document {
             let o = match (num(&a.0), num(&b.0)) {
                 (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
                 // Empty cells sort last; text compares case-insensitively.
-                _ => (a.0.trim().is_empty(), a.0.to_lowercase()).cmp(&(b.0.trim().is_empty(), b.0.to_lowercase())),
+                _ => (a.0.trim().is_empty(), crate::editing::collation_key(&a.0)).cmp(&(b.0.trim().is_empty(), crate::editing::collation_key(&b.0))),
             };
             if descending { o.reverse() } else { o }
         });

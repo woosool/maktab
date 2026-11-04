@@ -409,7 +409,7 @@ impl Document {
         let numbers = citation_numbers(self);
         let mut list: Vec<&Source> = self.sources.iter().collect();
         if style == CitationStyle::Ieee { list.sort_by_key(|s| numbers.get(&s.tag).copied().unwrap_or(usize::MAX)); }
-        else { list.sort_by_key(|s| s.names().first().map(|n| n.0.to_lowercase()).unwrap_or_else(|| s.title.to_lowercase())); }
+        else { list.sort_by_cached_key(|s| crate::editing::collation_key(s.names().first().map(|n| n.0.as_str()).unwrap_or(&s.title))); }
         list.iter().enumerate().map(|(k, s)| {
             let mut p = Paragraph { runs: bibliography_runs(style, s, numbers.get(&s.tag).copied().unwrap_or(k + 1)), style: Some("Bibliography".into()), ..Default::default() };
             if style == CitationStyle::Ieee { p.props.tabs = Some(vec![TabStop { pos: 567, kind: TabKind::Left, leader: Leader::None }]); p.props.indent_left = Some(567); p.props.first_line = Some(-567); }
@@ -482,21 +482,22 @@ impl Document {
 
     fn index_entries(&self) -> Vec<Paragraph> {
         let found = self.field_pages(|f| if let Field::IndexEntry(e) = f { Some(e.clone()) } else { None });
-        let mut map: std::collections::BTreeMap<(String, String), (String, String, Vec<usize>)> = Default::default();
+        let mut map: std::collections::BTreeMap<(Vec<(char, u8)>, Vec<(char, u8)>), (String, String, Vec<usize>)> = Default::default();
         for (e, page) in found {
             let (main, sub) = match e.split_once(':') { Some((m, s)) => (m.trim().to_string(), s.trim().to_string()), None => (e.trim().to_string(), String::new()) };
-            let ent = map.entry((main.to_lowercase(), sub.to_lowercase())).or_insert((main, sub, vec![]));
+            let ent = map.entry((crate::editing::collation_key(&main), crate::editing::collation_key(&sub))).or_insert((main, sub, vec![]));
             if !ent.2.contains(&page) { ent.2.push(page); }
         }
         let mut out = vec![];
         let mut last_main = String::new();
         let mut last_letter = None;
         let pages = |v: &Vec<usize>| { let mut v = v.clone(); v.sort(); v.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ") };
-        for ((key, _), (main, sub, pg)) in &map {
-            let letter = key.chars().next().map(|c| c.to_ascii_uppercase());
+        for (main, sub, pg) in map.values() {
+            // A heading per letter: "Ł" gets its own, after "L".
+            let letter = main.chars().next().map(|c| c.to_uppercase().collect::<String>());
             if letter != last_letter {
                 last_letter = letter;
-                out.push(Paragraph { runs: vec![Run::text(letter.map(|c| c.to_string()).unwrap_or_default())], style: Some("IndexHeading".into()), ..Default::default() });
+                out.push(Paragraph { runs: vec![Run::text(last_letter.clone().unwrap_or_default())], style: Some("IndexHeading".into()), ..Default::default() });
             }
             if sub.is_empty() {
                 out.push(Paragraph { runs: vec![Run::text(format!("{main}, {}", pages(pg)))], style: Some("Index1".into()), ..Default::default() });
