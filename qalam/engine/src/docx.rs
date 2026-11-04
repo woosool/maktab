@@ -501,9 +501,10 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                         flush(&mut text, runs);
                         if let Some(obj) = self.drawing_object(d) { runs.push(Run { text: chars::OBJECT.to_string(), object: Some(obj), anchor: read_anchor(d), ..base.with(String::new()) }); }
                         else if let Some(img) = self.drawing(d) { runs.push(Run { text: chars::OBJECT.to_string(), image: Some(img), anchor: read_anchor(d), ..base.with(String::new()) }); }
-                    } else if let Some(shape) = vml_shape(c) {
-                        flush(&mut text, runs);
-                        runs.push(Run { text: chars::OBJECT.to_string(), object: Some(crate::objects::Object::Shape(shape)), ..base.with(String::new()) });
+                    } else {
+                        let shapes = vml_shapes(c);
+                        if !shapes.is_empty() { flush(&mut text, runs); }
+                        for shape in shapes { runs.push(Run { text: chars::OBJECT.to_string(), object: Some(crate::objects::Object::Shape(shape)), ..base.with(String::new()) }); }
                     }
                 }
                 "w:footnoteReference" | "w:endnoteReference" => {
@@ -2091,11 +2092,45 @@ pub fn write(doc: &Document) -> Result<Vec<u8>, String> {
 }
 
 
-/// A VML shape inside w:pict (v:rect, v:roundrect, v:oval, v:line, or a v:shape of a preset
-/// type such as `#_x0000_t13`, the right arrow), as the matching DrawingML shape.
-fn vml_shape(pict: &Element) -> Option<crate::objects::Shape> {
+/// The VML shapes inside w:pict, in order: every sibling shape, and a v:group's members
+/// (nested groups flattened), each sized in the group's coordinate space.
+fn vml_shapes(pict: &Element) -> Vec<crate::objects::Shape> {
+    fn walk(pict: &Element, parent: &Element, scale: (f32, f32), depth: usize, out: &mut Vec<crate::objects::Shape>) {
+        for e in parent.elements() {
+            if out.len() >= 256 { return; }
+            if e.name == "v:group" {
+                if depth >= 16 { continue; }
+                // Members measure in coordsize units across the group's own width and height.
+                let (w, h) = (css_px(e.attr("style").unwrap_or_default(), "width"), css_px(e.attr("style").unwrap_or_default(), "height"));
+                let mut cs = e.attr("coordsize").unwrap_or("1000,1000").split(',').map(|v| v.trim().parse::<f32>().ok().filter(|v| v.is_finite() && *v > 0.0));
+                let (cw, ch) = (cs.next().flatten().unwrap_or(1000.0), cs.next().flatten().unwrap_or(1000.0));
+                let k = (w.map(|w| w / cw * scale.0).unwrap_or(scale.0), h.map(|h| h / ch * scale.1).unwrap_or(scale.1));
+                walk(pict, e, k, depth + 1, out);
+            } else if let Some(s) = vml_shape(pict, e, scale) { out.push(s); }
+        }
+    }
+    let mut out = vec![];
+    walk(pict, pict, (1.0, 1.0), 0, &mut out);
+    out
+}
+
+/// A length from a VML CSS style (width:150pt;height:20.25pt), in px; bare numbers are px
+/// (or, inside a group, coordinate units).
+fn css_px(style: &str, name: &str) -> Option<f32> {
+    style.split(';').filter_map(|d| d.split_once(':')).find(|(k, _)| k.trim() == name).and_then(|(_, v)| {
+        let v = v.trim();
+        let (num, unit) = v.split_at(v.find(|c: char| c.is_ascii_alphabetic()).unwrap_or(v.len()));
+        let n = num.trim().parse::<f32>().ok()?;
+        let px = n * match unit { "pt" => 96.0 / 72.0, "in" => 96.0, "cm" => 96.0 / 2.54, "mm" => 96.0 / 25.4, "pc" => 16.0, _ => 1.0 };
+        px.is_finite().then_some(px.max(0.0))
+    })
+}
+
+/// One VML shape (v:rect, v:roundrect, v:oval, v:line, or a v:shape of a preset type such as
+/// `#_x0000_t13`, the right arrow), as the matching DrawingML shape.
+fn vml_shape(pict: &Element, e: &Element, scale: (f32, f32)) -> Option<crate::objects::Shape> {
     use crate::objects::{Shape, ShapeKind};
-    let (e, kind) = pict.elements().find_map(|e| {
+    let (e, kind) = std::iter::once(e).find_map(|e| {
         let kind = match e.name.as_str() {
             "v:rect" => Some(ShapeKind::Rect),
             "v:roundrect" => Some(ShapeKind::RoundRect),
@@ -2122,15 +2157,8 @@ fn vml_shape(pict: &Element) -> Option<crate::objects::Shape> {
     })?;
     // Size from the CSS style (width:150pt;height:20.25pt), in px.
     let style = e.attr("style").unwrap_or_default();
-    let dim = |name: &str| style.split(';').filter_map(|d| d.split_once(':')).find(|(k, _)| k.trim() == name).and_then(|(_, v)| {
-        let v = v.trim();
-        let (num, unit) = v.split_at(v.find(|c: char| c.is_ascii_alphabetic()).unwrap_or(v.len()));
-        let n = num.trim().parse::<f32>().ok()?;
-        let px = n * match unit { "pt" => 96.0 / 72.0, "in" => 96.0, "cm" => 96.0 / 2.54, "mm" => 96.0 / 25.4, "pc" => 16.0, _ => 1.0 };
-        px.is_finite().then_some(px.max(0.0))
-    });
     let mut shape = Shape::new(kind);
-    if let (Some(w), Some(h)) = (dim("width"), dim("height")) { (shape.width, shape.height) = (w, h); }
+    if let (Some(w), Some(h)) = (css_px(style, "width"), css_px(style, "height")) { (shape.width, shape.height) = (w * scale.0, h * scale.1); }
     // VML colors: "#ED7D31", "#ED7D31 [3205]", or a few names.
     let color = |v: &str| { let v = v.split_whitespace().next().unwrap_or_default(); Color::from_hex(v).or(match v { "black" => Some(Color::BLACK), "white" => Some(Color::WHITE), _ => None }) };
     let off = |a: &str| e.attr(a).is_some_and(|v| v == "f" || v == "false");
@@ -2291,6 +2319,19 @@ mod tests {
         assert_eq!((shapes[0].fill, shapes[0].outline), (Color::from_hex("ED7D31"), Color::from_hex("2F528F")));
         assert_eq!((shapes[1].kind, shapes[1].width, shapes[1].outline), (ShapeKind::Ellipse, 96.0, None));
         assert!(d.paragraphs[0].text().ends_with("مسار المريض"));
+    }
+
+    #[test]
+    fn every_vml_shape_in_one_pict_and_group_members_are_read() {
+        use crate::objects::{Object, ShapeKind};
+        let doc = r##"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml"><w:body><w:p><w:r><w:pict><v:rect style="width:72pt;height:36pt"/><v:oval style="width:36pt;height:36pt"/></w:pict></w:r></w:p><w:p><w:r><w:pict><v:group style="width:200pt;height:100pt" coordsize="2000,1000"><v:rect style="position:absolute;left:0;top:0;width:1000;height:1000"><v:textbox><w:txbxContent><w:p><w:r><w:t>العنوان</w:t></w:r></w:p></w:txbxContent></v:textbox></v:rect><v:group style="position:absolute;left:1000;width:1000;height:1000" coordsize="100,100"><v:oval style="width:50;height:100"/></v:group></v:group></w:pict></w:r></w:p></w:body></w:document>"##;
+        let d = read(&raw_docx(doc)).unwrap();
+        let shapes: Vec<_> = d.paragraphs.iter().flat_map(|p| p.runs.iter()).filter_map(|r| match &r.object { Some(Object::Shape(s)) => Some(s.clone()), _ => None }).collect();
+        assert_eq!(shapes.iter().map(|s| s.kind).collect::<Vec<_>>(), vec![ShapeKind::Rect, ShapeKind::Ellipse, ShapeKind::Rect, ShapeKind::Ellipse]);
+        // 1000 of 2000 units across 200 pt: 100 pt (133.33 px) wide; the nested oval is half of 100 pt.
+        assert!((shapes[2].width - 400.0 / 3.0).abs() < 0.01 && (shapes[2].height - 400.0 / 3.0).abs() < 0.01);
+        assert_eq!(shapes[2].text, "العنوان");
+        assert!((shapes[3].width - 200.0 / 3.0).abs() < 0.01 && (shapes[3].height - 400.0 / 3.0).abs() < 0.01);
     }
 
     #[test]
