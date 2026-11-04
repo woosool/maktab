@@ -1,9 +1,10 @@
 # Maktab: every Woosool app (tools/maktab/apps.tsv) built and bundled per platform:
 #   macOS     Maktab-<v>-macos-aarch64.dmg, Maktab-<v>-macos-x86_64.dmg     (all apps, drag to Applications)
-#   Windows   Maktab-<v>-windows-x86_64-setup.exe (+ portable .zip)          (one installer, apps optional)
-#   Linux     maktab_<v>_amd64.deb, maktab_<v>_arm64.deb (+ portable .tar.gz)
+#   Windows   Maktab-<v>-windows-x86_64-setup.exe                             (one installer, apps optional)
+#   Linux     maktab_<v>_amd64.deb, maktab_<v>_arm64.deb
 #   ChromeOS  Maktab-<v>-chromeos-x86_64.deb, Maktab-<v>-chromeos-aarch64.deb (Linux on ChromeOS installs .deb)
-# plus each app's update archive and update.json, so the apps' own updaters keep working.
+# Run artifacts are only these installers. Releases also publish each app's update archive and
+# update.json, so the apps' own updaters keep working.
 # Pushes to main build and upload artifacts; a tag "maktab-v<version>" (or running it by hand
 # with "release" ticked) also publishes a GitHub release.
 #
@@ -17,7 +18,7 @@ on:
   push:
     branches: [main]
     tags: ["maktab-v*"]
-    paths: ["qalam/**", "jadwal/**", "sard/**", "saboura/**", "pdf/**", "barid/**", "kit/**", "translate/**", "tools/maktab/**", ".github/workflows/maktab.yml"]
+    paths: ["qalam/**", "jadwal/**", "sard/**", "saboura/**", "pdf/**", "barid/**", "kit/**", "translate/**", "vendor/**", "tools/maktab/**", ".github/workflows/maktab.yml"]
   workflow_dispatch:
     inputs:
       release:
@@ -92,7 +93,15 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: maktab-macos-${{ matrix.arch }}
-          path: dist/maktab/*
+          path: dist/maktab/*.dmg
+          compression-level: 0
+      # Each app's update archive (its updater's download): only for releases, which publish
+      # them and then delete these artifacts.
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/maktab-v') || inputs.release
+        with:
+          name: update-maktab-macos-${{ matrix.arch }}
+          path: dist/maktab/*.zip
           compression-level: 0
 
   windows:
@@ -131,7 +140,17 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: maktab-windows-x86_64
-          path: dist/maktab/*
+          path: dist/maktab/*-setup.exe
+          compression-level: 0
+      # Each app's update archive (its updater's download): only for releases, which publish
+      # them and then delete these artifacts.
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/maktab-v') || inputs.release
+        with:
+          name: update-maktab-windows-x86_64
+          path: |
+            dist/maktab/*.zip
+            !dist/maktab/Maktab-*.zip
           compression-level: 0
 
   linux:
@@ -176,7 +195,15 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: maktab-linux-${{ matrix.arch }}
-          path: dist/maktab/*
+          path: dist/maktab/*.deb
+          compression-level: 0
+      # Each app's update archive (its updater's download): only for releases, which publish
+      # them and then delete these artifacts.
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/maktab-v') || inputs.release
+        with:
+          name: update-maktab-linux-${{ matrix.arch }}
+          path: dist/maktab/*.zip
           compression-level: 0
 
   # ChromeOS runs desktop apps in its Linux environment (Debian): the Debian packages install
@@ -215,7 +242,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          pattern: maktab-*
+          pattern: "*maktab-*"
           path: dist/maktab
           merge-multiple: true
       - name: Version
@@ -239,3 +266,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           files: dist/maktab/*
           body_path: RELEASE.md
+      # The update archives are in the release now; the run keeps only the installers.
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+          name: update-maktab-*
