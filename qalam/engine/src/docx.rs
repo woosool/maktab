@@ -69,7 +69,8 @@ fn read_rels(parts: &BTreeMap<String, Vec<u8>>, part: &str) -> Vec<Rel> {
     let Ok(root) = xml::parse(&String::from_utf8_lossy(bytes)) else { return vec![] };
     root.elements().filter(|e| e.name.ends_with("Relationship")).map(|e| Rel {
         id: e.attr("Id").unwrap_or_default().into(),
-        kind: e.attr("Type").unwrap_or_default().into(),
+        // Strict OOXML names relationship types under purl.oclc.org; they mean the same.
+        kind: e.attr("Type").unwrap_or_default().replace("http://purl.oclc.org/ooxml/officeDocument/relationships/", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/"),
         target: e.attr("Target").unwrap_or_default().into(),
         external: e.attr("TargetMode") == Some("External"),
     }).collect()
@@ -104,7 +105,17 @@ fn shd_color(s: &Element) -> Option<Color> {
     let mix = |a: u8, b: u8| (a as f32 * (1.0 - pct) + b as f32 * pct).round() as u8;
     Some(Color(mix(f.0, c.0), mix(f.1, c.1), mix(f.2, c.2)))
 }
-fn twip_attr(e: &Element, name: &str) -> Option<i32> { e.attr(name).and_then(|v| v.trim().parse::<f64>().ok()).map(|v| v.round() as i32) }
+/// A measure in twips. Word also writes measures with a unit (`8pt`, `1.5in`, `2cm`: the
+/// universal measure of ISO 29500), which are converted.
+fn twip_attr(e: &Element, name: &str) -> Option<i32> { e.attr(name).and_then(twips_of).map(|v| v.round() as i32) }
+fn twips_of(v: &str) -> Option<f64> {
+    let v = v.trim();
+    let units = [("pt", 20.0), ("in", 1440.0), ("mm", 1440.0 / 25.4), ("cm", 1440.0 / 2.54), ("pc", 240.0), ("pi", 240.0)];
+    match units.iter().find(|(u, _)| v.ends_with(u)) {
+        Some((u, k)) => v[..v.len() - u.len()].trim().parse::<f64>().ok().map(|n| n * k),
+        None => v.parse::<f64>().ok(),
+    }
+}
 
 impl<'a> Reader<'a> {
     fn run_props(&self, rpr: &Element) -> (RunProps, Option<String>, Vec<String>) {
@@ -2738,6 +2749,37 @@ mod tests {
         // Black pixels come out light: washed out.
         let px = image::load_from_memory(&d.assets[&img.asset].bytes).unwrap().to_rgba8();
         assert!(px.get_pixel(0, 0)[0] > 150, "{:?}", px.get_pixel(0, 0));
+    }
+
+    #[test]
+    fn strict_ooxml_styles_are_read() {
+        // A Strict OOXML document names its styles relationship under purl.oclc.org.
+        let rels = r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument" Target="word/document.xml"/></Relationships>"#;
+        let doc_rels = r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId3" Type="http://purl.oclc.org/ooxml/officeDocument/relationships/styles" Target="styles.xml"/></Relationships>"#;
+        let styles = r#"<w:styles xmlns:w="http://purl.oclc.org/ooxml/wordprocessingml/main"><w:docDefaults><w:pPrDefault><w:pPr><w:spacing w:after="8pt"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:pPr><w:spacing w:after="0pt"/></w:pPr><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/></w:rPr></w:style></w:styles>"#;
+        let doc = r#"<w:document xmlns:w="http://purl.oclc.org/ooxml/wordprocessingml/main"><w:body><w:p><w:r><w:t>نص عادي</w:t></w:r></w:p></w:body></w:document>"#;
+        let mut out = Cursor::new(Vec::new());
+        {
+            let mut zip = zip::ZipWriter::new(&mut out);
+            let opts = zip::write::SimpleFileOptions::default();
+            for (n, x) in [("_rels/.rels", rels), ("word/_rels/document.xml.rels", doc_rels), ("word/styles.xml", styles), ("word/document.xml", doc)] { zip.start_file(n, opts).unwrap(); zip.write_all(x.as_bytes()).unwrap(); }
+            zip.finish().unwrap();
+        }
+        let d = read(&out.into_inner()).unwrap();
+        assert_eq!(d.styles.doc_para.space_after, Some(8.0));
+        assert!(d.styles.styles.contains_key("Normal"), "the styles part was read");
+    }
+
+    #[test]
+    fn measures_with_units_are_read_as_twips() {
+        // Word 2024 can write spacing and indents as "8pt" and "18pt" instead of twips.
+        let doc = r#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:spacing w:after="8pt" w:line="13.90pt" w:lineRule="auto"/><w:ind w:start="0.5in" w:hanging="18pt"/></w:pPr><w:r><w:t>سطر أول</w:t></w:r></w:p></w:body></w:document>"#;
+        let d = read(&raw_docx(doc)).unwrap();
+        let p = &d.paragraphs[0].props;
+        assert_eq!(p.space_after, Some(8.0));
+        assert!((p.line_spacing.unwrap() - 278.0 / 240.0).abs() < 0.001, "{:?}", p.line_spacing);
+        assert_eq!(p.indent_left, Some(720));
+        assert_eq!(p.first_line, Some(-360));
     }
 
     #[test]
