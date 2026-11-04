@@ -946,6 +946,7 @@ fn handle_keys(app: &mut WordApp, ui: &Ui) {
             Event::Copy => { app.copy(ui.ctx()); }
             Event::Cut => app.cut(ui.ctx()),
             Event::Paste(t) => app.paste_text(&t),
+            Event::PasteImage(img) => { app.paste_image(img.size[0], img.size[1], img.as_raw().to_vec()); }
             Event::Key { key, pressed: true, modifiers, .. } => key_press(app, ui, key, modifiers, mac),
             _ => {}
         }

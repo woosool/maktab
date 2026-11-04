@@ -522,8 +522,22 @@ impl WordApp {
         self.scroll_to_caret = true;
     }
     /// Menu paste reads the system clipboard directly (keyboard paste arrives as an event).
+    /// A clipboard holding only a picture pastes the picture.
     pub fn paste_from_system(&mut self) {
-        if let Ok(text) = arboard::Clipboard::new().and_then(|mut c| c.get_text()) { self.paste_text(&text); }
+        let Ok(mut c) = arboard::Clipboard::new() else { return };
+        match c.get_text() {
+            Ok(text) if !text.is_empty() => self.paste_text(&text),
+            _ => if let Ok(img) = c.get_image() { self.paste_image(img.width, img.height, img.bytes.into_owned()); },
+        }
+    }
+    /// Paste a picture from the clipboard (RGBA pixels), stored as PNG at 96 dpi.
+    pub fn paste_image(&mut self, width: usize, height: usize, rgba: Vec<u8>) -> bool {
+        let Some(img) = image::RgbaImage::from_raw(width as u32, height as u32, rgba) else { return false };
+        let mut out = std::io::Cursor::new(vec![]);
+        if img.write_to(&mut out, image::ImageFormat::Png).is_err() { return false; }
+        self.doc.insert_image(out.into_inner(), "image/png", width as f32, height as f32);
+        self.scroll_to_caret = true;
+        true
     }
 
     // ---- find -------------------------------------------------------------------------

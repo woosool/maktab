@@ -92,6 +92,19 @@ fn window_title_sent_only_when_it_changes() {
 }
 
 #[test]
+fn pasting_an_image_inserts_a_picture() {
+    // wordcraft #45/#79: Ctrl+V with a picture on the clipboard did nothing.
+    let mut h = harness(None);
+    h.run_steps(3);
+    let img = egui::ColorImage::new([4, 3], vec![egui::Color32::RED; 12]);
+    h.event(Event::PasteImage(std::sync::Arc::new(img)));
+    h.run_steps(2);
+    let d = &h.state().doc;
+    assert!(d.paragraphs.iter().flat_map(|p| &p.runs).any(|r| r.image.is_some()), "a picture is inserted");
+    assert!(d.assets.keys().any(|k| k.ends_with(".png")));
+}
+
+#[test]
 fn opens_document_and_clicks_place_caret() {
     let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../documents/public/fixtures/tables.docx");
     if !fixture.exists() { return; }
