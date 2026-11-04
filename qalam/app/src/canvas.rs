@@ -110,7 +110,18 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 ui.ctx().set_cursor_icon(if over_image || over_selection { CursorIcon::Default } else if margin { CursorIcon::PointingHand } else { CursorIcon::Text });
             }
         }
-        response.context_menu(|ui| crate::context::menu(app, ui));
+        // The Menu key and Shift+F10 open the context menu at the caret, as a right-click does at the pointer.
+        let key_menu = id.with("key-menu");
+        let mut menu = egui::Popup::context_menu(&response);
+        if focused && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Menu) || i.consume_key(egui::Modifiers::SHIFT, egui::Key::F10)) {
+            if let Some(c) = app.layout.caret_rect(app.doc.selection.focus) {
+                ui.data_mut(|d| d.insert_temp(key_menu, to_screen(c.page, c.x, c.y + c.height)));
+                menu = menu.open_memory(Some(egui::SetOpenCommand::Bool(true)));
+            }
+        }
+        if response.secondary_clicked() { ui.data_mut(|d| d.remove::<Pos2>(key_menu)); }
+        if let Some(at) = ui.data(|d| d.get_temp::<Pos2>(key_menu)) { menu = menu.at_position(at); }
+        if menu.show(|ui| crate::context::menu(app, ui)).is_none() { ui.data_mut(|d| d.remove::<Pos2>(key_menu)); }
 
         // ---- paint ----
         let painter = ui.painter_at(viewport.translate(rect.min.to_vec2()).intersect(ui.clip_rect()).expand(2.0));

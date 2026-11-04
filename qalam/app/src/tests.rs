@@ -1835,3 +1835,21 @@ fn save_prompt_works_from_keyboard() {
     assert!(h.state().dialogs.confirm.is_none(), "Enter presses the focused button");
     assert!(!h.state().doc.text().contains('\n'), "Enter does not reach the page");
 }
+
+/// Wordcraft #821: the keyboard's Menu key (and Shift+F10) opens the context menu at the caret.
+#[test]
+fn menu_key_opens_context_menu() {
+    for (mods, key) in [(Modifiers::NONE, Key::Menu), (Modifiers::SHIFT, Key::F10)] {
+        let mut h = harness(None);
+        h.event(Event::Text("نص عربي and text".into()));
+        h.run_steps(2);
+        assert!(h.query_by_label("Synonyms").is_none());
+        h.key_press_modifiers(mods, key);
+        h.run_steps(3);
+        assert!(h.query_by_label("Synonyms").is_some(), "{key:?} opens the menu");
+        assert_eq!(h.state().doc.text(), "نص عربي and text");
+        h.key_press(Key::Escape);
+        h.run_steps(2);
+        assert!(h.query_by_label("Synonyms").is_none());
+    }
+}
