@@ -143,13 +143,20 @@ pub fn selection_text(doc: &Document) -> String {
     if !text.contains('\n') { return text; }
     let mut markers = crate::numbering::MarkerCounter::default();
     let (mut at, mut out) = (0, String::new());
-    for p in &doc.paragraphs {
+    // Cells of one table row are separated by tabs, rows by line ends, so spreadsheets and
+    // tables pasted into split them into columns.
+    let row_of = |cell: Option<u64>| cell.and_then(|c| doc.tables.iter().enumerate().find_map(|(t, tb)| tb.find_cell(c).map(|(r, _)| (t, r))));
+    for (i, p) in doc.paragraphs.iter().enumerate() {
         let len = p.len();
         let label = doc.para_format(p).numbering.and_then(|(num, ilvl)| markers.next(&doc.numbering, num, ilvl).map(|l| format!("{}{}\t", "\t".repeat(ilvl as usize), text_bullet(&l))));
         if at + len >= s && at <= e {
             if at >= s && at < e { out.push_str(&label.unwrap_or_default()); }
             out.push_str(&doc.text_between(s.max(at), e.min(at + len)));
-            if e > at + len { out.push('\n'); }
+            if e > at + len {
+                let next = doc.paragraphs.get(i + 1).map(|n| n.cell);
+                let next_cell = next.is_some_and(|n| n.is_some() && n != p.cell && row_of(n).is_some() && row_of(n) == row_of(p.cell));
+                out.push(if next_cell { '\t' } else { '\n' });
+            }
         }
         at += len + 1;
         if at > e { break; }
@@ -202,6 +209,17 @@ pub fn to_markdown(doc: &Document) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn copied_table_rows_separate_cells_with_tabs() {
+        let mut d = crate::Document::new(vec![crate::Paragraph::new("")]);
+        d.insert_table(2, 3);
+        let cells: Vec<usize> = (0..d.paragraphs.len()).filter(|&i| d.paragraphs[i].cell.is_some()).collect();
+        for (k, &i) in cells.iter().enumerate().rev() { let at: usize = d.paragraphs[..i].iter().map(|p| p.len() + 1).sum(); d.select(at, at); d.replace(["عمود ١", "Col 2", "Col 3", "a", "b", "c"][k]); }
+        let start: usize = d.paragraphs[..cells[0]].iter().map(|p| p.len() + 1).sum();
+        let end: usize = d.paragraphs[..=cells[5]].iter().map(|p| p.len() + 1).sum::<usize>() - 1;
+        d.select(start, end);
+        assert_eq!(selection_text(&d), "عمود ١\tCol 2\tCol 3\na\tb\tc");
+    }
     #[test]
     fn text_import_decodes_1252_and_bomless_utf16() {
         assert_eq!(decode_text(&[0x80, b' ', b'5']), "€ 5");
