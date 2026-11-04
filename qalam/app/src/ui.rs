@@ -700,11 +700,12 @@ pub fn comments_panel(app: &mut WordApp, ui: &mut Ui) {
                                 te.request_focus();
                                 app.canvas_focus = false;
                                 crate::theme::hrow(ui, |ui| {
-                                    if crate::theme::primary(ui, "Reply").clicked() && !draft.trim().is_empty() {
+                                    let post = crate::theme::primary(ui, "Reply").clicked() || te.has_focus() && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.command);
+                                    if post && !draft.trim().is_empty() {
                                         let (id, text) = (id.clone(), draft.clone());
                                         action = Some(Box::new(move |app| { let author = app.author.clone(); app.doc.reply_to_comment(&id, &author, &text, &crate::app::now_iso()); app.reply = None; app.canvas_focus = true; }));
                                     }
-                                    if crate::theme::secondary(ui, "Cancel").clicked() { action = Some(Box::new(|app| { app.reply = None; app.canvas_focus = true; })); }
+                                    if crate::theme::secondary(ui, "Cancel").clicked() || ui.input(|i| i.key_pressed(Key::Escape)) { action = Some(Box::new(|app| { app.reply = None; app.canvas_focus = true; })); }
                                 });
                             }
                             _ => {

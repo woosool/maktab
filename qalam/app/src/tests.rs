@@ -1111,6 +1111,21 @@ fn comment_post_and_cancel_click() {
     h.state_mut().author = "تعليق آخر".into();
     h.run_steps(2);
     assert!(h.query_by_label("Edit").is_none(), "another author's comment can't be edited");
+    // Esc discards a reply being written; Ctrl+Enter posts one.
+    h.state_mut().reply = Some((h.state().doc.comments[0].id.clone(), String::new()));
+    h.run_steps(2);
+    h.event(Event::Text("ردّ".into()));
+    h.run_steps(1);
+    h.key_press(Key::Escape);
+    h.run_steps(2);
+    assert!(h.state().reply.is_none() && h.state().doc.comments.len() == 1, "Esc discarded the reply");
+    h.state_mut().reply = Some((h.state().doc.comments[0].id.clone(), String::new()));
+    h.run_steps(2);
+    h.event(Event::Text("ردّ".into()));
+    h.run_steps(1);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Enter);
+    h.run_steps(2);
+    assert_eq!(h.state().doc.comments.last().map(|c| c.text.as_str()), Some("ردّ"));
 }
 
 /// Review, View and Mailings features in the running app, with snapshots.
