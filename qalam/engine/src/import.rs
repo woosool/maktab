@@ -182,7 +182,7 @@ mod tests {
     use super::*;
     #[test]
     fn text_import_decodes_1252_and_bomless_utf16() {
-        // assert_eq!(decode_text(&[0x80, b' ', b'5']), "€ 5");
+        assert_eq!(decode_text(&[0x80, b' ', b'5']), "€ 5");
         let le: Vec<u8> = "مرحبا Hi".encode_utf16().flat_map(|u| u.to_le_bytes()).collect();
         assert_eq!(decode_text(&le), "مرحبا Hi");
         let be: Vec<u8> = "Hello".encode_utf16().flat_map(|u| u.to_be_bytes()).collect();
@@ -194,7 +194,7 @@ mod tests {
     }
     #[test]
     fn text_export_keeps_list_labels() {
-        // let d = from_markdown("- one\n- two\n\n1. first\n2. second\n");
+        let d = from_markdown("- one\n- two\n\n1. first\n2. second\n");
         let t = to_text(&d);
         assert!(t.contains("\tone") && t.contains("\ttwo") && !t.starts_with("one"), "{t:?}");
         assert!(t.contains("1.\tfirst") && t.contains("2.\tsecond"), "{t:?}");

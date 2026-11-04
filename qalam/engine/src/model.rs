@@ -2769,7 +2769,7 @@ mod tests {
     }
 }
 #[cfg(test)]
-mod wordcraft_task10 {
+mod more_tests {
     use super::*;
     #[test]
     fn accept_all_after_deleting_from_paragraph_end() {

@@ -746,7 +746,7 @@ fn anchorize(mut d: Element, anchor: Option<crate::model::Anchor>, id: u32) -> E
 }
 
 /// Children of `parent` named `name`, looking through content controls (`w:sdt`) and
-/// markup-compatibility blocks (`mc:AlternateContent`, wordcraft#5219) that wrap table rows or cells.
+/// markup-compatibility blocks (`mc:AlternateContent`) that wrap table rows or cells.
 fn flatten_wrappers<'e>(parent: &'e Element, name: &str) -> Vec<&'e Element> {
     let mut out = vec![];
     for c in parent.elements() {
@@ -2511,7 +2511,7 @@ mod tests {
 
     #[test]
     fn border_without_size_is_a_hairline() {
-        // wordcraft#5065: Word draws a border side without w:sz at about 0.12 pt, not 0.5 pt.
+        // Word draws a border side without w:sz at about 0.12 pt, not 0.5 pt.
         let doc = r#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pBdr><w:bottom w:val="single"/></w:pBdr></w:pPr><w:r><w:t>a</w:t></w:r></w:p><w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="4"/></w:pBdr></w:pPr><w:r><w:t>b</w:t></w:r></w:p></w:body></w:document>"#;
         let d = read(&raw_docx(doc)).unwrap();
         let w = |i: usize| d.para_format(&d.paragraphs[i]).borders.bottom.unwrap().width;
@@ -2533,7 +2533,7 @@ mod tests {
 
     #[test]
     fn alternate_content_around_table_rows_and_cells() {
-        // wordcraft#5219: rows or cells wrapped in mc:AlternateContent keep their content.
+        // rows or cells wrapped in mc:AlternateContent keep their content.
         let doc = r#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><w:body><w:tbl><w:tblGrid><w:gridCol w:w="2000"/><w:gridCol w:w="2000"/></w:tblGrid><mc:AlternateContent><mc:Choice Requires="wps"><w:tr><w:tc><w:p><w:r><w:t>Kept row</w:t></w:r></w:p></w:tc></w:tr></mc:Choice><mc:Fallback><w:tr><w:tc><w:p><w:r><w:t>Fallback row</w:t></w:r></w:p></w:tc></w:tr></mc:Fallback></mc:AlternateContent><w:tr><w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc><mc:AlternateContent><mc:Choice Requires="xyz"><w:tc><w:p><w:r><w:t>Unknown</w:t></w:r></w:p></w:tc></mc:Choice><mc:Fallback><w:tc><w:p><w:r><w:t>Fallback cell</w:t></w:r></w:p></w:tc></mc:Fallback></mc:AlternateContent></w:tr></w:tbl><w:p/></w:body></w:document>"#;
         let d = read(&raw_docx(doc)).unwrap();
         let t = d.text();
@@ -2543,7 +2543,7 @@ mod tests {
     }
 }
 #[cfg(test)]
-mod wordcraft_task10 {
+mod more_tests {
     use super::*;
     use crate::model::{Marker, Paragraph};
 
