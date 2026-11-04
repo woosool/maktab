@@ -782,7 +782,15 @@ pub fn to_omml(n: &Node) -> String {
 }
 
 /// An `m:oMath` element for the equation.
-pub fn omml(eq: &Equation) -> String { format!("<m:oMath>{}</m:oMath>", to_omml(&parse(&eq.linear))) }
+pub fn omml(eq: &Equation) -> String {
+    let math = to_omml(&parse(&eq.linear));
+    // A colored equation carries its color on every run (w:color), as Word writes it.
+    let math = if eq.color == Color::BLACK { math } else {
+        let fonts = r#"<w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/>"#;
+        math.replace(fonts, &format!(r#"{fonts}<w:color w:val="{}"/>"#, eq.color.hex()))
+    };
+    format!("<m:oMath>{math}</m:oMath>")
+}
 
 fn kids(e: &Element) -> impl Iterator<Item = &Element> { e.children.iter().filter_map(|n| if let XNode::Element(x) = n { Some(x) } else { None }) }
 fn val(e: Option<&Element>) -> Option<String> { e.and_then(|x| x.attr("m:val")).map(String::from) }
@@ -860,6 +868,10 @@ fn omml_node(e: &Element) -> Option<Node> {
 pub fn read_omml(e: &Element, display: bool) -> Equation {
     let mut eq = Equation::new(&to_linear(&from_omml(e)));
     eq.display = display;
+    // The equation's color: the first run's (w:color in its w:rPr).
+    let mut colors = vec![];
+    e.find_all("w:color", &mut colors);
+    if let Some(c) = colors.iter().filter_map(|c| c.attr("w:val")).find(|v| *v != "auto").and_then(Color::from_hex) { eq.color = c; }
     eq
 }
 
@@ -885,6 +897,18 @@ mod tests {
         let latin = layout_node(&parse("a=b"), &Ctx { size: 12.0, color: crate::Color::BLACK }, true);
         let xs: Vec<f32> = latin.items.iter().filter_map(|i| match i { crate::layout::DrawItem::Glyphs { glyphs, .. } => glyphs.first().map(|g| g.x), _ => None }).collect();
         assert!(xs.windows(2).all(|w| w[0] < w[1]), "{xs:?}");
+    }
+
+    #[test]
+    fn equation_color_is_read_and_saved() {
+        let xml = r#"<m:oMath xmlns:m="m" xmlns:w="w"><m:r><w:rPr><w:rFonts w:ascii="Cambria Math"/><w:color w:val="C00000"/></w:rPr><m:t>س</m:t></m:r><m:r><m:t>=1</m:t></m:r></m:oMath>"#;
+        let eq = read_omml(&crate::xml::parse(xml).unwrap(), false);
+        assert_eq!(eq.color, Color(0xC0, 0, 0));
+        let saved = omml(&eq);
+        assert!(saved.contains(r#"<w:color w:val="C00000"/>"#), "{saved}");
+        let back = read_omml(&crate::xml::parse(&saved.replace("<m:oMath>", r#"<m:oMath xmlns:m="m" xmlns:w="w">"#)).unwrap(), false);
+        assert_eq!((back.color, back.linear.as_str()), (eq.color, eq.linear.as_str()));
+        assert!(!omml(&Equation::new("x")).contains("w:color"), "black stays the default");
     }
 
     #[test]
