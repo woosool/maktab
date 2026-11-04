@@ -22,6 +22,8 @@ pub fn shortcuts(app: &mut WordApp, ctx: &egui::Context) {
     if fire(CMD, Key::N) { app.guarded(ctx, Pending::New); }
     if fire(CMD, Key::O) { app.guarded(ctx, Pending::Open); }
     if fire(CMD_SHIFT, Key::S) { app.save(ctx, true); }
+    // Paste as plain text in the destination formatting (Keep Text Only).
+    if fire(CMD_SHIFT, Key::V) { app.paste_plain(); }
     if fire(CMD, Key::S) { app.save(ctx, false); }
     if fire(CMD, Key::P) { app.open_print(); }
     if fire(CMD, Key::F) || fire(CMD, Key::H) { app.find.open = true; app.find.focus = true; }

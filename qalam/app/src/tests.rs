@@ -68,6 +68,18 @@ fn typing_formatting_and_undo() {
 }
 
 #[test]
+fn ctrl_shift_v_pastes_text_only() {
+    let mut h = harness(None);
+    h.run_steps(3);
+    h.event(Event::Text("نص ".into()));
+    h.run_steps(2);
+    if arboard::Clipboard::new().and_then(|mut c| c.set_text("مرحبا")).is_err() { return; }
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::V);
+    h.run_steps(2);
+    assert_eq!(h.state().doc.text(), "نص مرحبا");
+}
+
+#[test]
 fn ctrl_shift_2_inserts_zwnj() {
     let mut h = harness(None);
     h.run_steps(3);
