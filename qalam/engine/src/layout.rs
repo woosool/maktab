@@ -1805,8 +1805,12 @@ impl<'a> Placer<'a> {
                 let b = &cell.borders;
                 let side = |own: Option<Border>| own.or(table_side).filter(|x| x.width > 0.0).map(|x| ((x.width * PT).max(0.75), x.color.unwrap_or(Color::BLACK)));
                 let mut line = |s: Option<(f32, Color)>, x1: f32, y1: f32, x2: f32, y2: f32| if let Some((w, c)) = s { pb.items.push(DrawItem::Line { x1, y1, x2, y2, width: w, color: c }); };
-                if cell.v_merge != VMerge::Continue || page != row_top_page { line(side(b.top), *cx0, top, *cx1, top); }
-                if !spans_down || page != end_page { line(side(b.bottom), *cx0, bottom, *cx1, bottom); }
+                // Horizontal rules reach the outer sides of the vertical ones, so thick borders
+                // meet in closed square corners.
+                let half = |s: Option<(f32, Color)>| s.map(|(w, _)| w / 2.0).unwrap_or(0.0);
+                let (ex0, ex1) = (*cx0 - half(side(b.left)), *cx1 + half(side(b.right)));
+                if cell.v_merge != VMerge::Continue || page != row_top_page { line(side(b.top), ex0, top, ex1, top); }
+                if !spans_down || page != end_page { line(side(b.bottom), ex0, bottom, ex1, bottom); }
                 line(side(b.left), *cx0, top, *cx0, bottom);
                 line(side(b.right), *cx1, top, *cx1, bottom);
             }
@@ -2335,6 +2339,23 @@ mod tests {
         assert_eq!(down, first_cell.start);
         let up = l.vertical(down, false, l.caret_rect(down).unwrap().x).unwrap();
         assert_eq!(l.lines[l.line_index(up).unwrap()].start, start);
+    }
+
+    #[test]
+    fn thick_table_borders_meet_in_closed_corners() {
+        use crate::tables::BorderPreset;
+        let mut d = doc("جدول\nبعد");
+        d.select(0, 0);
+        d.insert_table(2, 2);
+        let cells: Vec<usize> = (0..d.paragraphs.len()).filter(|&i| d.paragraphs[i].cell.is_some()).collect();
+        d.select(d.paragraph_start(cells[0]), d.paragraph_start(*cells.last().unwrap()));
+        d.apply_border_preset(BorderPreset::All, crate::format::Border { width: 3.0, space: 0.0, color: None });
+        let l = layout_document(&d);
+        let lines: Vec<(f32, f32, f32, f32, f32)> = l.pages[0].items.iter().filter_map(|i| match i { DrawItem::Line { x1, y1, x2, y2, width, .. } if *width > 3.0 => Some((*x1, *y1, *x2, *y2, *width)), _ => None }).collect();
+        let left = lines.iter().filter(|v| v.0 == v.2).map(|v| v.0).fold(f32::MAX, f32::min);
+        let w = 3.0 * PT;
+        let top = lines.iter().filter(|h| h.1 == h.3).map(|h| h.0.min(h.2)).fold(f32::MAX, f32::min);
+        assert!((top - (left - w / 2.0)).abs() < 0.01, "the top rule starts at the left rule's outer side: {top} vs {left}");
     }
 
     #[test]
