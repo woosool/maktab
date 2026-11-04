@@ -157,7 +157,7 @@ impl SlidesApp {
         if !app.prefs.widescreen { app.pres.set_size(9_144_000, 6_858_000); }
         // A file macOS sent before the window existed opens like one on the command line.
         qalam_kit::open_files::set_context(&cc.egui_ctx);
-        let (sent, mut others) = qalam_kit::open_files::startup_paths(Vec::new());
+        let (sent, mut others) = qalam_kit::open_files::startup_paths(Vec::<String>::new());
         let path = match (path, sent) { (Some(p), Some(s)) => { others.insert(0, s); Some(p) } (p, s) => p.or(s) };
         if !cfg!(test) { qalam_kit::open_files::open_elsewhere(&others); }
         if let Some(p) = path { app.open_path(p); }

@@ -80,7 +80,7 @@ fn main() -> eframe::Result {
     *qalam_kit::translate_ui::FOLDER_PICKER.lock().unwrap() = Some(|| rfd::FileDialog::new().pick_folder());
     // Files the system opens with Qalam: on the command line, or (macOS Finder) as an event.
     qalam_kit::open_files::install();
-    let (path, others) = qalam_kit::open_files::startup_paths(std::env::args().skip(1));
+    let (path, others) = qalam_kit::open_files::startup_paths(std::env::args_os().skip(1));
     qalam_kit::open_files::open_elsewhere(&others);
     let icon = image::load_from_memory(include_bytes!("../../assets/icon.png")).ok().map(|i| {
         let i = i.to_rgba8();

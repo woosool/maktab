@@ -35,14 +35,18 @@ pub fn pending() -> bool { QUEUE.lock().map(|q| !q.is_empty()).unwrap_or(false) 
 pub fn set_context(ctx: &egui::Context) { if let Ok(mut c) = WAKE.lock() { *c = Some(ctx.clone()); } }
 
 /// The files named on the command line (skipping macOS's old `-psn_…` process argument and
-/// other options).
-pub fn args_paths(args: impl IntoIterator<Item = String>) -> Vec<PathBuf> {
-    args.into_iter().filter(|a| !a.is_empty() && !a.starts_with("-psn_") && !a.starts_with("--")).map(PathBuf::from).collect()
+/// other options). Arguments are taken as the OS gives them, so a file name that isn't valid
+/// Unicode (a legacy encoding) still opens instead of crashing the app.
+pub fn args_paths<S: Into<std::ffi::OsString>>(args: impl IntoIterator<Item = S>) -> Vec<PathBuf> {
+    args.into_iter().map(Into::into).filter(|a: &std::ffi::OsString| {
+        let b = a.as_encoded_bytes();
+        !b.is_empty() && !b.starts_with(b"-psn_") && !b.starts_with(b"--")
+    }).map(PathBuf::from).collect()
 }
 
 /// The files to open at start: the command line's, then any the system sent before the window
 /// existed. The first opens in this window, the rest in other copies (see [`route`]).
-pub fn startup_paths(args: impl IntoIterator<Item = String>) -> (Option<PathBuf>, Vec<PathBuf>) {
+pub fn startup_paths<S: Into<std::ffi::OsString>>(args: impl IntoIterator<Item = S>) -> (Option<PathBuf>, Vec<PathBuf>) {
     let mut all = args_paths(args);
     for p in take() { if !all.contains(&p) { all.push(p); } }
     route(all)
@@ -152,7 +156,14 @@ mod tests {
 
     #[test]
     fn args_and_routing() {
-        assert_eq!(args_paths(["--flag".into(), "-psn_0_1".into(), "f.docx".into(), "".into()]), vec![PathBuf::from("f.docx")]);
+        assert_eq!(args_paths(["--flag", "-psn_0_1", "f.docx", ""]), vec![PathBuf::from("f.docx")]);
+        // A name that isn't valid UTF-8 ("caf\xe9.docx" in Latin-1) is kept as its bytes.
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStringExt;
+            let raw = std::ffi::OsString::from_vec(b"caf\xe9.docx".to_vec());
+            assert_eq!(args_paths([raw.clone()]), vec![PathBuf::from(raw)]);
+        }
         let (here, rest) = route(vec!["1".into(), "2".into(), "3".into()]);
         assert_eq!(here, Some(PathBuf::from("1")));
         assert_eq!(rest, vec![PathBuf::from("2"), PathBuf::from("3")]);
