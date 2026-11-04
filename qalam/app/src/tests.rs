@@ -2004,3 +2004,32 @@ fn wordcraft_task01_screenshots() {
         h.render().expect("render").save(d.join("qalam.png")).unwrap();
     }
 }
+
+/// Renders Qalam reproductions of wordcraft issue scenarios (triage task 03) to
+/// `$WORDCRAFT_IMG/<issue>/qalam.png`:
+/// `WORDCRAFT_IMG=<dir> cargo test -p word-app wordcraft_task03_screenshots -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn wordcraft_task03_screenshots() {
+    let dir = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
+    type Setup = fn(&mut Harness<'static, WordApp>);
+    fn typ(h: &mut Harness<'static, WordApp>, t: &str) { h.event(Event::Text(t.into())); h.run_steps(1); }
+    let cases: [(&str, Option<std::path::PathBuf>, Setup); 7] = [
+        ("143", None, |h| { let p = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").unwrap()).join("143/t.docx"); h.ctx.set_missing_glyph_policy(egui::epaint::text::MissingGlyphPolicy::Tofu); h.run_steps(1); h.state_mut().open_path(p); }),
+        ("140", None, |h| { typ(h, "Sharp text at odd zoom levels — نص عربي واضح"); h.state_mut().zoom = 1.13; }),
+        ("175", None, |h| { h.state_mut().doc.insert_table(3, 2); typ(h, "الاسم"); h.key_press(Key::Tab); typ(h, "Name"); h.run_steps(1); h.state_mut().doc.apply_table_style(word_engine::tables::TableStyle::HeaderShaded, word_engine::Color(68, 114, 196)); }),
+        ("217", None, |h| { h.state_mut().doc.insert_table(2, 3); typ(h, "resize me"); }),
+        ("219", None, |h| { typ(h, "Regular text "); h.state_mut().doc.toggle_bold(); typ(h, "Bold text"); }),
+        ("226", None, |h| { h.state_mut().doc.insert_table(2, 2); typ(h, "نص عمودي"); h.key_press(Key::Tab); typ(h, "vertical"); }),
+        ("225", None, |h| { typ(h, "Window title bar is native on macOS"); }),
+    ];
+    for (n, path, setup) in cases {
+        let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(move |cc| WordApp::new(cc, path.clone()));
+        h.run_steps(2);
+        setup(&mut h);
+        h.run_steps(8);
+        let d = dir.join(n);
+        std::fs::create_dir_all(&d).unwrap();
+        h.render().expect("render").save(d.join("qalam.png")).unwrap();
+    }
+}
