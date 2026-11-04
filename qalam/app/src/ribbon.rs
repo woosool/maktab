@@ -1902,7 +1902,7 @@ fn style_set_tile(ui: &mut Ui, set: &word_engine::design::StyleSet) -> Response 
     let (rect, r) = ui.allocate_exact_size(vec2(112.0, 92.0), Sense::click());
     ui.painter().rect(rect, crate::theme::RADIUS as f32, c_card(), Stroke::new(1.0, if r.hovered() { ACCENT } else { c_line() }), StrokeKind::Inside);
     // The preview is a piece of page: white with document colors, also in the dark interface
-    // (wordcraft #730), so dark title and heading colors stay readable.
+    //, so dark title and heading colors stay readable.
     ui.painter().rect_filled(Rect::from_min_max(rect.min + vec2(6.0, 6.0), pos2(rect.max.x - 6.0, rect.min.y + 64.0)), 2.0, Color32::WHITE);
     let c = |c: Option<Color>| c.map(|c| Color32::from_rgb(c.0, c.1, c.2)).unwrap_or(Color32::from_gray(0x26));
     let serif = set.title.font.is_some_and(|f| f.contains("Times"));

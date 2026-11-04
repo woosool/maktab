@@ -81,7 +81,7 @@ fn ctrl_shift_2_inserts_zwnj() {
 
 #[test]
 fn window_title_sent_only_when_it_changes() {
-    // wordcraft #117: sending the title every frame requested a repaint every frame.
+    // sending the title every frame requested a repaint every frame.
     let mut h = harness(None);
     h.run_steps(3);
     let first = h.state().sent_title.clone();
@@ -93,7 +93,7 @@ fn window_title_sent_only_when_it_changes() {
 
 #[test]
 fn pasting_an_image_inserts_a_picture() {
-    // wordcraft #45/#79: Ctrl+V with a picture on the clipboard did nothing.
+    // Ctrl+V with a picture on the clipboard did nothing.
     let mut h = harness(None);
     h.run_steps(3);
     let img = egui::ColorImage::new([4, 3], vec![egui::Color32::RED; 12]);
@@ -226,7 +226,7 @@ fn typed(text: &str) -> Harness<'static, WordApp> {
     h
 }
 
-/// Wordcraft #466: changing only Size in the Font dialog keeps double underline,
+/// changing only Size in the Font dialog keeps double underline,
 /// small caps, hidden text and character spacing.
 #[test]
 fn font_dialog_applies_only_edited_settings() {
@@ -1225,7 +1225,7 @@ fn context_menu_options_and_view_reset() {
     let back = crate::options::Settings::load();
     assert_eq!(back.hidden_groups, st.hidden_groups);
     assert_eq!(back.window, st.window);
-    // The User name is kept between sessions (wordcraft #32).
+    // The User name is kept between sessions.
     st.author = Some("سارة".into());
     st.save();
     assert_eq!(crate::options::Settings::load().author.as_deref(), Some("سارة"));
@@ -1565,170 +1565,7 @@ fn readme_screenshots() {
     h.run_steps(2);
 }
 
-/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
-/// in task 00, one `qalam.png` per issue folder under `WORDCRAFT_IMG`.
-#[test]
-#[ignore]
-fn wordcraft_task00_qalam_renders() {
-    use word_engine::{Alignment, numbering::ListKind};
-    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
-    let shot = |h: &mut Harness<'static, WordApp>, n: u32| {
-        h.run_steps(6);
-        let dir = root.join(n.to_string());
-        std::fs::create_dir_all(&dir).unwrap();
-        h.render().expect("render").save(dir.join("qalam.png")).unwrap();
-    };
-    let typed = |paras: &[&str]| {
-        let mut h = Harness::builder().with_size([1200.0, 760.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
-        h.run_steps(2);
-        for (i, t) in paras.iter().enumerate() {
-            h.event(Event::Text((*t).into()));
-            h.run_steps(1);
-            if i + 1 < paras.len() { h.key_press(Key::Enter); }
-        }
-        h
-    };
-    // Arabic/Persian/Kurdish/Hebrew text shaping and direction (#19 #48 #63 #199 #211 #824 #1018 #2916).
-    let mut h = typed(&["مرحبا بالعالم، هذا نص عربي للاختبار.", "سلام دنیا، این یک متن فارسی است.", "سڵاو جیهان، ئەمە دەقێکی کوردییە.", "שלום עולם (שלום) זה טקסט בעברית.", "naphtol-2 مادة كيميائية 123"]);
-    for n in [19, 48, 63, 199, 211, 824, 1018, 2916, 2150] { shot(&mut h, n); }
-    // Centered bullets move with the text (#1159).
-    let mut h = typed(&["First item", "Second item", "البند الثالث"]);
-    let len = h.state().doc.len();
-    h.state_mut().doc.select(0, len);
-    h.state_mut().doc.toggle_list(ListKind::Bullet);
-    h.state_mut().doc.set_alignment(Alignment::Center);
-    shot(&mut h, 1159);
-    // Arabic/Persian table column order (#529 #2883 #362).
-    let mut h = typed(&["جدول"]);
-    let end = h.state().doc.len();
-    h.state_mut().doc.select(end, end);
-    h.state_mut().doc.insert_table(2, 3);
-    h.run_steps(2);
-    for (i, t) in ["الأول", "الثاني", "الثالث", "١", "٢", "٣"].iter().enumerate() {
-        h.event(Event::Text((*t).into()));
-        h.run_steps(1);
-        if i < 5 { h.key_press(Key::Tab); h.run_steps(1); }
-    }
-    for n in [529, 2883, 362] { shot(&mut h, n); }
-}
-
-/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
-/// in task 02, one `qalam.png` per issue folder under `WORDCRAFT_IMG`.
-#[test]
-#[ignore]
-fn wordcraft_task02_qalam_renders() {
-    use word_engine::page::SectionKind;
-    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
-    let shot = |h: &mut Harness<'static, WordApp>, n: u32| {
-        h.run_steps(6);
-        let dir = root.join(n.to_string());
-        std::fs::create_dir_all(&dir).unwrap();
-        h.render().expect("render").save(dir.join("qalam.png")).unwrap();
-    };
-    let typed = |paras: &[&str]| {
-        let mut h = Harness::builder().with_size([1200.0, 760.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
-        h.run_steps(2);
-        for (i, t) in paras.iter().enumerate() {
-            h.event(Event::Text((*t).into()));
-            h.run_steps(1);
-            if i + 1 < paras.len() { h.key_press(Key::Enter); }
-        }
-        h
-    };
-    // Arabic typed RTL and joined (#56).
-    let mut h = typed(&["مرحبا بالعالم، هذا نص عربي.", "ภาษาไทย ทดสอบ"]);
-    shot(&mut h, 56);
-    // Show/Hide marks incl. a section break (#42 #70).
-    let mut h = typed(&["First section text", "سطر عربي"]);
-    h.state_mut().doc.select(5, 5);
-    h.key_press(Key::Tab);
-    h.run_steps(1);
-    h.state_mut().doc.select(19, 19);
-    h.state_mut().doc.insert_section_break(SectionKind::Continuous);
-    h.state_mut().show_marks = true;
-    for n in [42, 70] { shot(&mut h, n); }
-    // Inserted picture shows selection handles (#82).
-    let mut h = typed(&["Logo:"]);
-    let mut img = image::RgbaImage::new(200, 100);
-    for (x, _, p) in img.enumerate_pixels_mut() { *p = image::Rgba([(x % 255) as u8, 120, 200, 255]); }
-    let mut png = std::io::Cursor::new(vec![]);
-    image::DynamicImage::ImageRgba8(img).write_to(&mut png, image::ImageFormat::Png).unwrap();
-    let end = h.state().doc.len();
-    h.state_mut().doc.select(end, end);
-    h.state_mut().doc.insert_image(png.into_inner(), "image/png", 200.0, 100.0);
-    h.state_mut().doc.select(end, end + 1);
-    shot(&mut h, 82);
-    // View > Zoom (#67).
-    let mut h = typed(&["Zoomed text"]);
-    h.state_mut().set_zoom(1.5);
-    h.state_mut().tab = crate::ribbon::Tab::View;
-    shot(&mut h, 67);
-}
-
-/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
-/// in task 04, one `qalam.png` per issue folder under `WORDCRAFT_IMG`.
-#[test]
-#[ignore]
-fn wordcraft_task04_qalam_renders() {
-    use word_engine::model::Wrap;
-    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
-    let shot = |h: &mut Harness<'static, WordApp>, n: u32| {
-        h.run_steps(6);
-        let dir = root.join(n.to_string());
-        std::fs::create_dir_all(&dir).unwrap();
-        h.render().expect("render").save(dir.join("qalam.png")).unwrap();
-    };
-    let typed = |paras: &[&str]| {
-        let mut h = Harness::builder().with_size([1200.0, 760.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
-        h.run_steps(2);
-        for (i, t) in paras.iter().enumerate() {
-            h.event(Event::Text((*t).into()));
-            h.run_steps(1);
-            if i + 1 < paras.len() { h.key_press(Key::Enter); }
-        }
-        h
-    };
-    // Paragraph mark in mixed-direction paragraphs (#274).
-    let mut h = typed(&["English paragraph ending in Hebrew שלום", "فقرة عربية تنتهي بكلمة abc", "English ending in Arabic مرحبا"]);
-    h.state_mut().show_marks = true;
-    shot(&mut h, 274);
-    // CJK text (#241 #285: tofu in Wordcraft's Chinese UI; Qalam has no Chinese UI, so check CJK in the document).
-    let mut h = typed(&["简体中文：删除 接受 拒绝", "繁體中文：審閱 拼寫", "日本語のテキスト"]);
-    for n in [241, 285] { shot(&mut h, n); }
-    // After the fix: an installed CJK font draws them (the app loads system fonts at start; here, register one).
-    if word_engine::fonts::register_font_file(std::path::Path::new("/System/Library/Fonts/Hiragino Sans GB.ttc")).len() > 0 {
-        let mut h = typed(&["简体中文：删除 接受 拒绝", "繁體中文：審閱 拼寫", "日本語のテキスト"]);
-        for n in [241, 285] {
-            h.run_steps(6);
-            h.render().expect("render").save(root.join(n.to_string()).join("qalam-after.png")).unwrap();
-        }
-    }
-    // Picture with text wrapping around it does not overlap text (#358).
-    let body = "A área definida como LAGO se trata de um local ao redor do lago da propriedade, que se encontra cheio ao longo de todo o ano devido à um sistema de bombas hidráulicas.";
-    let mut h = typed(&["Mapa 1 - Mapa contendo todas as áreas escolhidas", body, body, body, body]);
-    let mut img = image::RgbaImage::new(240, 160);
-    for (x, y, p) in img.enumerate_pixels_mut() { *p = image::Rgba([(x % 255) as u8, (y % 255) as u8, 200, 255]); }
-    let mut png = std::io::Cursor::new(vec![]);
-    image::DynamicImage::ImageRgba8(img).write_to(&mut png, image::ImageFormat::Png).unwrap();
-    let at = h.state().doc.text().find(body).unwrap();
-    let at = h.state().doc.text()[..at].chars().count();
-    h.state_mut().doc.select(at, at);
-    h.state_mut().doc.insert_image(png.into_inner(), "image/png", 180.0, 120.0);
-    h.run_steps(3);
-    h.state_mut().doc.select(at, at + 1);
-    h.state_mut().set_wrap(Some(Wrap::Square));
-    h.run_steps(3);
-    let end = h.state().doc.len();
-    h.state_mut().doc.select(end, end);
-    shot(&mut h, 358);
-    // Caret visible in dark mode (#299) and dark mode chrome (#312).
-    let mut h = typed(&["Dark mode caret test نص"]);
-    let ctx = h.ctx.clone();
-    h.state_mut().set_dark(&ctx, true);
-    for n in [299, 312] { shot(&mut h, n); }
-}
-
-/// wordcraft #686: clicking a paragraph alignment button keeps typing going into the document.
+/// clicking a paragraph alignment button keeps typing going into the document.
 #[test]
 fn typing_continues_after_alignment_click() {
     use egui_kittest::kittest::Queryable;
@@ -1744,79 +1581,7 @@ fn typing_continues_after_alignment_click() {
     assert_eq!(h.state().doc.text().trim_end(), "abc");
 }
 
-/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
-/// in task 08, one `qalam.png` per issue folder under `WORDCRAFT_IMG`.
-#[test]
-#[ignore]
-fn wordcraft_task08_qalam_renders() {
-    use word_engine::numbering::ListKind;
-    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
-    let shot_as = |h: &mut Harness<'static, WordApp>, n: u32, name: &str| {
-        h.run_steps(6);
-        let dir = root.join(n.to_string());
-        std::fs::create_dir_all(&dir).unwrap();
-        h.render().expect("render").save(dir.join(name)).unwrap();
-    };
-    let typed = |paras: &[&str], size: [f32; 2]| {
-        let mut h = Harness::builder().with_size(size).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
-        h.run_steps(2);
-        for (i, t) in paras.iter().enumerate() {
-            h.event(Event::Text((*t).into()));
-            h.run_steps(1);
-            if i + 1 < paras.len() { h.key_press(Key::Enter); }
-        }
-        h
-    };
-    let big = [1200.0, 760.0];
-    // Myanmar shaping (#604): before and after an installed Myanmar font is available.
-    let burmese = ["မြန်မာစာ စမ်းသပ်ချက်", "ကျွန်ုပ်တို့ မင်္ဂလာပါ"];
-    let mut h = typed(&burmese, big);
-    shot_as(&mut h, 604, "qalam.png");
-    word_engine::fonts::register_font_file(std::path::Path::new("/System/Library/Fonts/Supplemental/Myanmar Sangam MN.ttc"));
-    let mut h = typed(&burmese, big);
-    shot_as(&mut h, 604, "qalam-after.png");
-    // Palatino Linotype text (#670).
-    let mut h = typed(&["Palatino Linotype body text, 0123456789.", "The quick brown fox jumps over the lazy dog."], big);
-    let len = h.state().doc.len();
-    h.state_mut().doc.select(0, len);
-    h.state_mut().doc.set_run_props(word_engine::RunProps { font: Some("Palatino Linotype".into()), ..Default::default() });
-    shot_as(&mut h, 670, "qalam.png");
-    // Bullet button state inside a list (#642), Home ribbon (#619 #653 #659), custom colours (#606).
-    let mut h = typed(&["First item", "Second item"], [1440.0, 860.0]);
-    h.state_mut().doc.toggle_list(ListKind::Bullet);
-    for n in [642, 619, 653, 659, 660] { shot_as(&mut h, n, "qalam.png"); }
-    // Home tab at a narrower window (#662) and a phone-sized window (#634).
-    let mut h = typed(&["Narrow window"], [1000.0, 700.0]);
-    shot_as(&mut h, 662, "qalam.png");
-    let mut h = typed(&["Phone"], [360.0, 700.0]);
-    shot_as(&mut h, 634, "qalam.png");
-    // Table handle (#635) and vertical merge (#640).
-    let mut h = typed(&["Table"], big);
-    let end = h.state().doc.len();
-    h.state_mut().doc.select(end, end);
-    h.state_mut().doc.insert_table(4, 7);
-    shot_as(&mut h, 635, "qalam.png");
-    shot_as(&mut h, 640, "qalam.png");
-    // Design tab (#638), Layout tab paragraph group (#654), References (#661).
-    h.state_mut().tab = crate::ribbon::Tab::Design;
-    shot_as(&mut h, 638, "qalam.png");
-    h.state_mut().tab = crate::ribbon::Tab::Layout;
-    shot_as(&mut h, 654, "qalam.png");
-    h.state_mut().tab = crate::ribbon::Tab::References;
-    shot_as(&mut h, 661, "qalam.png");
-    // Page gap between pages (#645).
-    let para = "Delectus neque mollitia illo occaecati harum reprehenderit dolorem. Sit ad alias quis velit. Corrupti nisi iste non porro eius quibusdam aut repudiandae.";
-    let paras: Vec<&str> = std::iter::repeat_n(para, 14).collect();
-    let mut h = typed(&paras, big);
-    shot_as(&mut h, 645, "qalam.png");
-    // Dark theme accents, inputs, styles gallery (#655 #656 #657 #663).
-    let mut h = typed(&["Dark theme نص عربي"], [1440.0, 860.0]);
-    let ctx = h.ctx.clone();
-    h.state_mut().set_dark(&ctx, true);
-    for n in [655, 656, 657, 663] { shot_as(&mut h, n, "qalam.png"); }
-}
-
-/// Wordcraft #861: the unsaved-changes prompt answers to the keyboard alone.
+/// the unsaved-changes prompt answers to the keyboard alone.
 #[test]
 fn save_prompt_works_from_keyboard() {
     let mut h = harness(None);
@@ -1840,7 +1605,7 @@ fn save_prompt_works_from_keyboard() {
     assert!(!h.state().doc.text().contains('\n'), "Enter does not reach the page");
 }
 
-/// Wordcraft #821: the keyboard's Menu key (and Shift+F10) opens the context menu at the caret.
+/// the keyboard's Menu key (and Shift+F10) opens the context menu at the caret.
 #[test]
 fn menu_key_opens_context_menu() {
     for (mods, key) in [(Modifiers::NONE, Key::Menu), (Modifiers::SHIFT, Key::F10)] {
@@ -1858,7 +1623,7 @@ fn menu_key_opens_context_menu() {
     }
 }
 
-/// Wordcraft #838: new documents take A4 and centimetres from the system region, not the language.
+/// new documents take A4 and centimetres from the system region, not the language.
 #[test]
 fn paper_and_units_follow_the_region() {
     use crate::options::{default_units, uses_letter};
@@ -1869,99 +1634,9 @@ fn paper_and_units_follow_the_region() {
     }
 }
 
-/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
-/// in task 10, one `qalam.png` per issue folder under `WORDCRAFT_IMG`; the
-/// issues' .docx attachments are read from `WORDCRAFT_FX/<n>/s.docx`.
-#[test]
-#[ignore]
-fn wordcraft_task10_qalam_renders() {
-    // Keeps the user's settings out of it (sets WORD_CONFIG_DIR once).
-    drop(harness(None));
-    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
-    let fx = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_FX").expect("set WORDCRAFT_FX"));
-    let shot_as = |h: &mut Harness<'static, WordApp>, n: u32, name: &str| {
-        h.run_steps(6);
-        let dir = root.join(n.to_string());
-        std::fs::create_dir_all(&dir).unwrap();
-        h.render().expect("render").save(dir.join(name)).unwrap();
-    };
-    let typed = |paras: &[&str], size: [f32; 2]| {
-        let mut h = Harness::builder().with_size(size).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
-        h.run_steps(2);
-        for (i, t) in paras.iter().enumerate() {
-            h.event(Event::Text((*t).into()));
-            h.run_steps(1);
-            if i + 1 < paras.len() { h.key_press(Key::Enter); }
-        }
-        h
-    };
-    let opened = |n: u32| {
-        let p = fx.join(n.to_string()).join("s.docx");
-        let mut h = Harness::builder().with_size([1300.0, 900.0]).with_step_dt(1.0 / 60.0).wgpu().allow_missing_glyphs().build_eframe(move |cc| WordApp::new(cc, Some(p)));
-        h.run_steps(4);
-        h
-    };
-    let big = [1300.0, 860.0];
-    // Attached documents: continuous section break (#852), multi-column shape wrap (#884), DrawingML shapes (#886).
-    for n in [852, 884, 886] {
-        let mut h = opened(n);
-        if n == 852 { h.state_mut().show_marks = true; }
-        shot_as(&mut h, n, if n == 852 { "qalam-file.png" } else { "qalam.png" });
-    }
-    // #852 as described: "one", a continuous section break, "two" (also in Arabic).
-    let mut h = typed(&["one", "two", "واحد", "اثنان"], big);
-    h.state_mut().doc.select(3, 3);
-    h.state_mut().doc.insert_section_break(word_engine::page::SectionKind::Continuous);
-    h.state_mut().show_marks = true;
-    shot_as(&mut h, 852, "qalam.png");
-    // #886: the shapes document after a Qalam save and reopen.
-    let saved = std::env::temp_dir().join("qalam-wordcraft-886.docx");
-    std::fs::write(&saved, word_engine::docx::write(&opened(886).state().doc).unwrap()).unwrap();
-    let mut h = Harness::builder().with_size([1300.0, 900.0]).with_step_dt(1.0 / 60.0).wgpu().allow_missing_glyphs().build_eframe(move |cc| WordApp::new(cc, Some(saved)));
-    shot_as(&mut h, 886, "qalam-after.png");
-    // Chinese text (#794). The app loads installed fonts in the background; tests skip that scan,
-    // so the CJK face it would find is registered here.
-    for f in ["/System/Library/Fonts/Hiragino Sans GB.ttc", "/System/Library/Fonts/STHeiti Medium.ttc"] { if std::path::Path::new(f).exists() { word_engine::fonts::register_font_file(std::path::Path::new(f)); break; } }
-    let mut h = typed(&["数据触发了 SAP 端的运行时错误（ABAP dump），SAP 以 HTTP 500 拒绝了请求。", "这是网络或服务器问题。"], big);
-    shot_as(&mut h, 794, "qalam.png");
-    // Unsaved-changes prompt, Save focused (#861).
-    let mut h = typed(&["Unsaved text نص غير محفوظ"], big);
-    h.state_mut().dialogs.confirm = Some(crate::app::Pending::New);
-    shot_as(&mut h, 861, "qalam.png");
-    // Context menu opened with the Menu key (#821).
-    let mut h = typed(&["Open the menu from the keyboard: نص عربي"], big);
-    h.key_press(Key::Menu);
-    shot_as(&mut h, 821, "qalam.png");
-    // Comment card with date and time (#812).
-    let mut h = typed(&["Commented text"], big);
-    h.state_mut().doc.select(0, 9);
-    h.state_mut().new_comment();
-    h.run_steps(2);
-    h.event(Event::Text("A reply-worthy remark".into()));
-    shot_as(&mut h, 812, "qalam.png");
-    // Equation tab in dark mode (#817).
-    let mut h = typed(&["Equation: "], [1440.0, 860.0]);
-    let end = h.state().doc.len();
-    h.state_mut().doc.select(end, end);
-    h.state_mut().doc.insert_object(word_engine::objects::Object::Equation(word_engine::equation::Equation::new("x=(-b±√(b^2-4ac))/2a")));
-    h.state_mut().doc.select(end, end + 1);
-    let ctx = h.ctx.clone();
-    h.state_mut().set_dark(&ctx, true);
-    h.run_steps(2);
-    h.state_mut().tab = crate::ribbon::Tab::Equation;
-    shot_as(&mut h, 817, "qalam.png");
-    // Ribbon chevrons at 200% (#818) and interface scale (#822).
-    let mut h = typed(&["Scaled"], [1440.0, 860.0]);
-    let ctx = h.ctx.clone();
-    h.state_mut().set_dark(&ctx, false);
-    h.ctx.set_pixels_per_point(2.0);
-    shot_as(&mut h, 818, "qalam.png");
-    shot_as(&mut h, 822, "qalam.png");
-}
-
 #[test]
 fn ctrl_wheel_and_pinch_zoom_the_document() {
-    // wordcraft #139 / #123: Ctrl + mouse wheel and a touchpad pinch change the zoom.
+    // Ctrl + mouse wheel and a touchpad pinch change the zoom.
     let mut h = harness(None);
     h.run_steps(2);
     let before = h.state().zoom;
@@ -1975,104 +1650,7 @@ fn ctrl_wheel_and_pinch_zoom_the_document() {
     assert!(h.state().zoom < after, "Ctrl + wheel down zooms out: {after} -> {}", h.state().zoom);
 }
 
-/// Renders Qalam reproductions of wordcraft issue scenarios (triage task 01) to
-/// `$WORDCRAFT_IMG/<issue>/qalam.png`:
-/// `WORDCRAFT_IMG=<dir> cargo test -p word-app wordcraft_task01_screenshots -- --ignored --nocapture`.
-#[test]
-#[ignore]
-fn wordcraft_task01_screenshots() {
-    let dir = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
-    type Setup = fn(&mut Harness<'static, WordApp>);
-    fn typ(h: &mut Harness<'static, WordApp>, t: &str) { h.event(Event::Text(t.into())); h.run_steps(1); }
-    let cases: [(&str, Setup); 8] = [
-        ("4161", |h| { typ(h, "thank 123 שלום"); h.state_mut().doc.set_paragraph_direction(true); h.key_press(Key::Enter); typ(h, "شكرا 123 hello عالم"); h.state_mut().doc.set_paragraph_direction(true); }),
-        ("4174", |h| { typ(h, "مرحبا بالعالم שלום עולם"); h.state_mut().show_outline = true; h.state_mut().extras.nav.query = "مرحبا بالعالم".into(); h.state_mut().extras.nav.tab = crate::nav::NavTab::Results; }),
-        ("4197", |h| { typ(h, "عنوان المستند"); h.state_mut().doc.set_paragraph_style("Title"); h.key_press(Key::Enter); typ(h, "Document Title"); h.state_mut().doc.set_paragraph_style("Title"); }),
-        ("4198", |h| { h.state_mut().doc.insert_table(3, 2); typ(h, "الاسم"); h.key_press(Key::Tab); typ(h, "Name"); h.run_steps(1); h.state_mut().doc.apply_table_style(word_engine::tables::TableStyle::HeaderShaded, word_engine::Color(68, 114, 196)); }),
-        ("4765", |h| { typ(h, "Tiếng Việt: Ể Ứ Ự ể ứ ự — E\u{302}\u{309} U\u{31b}\u{301}"); }),
-        ("4944", |h| { typ(h, "نص عربي في نمط عادي"); h.state_mut().tab = crate::ribbon::Tab::Home; }),
-        ("5123", |h| { typ(h, "هذه فقرة عربية من اليمين إلى اليسار مع رقم 2024 وكلمة English في الوسط."); h.key_press(Key::Enter); typ(h, "فقرة ثانية."); }),
-        ("5143", |h| { h.state_mut().insert_equation("س=ص+١"); }),
-    ];
-    for (n, setup) in cases {
-        let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
-        h.run_steps(2);
-        setup(&mut h);
-        h.run_steps(8);
-        let d = dir.join(n);
-        std::fs::create_dir_all(&d).unwrap();
-        h.render().expect("render").save(d.join("qalam.png")).unwrap();
-    }
-}
-
-/// Renders Qalam reproductions of wordcraft issue scenarios (triage task 03) to
-/// `$WORDCRAFT_IMG/<issue>/qalam.png`:
-/// `WORDCRAFT_IMG=<dir> cargo test -p word-app wordcraft_task03_screenshots -- --ignored --nocapture`.
-#[test]
-#[ignore]
-fn wordcraft_task03_screenshots() {
-    let dir = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
-    type Setup = fn(&mut Harness<'static, WordApp>);
-    fn typ(h: &mut Harness<'static, WordApp>, t: &str) { h.event(Event::Text(t.into())); h.run_steps(1); }
-    let cases: [(&str, Option<std::path::PathBuf>, Setup); 7] = [
-        ("143", None, |h| { let p = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").unwrap()).join("143/t.docx"); h.ctx.set_missing_glyph_policy(egui::epaint::text::MissingGlyphPolicy::Tofu); h.run_steps(1); h.state_mut().open_path(p); }),
-        ("140", None, |h| { typ(h, "Sharp text at odd zoom levels — نص عربي واضح"); h.state_mut().zoom = 1.13; }),
-        ("175", None, |h| { h.state_mut().doc.insert_table(3, 2); typ(h, "الاسم"); h.key_press(Key::Tab); typ(h, "Name"); h.run_steps(1); h.state_mut().doc.apply_table_style(word_engine::tables::TableStyle::HeaderShaded, word_engine::Color(68, 114, 196)); }),
-        ("217", None, |h| { h.state_mut().doc.insert_table(2, 3); typ(h, "resize me"); }),
-        ("219", None, |h| { typ(h, "Regular text "); h.state_mut().doc.toggle_bold(); typ(h, "Bold text"); }),
-        ("226", None, |h| { h.state_mut().doc.insert_table(2, 2); typ(h, "نص عمودي"); h.key_press(Key::Tab); typ(h, "vertical"); }),
-        ("225", None, |h| { typ(h, "Window title bar is native on macOS"); }),
-    ];
-    for (n, path, setup) in cases {
-        let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(move |cc| WordApp::new(cc, path.clone()));
-        h.run_steps(2);
-        setup(&mut h);
-        h.run_steps(8);
-        let d = dir.join(n);
-        std::fs::create_dir_all(&d).unwrap();
-        h.render().expect("render").save(d.join("qalam.png")).unwrap();
-    }
-}
-
-/// Renders Qalam reproductions of wordcraft issue scenarios (triage task 05) to
-/// `$WORDCRAFT_IMG/<issue>/qalam.png` (and `qalam-after.png` after the fixed command):
-/// `WORDCRAFT_IMG=<dir> cargo test -p word-app wordcraft_task05_screenshots -- --ignored --nocapture`.
-#[test]
-#[ignore]
-fn wordcraft_task05_screenshots() {
-    let dir = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
-    type Step = fn(&mut Harness<'static, WordApp>);
-    fn typ(h: &mut Harness<'static, WordApp>, t: &str) { h.event(Event::Text(t.into())); h.run_steps(1); }
-    fn table(h: &mut Harness<'static, WordApp>) {
-        h.state_mut().doc.insert_table(2, 3);
-        for (k, t) in ["الاسم", "Name", "City", "أحمد", "Ada", "London"].iter().enumerate() { typ(h, t); if k < 5 { h.key_press(Key::Tab); } }
-    }
-    fn cell(h: &Harness<'static, WordApp>, r: usize, c: usize) -> usize { let d = &h.state().doc; let id = d.tables[0].rows[r].cells[c].id; d.paragraph_start(d.paragraphs.iter().position(|p| p.cell == Some(id)).unwrap()) }
-    let cases: [(&str, Step, Option<Step>); 6] = [
-        ("413", |h| { typ(h, "hi"); h.key_press(Key::Enter); h.key_press(Key::Enter); typ(h, "hello مرحبا"); let d = &mut h.state_mut().doc; d.select(4, 15); d.set_link(Some("https://google.com".into())); d.select(3, 3); h.run_steps(1); typ(h, "typed beside the link"); h.event(Event::PointerMoved(Pos2::new(400.0, 300.0))); }, None),
-        ("376", |h| { typ(h, "The … button in the title row opens a menu"); }, None),
-        ("418", |h| { typ(h, "First paragraph"); h.key_press(Key::Enter); typ(h, "الفقرة الثانية"); h.state_mut().doc.select(0, 16); h.state_mut().doc.set_alignment(word_engine::Alignment::Center); }, None),
-        ("431", |h| { table(h); let (a, f) = (cell(h, 0, 0), cell(h, 0, 1) + 1); h.state_mut().doc.select(a, f); }, Some(|h| h.state_mut().doc.delete_table_part(word_engine::model::TablePart::Column))),
-        ("432", |h| { h.state_mut().doc.insert_table(2, 1); typ(h, "top خلية"); }, Some(|h| { h.state_mut().doc.split_cell(2); })),
-        ("375", |h| { typ(h, "Picture: "); let b = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/icon.png")).unwrap(); h.state_mut().doc.insert_image(b, "image/png", 96.0, 96.0); let n = h.state().doc.len(); h.state_mut().doc.select(n - 1, n); let ctx = h.ctx.clone(); h.state_mut().copy(&ctx); let text = h.state().doc.selected_text(); h.state_mut().set_document(word_engine::Document::new(vec![word_engine::Paragraph::new("Other document: ")]), None); let n = h.state().doc.len(); h.state_mut().doc.select(n, n); h.state_mut().paste_text(&text); }, None),
-    ];
-    for (n, setup, after) in cases {
-        let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
-        h.run_steps(2);
-        setup(&mut h);
-        h.run_steps(8);
-        let d = dir.join(n);
-        std::fs::create_dir_all(&d).unwrap();
-        h.render().expect("render").save(d.join("qalam.png")).unwrap();
-        if let Some(after) = after {
-            after(&mut h);
-            h.run_steps(8);
-            h.render().expect("render").save(d.join("qalam-after.png")).unwrap();
-        }
-    }
-}
-
-/// wordcraft #512: the Paragraph dialog's Formatting exceptions reach the paragraph.
+/// the Paragraph dialog's Formatting exceptions reach the paragraph.
 #[test]
 fn paragraph_dialog_formatting_exceptions() {
     let mut h = typed("فقرة عربية لا تُقسّم الكلمات فيها");
@@ -2090,7 +1668,7 @@ fn paragraph_dialog_formatting_exceptions() {
     assert!(d.no_line_numbers && d.no_hyphenate, "the dialog reads them back");
 }
 
-/// wordcraft #555: right-clicking a gallery style offers Update … to Match Selection.
+/// right-clicking a gallery style offers Update … to Match Selection.
 #[test]
 fn style_gallery_update_to_match_selection() {
     let mut h = typed("Red italic words");
@@ -2111,126 +1689,9 @@ fn style_gallery_update_to_match_selection() {
     assert_eq!(doc.paragraphs[0].style.as_deref(), Some("Heading2"));
 }
 
-/// Qalam renders of wordcraft task07 issue scenarios (WORDCRAFT_IMG=<img dir>).
-#[test]
-#[ignore]
-fn wordcraft_task07_renders() {
-    let dir = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
-    let shot = |h: &mut Harness<'static, WordApp>, n: &str, name: &str| {
-        h.run_steps(6);
-        let d = dir.join(n);
-        std::fs::create_dir_all(&d).unwrap();
-        h.render().expect("render").save(d.join(format!("{name}.png"))).unwrap();
-    };
-    let new = || { let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().allow_missing_glyphs().build_eframe(|cc| WordApp::new(cc, None)); h.run_steps(2); h };
-    let only = std::env::var("WORDCRAFT_ONLY").unwrap_or_default();
-    let want = |n: &str| only.is_empty() || only == n;
-    // #552: character spacing read back by the Font dialog.
-    if want("552") {
-        let mut h = new();
-        h.event(Event::Text("111111111 مرحبا".into()));
-        h.run_steps(2);
-        h.state_mut().doc.select(0, 9);
-        h.state_mut().doc.set_run_props(word_engine::RunProps { spacing: Some(4.1), ..Default::default() });
-        h.state_mut().open_font_dialog();
-        shot(&mut h, "552", "qalam");
-    }
-    // #512: Paragraph dialog with Formatting exceptions.
-    if want("512") {
-        let mut h = new();
-        h.event(Event::Text("فقرة عربية".into()));
-        crate::ui::open_paragraph_dialog(h.state_mut());
-        shot(&mut h, "512", "qalam-after");
-    }
-    // #555: style gallery right-click menu.
-    if want("555") {
-        let mut h = new();
-        h.event(Event::Text("Red italic words".into()));
-        h.run_steps(2);
-        h.state_mut().doc.select_all();
-        h.state_mut().doc.set_run_props(word_engine::RunProps { italic: Some(true), color: Some(Some(word_engine::Color(0xC0, 0, 0))), ..Default::default() });
-        h.run_steps(3);
-        let at = h.get_by_label("Apply the Heading 2 style").rect().center();
-        h.event(Event::PointerMoved(at));
-        h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: true, modifiers: Modifiers::NONE });
-        h.step();
-        h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: false, modifiers: Modifiers::NONE });
-        shot(&mut h, "555", "qalam-after");
-    }
-    // #565 / #505: Bengali and Chinese text in the document.
-    if want("565") {
-        word_engine::fonts::load_system_fonts(None);
-        let mut h = new();
-        h.event(Event::Text("ওয়ার্ড বাংলা লেখা".into()));
-        h.run_steps(1);
-        h.key_press(Key::Enter);
-        h.event(Event::Text("中文字体 微软雅黑".into()));
-        h.state_mut().preedit = "ওয়ার্ড".into();
-        shot(&mut h, "565", "qalam");
-    }
-    // #535: right-click mini toolbar on a selection.
-    if want("535") {
-        let mut h = new();
-        h.event(Event::Text("Select this text to see the mini toolbar buttons.".into()));
-        h.run_steps(2);
-        h.state_mut().doc.select(0, 11);
-        h.run_steps(2);
-        let at = egui::pos2(560.0, 330.0);
-        h.event(Event::PointerMoved(at));
-        h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: true, modifiers: Modifiers::NONE });
-        h.step();
-        h.event(Event::PointerButton { pos: at, button: PointerButton::Secondary, pressed: false, modifiers: Modifiers::NONE });
-        shot(&mut h, "535", "qalam");
-    }
-}
-
-/// Qalam screenshots of wordcraft task-09 scenarios (#730 #732 #743 #749 #776 #777):
-/// `WC_IMG=<img dir> cargo test -p word-app wordcraft_task09_screenshots -- --ignored --nocapture`.
-#[test]
-#[ignore]
-fn wordcraft_task09_screenshots() {
-    let dir = std::path::PathBuf::from(std::env::var_os("WC_IMG").expect("set WC_IMG"));
-    let shot = |h: &mut Harness<'_, WordApp>, n: &str, name: &str| {
-        std::fs::create_dir_all(dir.join(n)).unwrap();
-        h.render().expect("render").save(dir.join(n).join(name)).unwrap();
-    };
-    let build = |path: Option<std::path::PathBuf>| Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().allow_missing_glyphs().build_eframe(move |cc| WordApp::new(cc, path));
-    for (n, file) in [("743", "bp.docx"), ("749", "resume.docx"), ("777", "spacing_test.docx")] {
-        let p = dir.join(n).join(file);
-        if !p.exists() { continue; }
-        let mut h = build(Some(p));
-        h.run_steps(8);
-        shot(&mut h, n, "qalam.png");
-    }
-    // #730: dark interface, Design tab galleries.
-    let mut h = build(None);
-    h.run_steps(2);
-    let ctx = h.ctx.clone();
-    h.state_mut().set_dark(&ctx, true);
-    h.state_mut().tab = crate::ribbon::Tab::Design;
-    h.run_steps(6);
-    shot(&mut h, "730", "qalam.png");
-    // #732: the Symbol dialog (dark), dragged by its title bar.
-    h.state_mut().open_symbols();
-    h.run_steps(4);
-    shot(&mut h, "732", "qalam.png");
-    h.state_mut().extras.symbol = None;
-    let ctx = h.ctx.clone();
-    h.state_mut().set_dark(&ctx, false);
-    // #776 / #777: Wingdings 14 pt, six empty paragraphs then "Abcd", and a typed "&" / ☺.
-    h.state_mut().tab = crate::ribbon::Tab::Home;
-    h.state_mut().doc.set_run_props(word_engine::RunProps { font: Some("Wingdings".into()), cs_font: Some("Wingdings".into()), ..Default::default() });
-    h.state_mut().doc.set_font_size(14.0);
-    for _ in 0..6 { h.key_press(Key::Enter); }
-    h.event(Event::Text("Abcd &\u{F04A}".into()));
-    h.run_steps(6);
-    shot(&mut h, "776", "qalam.png");
-    shot(&mut h, "777", "qalam-wingdings.png");
-}
-
 #[test]
 fn style_set_previews_stay_white_in_dark_mode() {
-    // wordcraft #730: in the dark interface the Design tab's style set previews drew dark
+    // in the dark interface the Design tab's style set previews drew dark
     // document colors (Banner's navy, Minimal's gray) on a dark card; they are white pages now.
     let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
     h.run_steps(2);
@@ -2246,24 +1707,3 @@ fn style_set_previews_stay_white_in_dark_mode() {
     }
 }
 
-/// wordcraft task 11 screenshots (#897 ribbon tab strip with a table, #988 ribbon icons, #893 numbered list):
-/// `MAKTAB_SHOTS=dir cargo test -p <app> wordcraft_task11_shots -- --ignored`.
-#[test]
-#[ignore]
-fn wordcraft_task11_shots() {
-    let dir = std::path::PathBuf::from(std::env::var_os("MAKTAB_SHOTS").expect("set MAKTAB_SHOTS"));
-    for (lang, width, name) in [(crate::i18n::Lang::En, 1280.0, "897-en-1280"), (crate::i18n::Lang::Fr, 1280.0, "897-fr-1280"), (crate::i18n::Lang::Ar, 1100.0, "897-ar-1100"), (crate::i18n::Lang::Fr, 820.0, "897-fr-820")] {
-        let mut h = Harness::builder().with_size([width, 800.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
-        h.run_steps(2);
-        h.event(Event::Text("أولاً\nSecond item\nثالثاً".into()));
-        h.run_steps(1);
-        h.state_mut().doc.select_all();
-        h.state_mut().doc.toggle_list(word_engine::numbering::ListKind::Number);
-        h.state_mut().doc.select(0, 0);
-        h.state_mut().doc.insert_table(3, 3);
-        h.state_mut().extras.options.settings.lang = lang;
-        h.run_steps(6);
-        let img = h.render().expect("render");
-        img.save(dir.join(format!("{name}.png"))).unwrap();
-    }
-}

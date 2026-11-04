@@ -404,7 +404,7 @@ mod tests {
 
     #[test]
     fn word_count_includes_list_numbers_not_bullets() {
-        // wordcraft #893: Word counts "1." "2." as words; bullets are not words.
+        // Word counts "1." "2." as words; bullets are not words.
         let mut d = doc("one two\nثلاثة أربعة\nfive");
         assert_eq!(d.word_count(), 5);
         d.select_all();
@@ -469,7 +469,7 @@ mod tests {
         assert_eq!(d.text(), "Hello World. Second Sentence");
         d.change_case(CaseMode::Toggle);
         assert_eq!(d.text(), "hELLO wORLD. sECOND sENTENCE");
-        // wordcraft #186: Shift+F3 cycles lower → Capitalize → UPPER → lower; caseless Arabic is left alone.
+        // Shift+F3 cycles lower → Capitalize → UPPER → lower; caseless Arabic is left alone.
         let mut d = doc("hello world");
         d.select(0, 11);
         d.cycle_case();
@@ -490,7 +490,7 @@ mod tests {
         d.select_all();
         assert!(d.sort_paragraphs(false));
         assert_eq!(d.text(), "9\n10\napple\npear");
-        // Wordcraft #837: letters with diacritics sort next to their base letter.
+        // letters with diacritics sort next to their base letter.
         for (input, sorted) in [
             ("Zakopane\nŁódź\nKraków\nLublin", "Kraków\nLublin\nŁódź\nZakopane"),
             ("zebra\nćma\ndom\ncebula", "cebula\nćma\ndom\nzebra"),

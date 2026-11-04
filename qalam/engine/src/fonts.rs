@@ -393,7 +393,7 @@ pub fn resolve(name: &str, bold: bool, italic: bool) -> FontKey {
     match installed.filter(|_| !exact_bundled) { Some(f) => resolve_family(f, bold, italic), None => resolve_family(bundled_family(name), bold, italic) }
 }
 
-/// wordcraft #670: installed designs that stand in for a missing font far better than the
+/// installed designs that stand in for a missing font far better than the
 /// generic bundled substitute (Palatino Linotype is Palatino on macOS, Pagella/P052 on Linux).
 fn close_families(name: &str) -> &'static [&'static str] {
     match name.trim().to_ascii_lowercase().as_str() {
@@ -455,7 +455,7 @@ fn system_fallback(c: char, bold: bool) -> Option<FontKey> {
     found.map(|f| FontKey { face: f, synthetic_bold: bold && !face(f).bold })
 }
 
-/// wordcraft #604: installed font families likely to cover `c`'s script when no bundled font
+/// installed font families likely to cover `c`'s script when no bundled font
 /// does (Myanmar, Thai, Indic, …), so only those few are opened (#605).
 fn script_hints(c: char) -> &'static [&'static str] {
     match c as u32 {
@@ -492,7 +492,7 @@ pub fn is_cjk(c: char) -> bool {
 
 static CJK_CACHE: OnceLock<Mutex<HashMap<(char, bool), Option<u16>>>> = OnceLock::new();
 
-/// wordcraft #241/#285: an installed or user-added CJK font that has `c` (best-known families
+/// an installed or user-added CJK font that has `c` (best-known families
 /// first), remembered per character so fonts are only opened once.
 fn cjk_face(c: char, bold: bool) -> Option<u16> {
     const PREFERRED: &[&str] = &["PingFang SC", "Hiragino Sans GB", "Hiragino Sans", "Heiti SC", "Songti SC", "Apple SD Gothic Neo", "Microsoft YaHei", "Microsoft JhengHei", "Yu Gothic", "Meiryo", "Malgun Gothic", "SimSun", "MS Gothic", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", "WenQuanYi Micro Hei", "Droid Sans Fallback", "Arial Unicode MS"];
@@ -640,7 +640,7 @@ mod tests {
     use super::*;
     #[test]
     fn cjk_falls_back_to_an_installed_cjk_font() {
-        // wordcraft #241/#285: Chinese typed in Noto Sans drew as tofu (no bundled CJK face).
+        // Chinese typed in Noto Sans drew as tofu (no bundled CJK face).
         let Some(p) = ["/System/Library/Fonts/Hiragino Sans GB.ttc", "/System/Library/Fonts/STHeiti Medium.ttc", "C:\\Windows\\Fonts\\msyh.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]
             .iter().map(std::path::Path::new).find(|p| p.exists()) else { return };
         assert!(!register_font_file(p).is_empty());
@@ -653,7 +653,7 @@ mod tests {
     }
     #[test]
     fn myanmar_and_palatino_use_installed_fonts() {
-        // wordcraft #604: Burmese fell back to tofu; it now comes from an installed Myanmar font.
+        // Burmese fell back to tofu; it now comes from an installed Myanmar font.
         if let Some(p) = ["/System/Library/Fonts/Supplemental/Myanmar Sangam MN.ttc", "/System/Library/Fonts/NotoSansMyanmar.ttc", "/usr/share/fonts/truetype/noto/NotoSansMyanmar-Regular.ttf", "C:\\Windows\\Fonts\\mmrtext.ttf"]
             .iter().map(std::path::Path::new).find(|p| p.exists()) {
             assert!(!register_font_file(p).is_empty());
@@ -664,9 +664,9 @@ mod tests {
             }
             assert!(!shape(fallback(key, 'မ'), "မြန်မာ", false, 16.0).is_empty());
         }
-        // Characters of scripts without hints never open installed fonts (wordcraft #605).
+        // Characters of scripts without hints never open installed fonts.
         assert!(script_hints('\u{17000}').is_empty());
-        // wordcraft #670: Palatino Linotype resolves to Palatino, not the generic serif.
+        // Palatino Linotype resolves to Palatino, not the generic serif.
         if let Some(p) = ["/System/Library/Fonts/Palatino.ttc", "/usr/share/fonts/opentype/urw-base35/P052-Roman.otf"].iter().map(std::path::Path::new).find(|p| p.exists()) {
             let fams = register_font_file(p);
             assert!(!fams.is_empty());

@@ -1781,7 +1781,7 @@ fn ensure_content_types(parts: &mut BTreeMap<String, Vec<u8>>, main: &str) {
 
 const REL_CORE: &str = "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties";
 
-/// wordcraft #260/#262: write the edited document properties to docProps/core.xml (they were
+/// write the edited document properties to docProps/core.xml (they were
 /// read but never saved), and stamp the save: modified time and revision number.
 fn write_core_properties(parts: &mut BTreeMap<String, Vec<u8>>, props: &crate::model::Properties) {
     let mut pkg = read_rels(parts, "");
@@ -2084,7 +2084,7 @@ mod tests {
 
     #[test]
     fn symbol_and_wingdings_sym_chars_become_unicode() {
-        // wordcraft #776: Wingdings / Symbol characters (w:sym) showed as plain letters or boxes.
+        // Wingdings / Symbol characters (w:sym) showed as plain letters or boxes.
         let bytes = write(&Document::new(vec![Paragraph::new("MARK")])).unwrap();
         let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
         let mut parts: Vec<(String, Vec<u8>)> = vec![];
@@ -2139,7 +2139,7 @@ mod tests {
         assert_eq!(again.text(), d.text());
     }
 
-    /// wordcraft #4197/#4198: new documents' styles give complex-script (Arabic) runs the same size and bold as Latin ones in Word.
+    /// new documents' styles give complex-script (Arabic) runs the same size and bold as Latin ones in Word.
     #[test]
     fn basic_styles_set_complex_script_size_and_bold() {
         let bytes = write(&Document::new(vec![Paragraph::new("مرحبا")])).unwrap();
@@ -2150,7 +2150,7 @@ mod tests {
 
     #[test]
     fn document_properties_are_saved_and_the_save_is_stamped() {
-        // wordcraft #260/#262: typed Title/Author survive Save; revision and modified time advance.
+        // typed Title/Author survive Save; revision and modified time advance.
         let mut d = Document::new(vec![Paragraph::new("XYZ")]);
         d.properties.title = "ALPHA عنوان".into();
         d.properties.author = "BETA & co".into();
@@ -2172,7 +2172,7 @@ mod tests {
 
     #[test]
     fn default_styles_size_and_bold_arabic_too() {
-        // wordcraft #4197: built-in styles set w:szCs / w:bCs beside w:sz / w:b, so a right-to-left
+        // built-in styles set w:szCs / w:bCs beside w:sz / w:b, so a right-to-left
         // Arabic title is 28 pt (not 10 pt) in Word, and Qalam draws it at the size Word does.
         let mut d = Document::new(vec![Paragraph::new("مذكرة: تجديد عقد المكتب")]);
         d.paragraphs[0].style = Some("Title".into());
@@ -2188,7 +2188,7 @@ mod tests {
 
     #[test]
     fn table_style_paragraph_and_run_formatting_applies_in_cells() {
-        // wordcraft #175: a table style's own pPr/rPr (Word's "Table Grid" sets after=0, single
+        // a table style's own pPr/rPr (Word's "Table Grid" sets after=0, single
         // lines) sits between docDefaults and the paragraph style, and a derived style keeps the
         // borders of the style it is based on.
         use crate::styles::{Style, StyleKind};
@@ -2549,7 +2549,7 @@ mod wordcraft_task10 {
 
     fn toc_dirty(d: &Document) -> Option<bool> { d.paragraphs.iter().flat_map(|p| &p.runs).find_map(|r| match &r.marker { Some(Marker::FieldBegin(i, dirty)) if i.starts_with("TOC") => Some(*dirty), _ => None }) }
 
-    /// Wordcraft #877: a TOC marked w:dirty keeps the flag through a save, so Word rebuilds it.
+    /// a TOC marked w:dirty keeps the flag through a save, so Word rebuilds it.
     #[test]
     fn toc_dirty_flag_round_trips() {
         let mut d = Document::new(vec![Paragraph { runs: vec![Run::text("مقدمة")], style: Some("Heading1".into()), ..Default::default() }, Paragraph::new("نص")]);
@@ -2566,7 +2566,7 @@ mod wordcraft_task10 {
         assert_eq!(toc_dirty(&back), Some(false));
     }
 
-    /// Wordcraft #886: a shape group Qalam cannot draw yet survives a save untouched.
+    /// a shape group Qalam cannot draw yet survives a save untouched.
     #[test]
     fn shape_groups_survive_a_save() {
         use std::io::{Cursor, Write};

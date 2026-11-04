@@ -537,7 +537,7 @@ impl<'a> Ctx<'a> {
             let mut j = i;
             let mut ended_by: Option<Kind> = None;
             // A right, center or decimal stop past the right margin lets its text reach the
-            // stop, as in Word (wordcraft #749: a resume's dates at a stop beyond the margin).
+            // stop, as in Word (a resume's dates at a stop beyond the margin).
             let mut limit = avail;
             while j < atoms.len() {
                 let kind = atoms[j].kind;
@@ -2135,7 +2135,7 @@ mod tests {
     fn doc(text: &str) -> Document { Document::new(text.split('\n').map(Paragraph::new).collect()) }
 
 
-    /// Wordcraft #451: NUMPAGES in a body paragraph shows the document's page count, not 1.
+    /// NUMPAGES in a body paragraph shows the document's page count, not 1.
     #[test]
     fn body_numpages_field_shows_the_page_count() {
         let mut d = doc(&vec!["سطر line"; 120].join("\n"));
@@ -2149,7 +2149,7 @@ mod tests {
 
     #[test]
     fn right_tab_past_the_margin_keeps_its_text_on_the_line() {
-        // wordcraft #749: a resume sets 0.4" margins and a right stop at 8.06", past the right
+        // a resume sets 0.4" margins and a right stop at 8.06", past the right
         // margin (8.1" text width); its dates stay on the heading's line, as in Word.
         let mut d = doc("Florida Polytechnic University\tExpected Graduation: May 2028");
         d.page.left = 576; d.page.right = 576;
@@ -2201,7 +2201,7 @@ mod tests {
 
     #[test]
     fn page_break_ending_a_paragraph_leaves_next_at_page_top() {
-        // wordcraft #1304: the space after a paragraph that ends in a page break stays on the old page.
+        // the space after a paragraph that ends in a page break stays on the old page.
         let mut d = Document::new(vec![Paragraph::new("a\u{000C}"), Paragraph::new("b")]);
         d.select(0, 4);
         d.set_paragraph_spacing(Some(30.0), Some(30.0));
@@ -2305,7 +2305,7 @@ mod tests {
 
     #[test]
     fn paragraph_mark_sits_at_the_visual_end_of_mixed_direction_lines() {
-        // wordcraft #274: LTR paragraph ending in Arabic, RTL paragraph ending in Latin.
+        // LTR paragraph ending in Arabic, RTL paragraph ending in Latin.
         let d = doc("abc عربي\nمرحبا بالعالم abc");
         let l = layout_document(&d);
         let (p0, p1) = (&l.lines[0], &l.lines[1]);

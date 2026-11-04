@@ -608,7 +608,7 @@ fn paint_marks(app: &WordApp, painter: &egui::Painter, page: usize, zoom: f32, t
             painter.text(to_screen(page, x + w / 2.0, l.baseline - 3.0), egui::Align2::CENTER_BOTTOM, mark, font.clone(), color);
         }
         if l.last_in_paragraph {
-            // wordcraft #274: at the line's visual end, outside the text, in the paragraph's direction.
+            // at the line's visual end, outside the text, in the paragraph's direction.
             let x = l.visual_end_x();
             let (mx, align) = if l.rtl { (x - 1.0, egui::Align2::RIGHT_BOTTOM) } else { (x + 1.0, egui::Align2::LEFT_BOTTOM) };
             painter.text(to_screen(page, mx, l.baseline), align, "¶", font.clone(), color);

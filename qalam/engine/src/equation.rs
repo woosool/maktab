@@ -429,7 +429,7 @@ fn layout_node(n: &Node, c: &Ctx, display: bool) -> MBox {
         Node::Row(v) => {
             // Arabic and Hebrew letters split into one symbol each are joined back into words, so
             // they are shaped together, and a row whose first letter is right-to-left runs right
-            // to left (wordcraft #5143).
+            // to left.
             let joined;
             let v = if first_strong_rtl(n) == Some(true) {
                 let mut w: Vec<Node> = vec![];
@@ -869,7 +869,7 @@ mod tests {
 
     #[test]
     fn arabic_in_an_equation_is_shaped_right_to_left() {
-        // wordcraft #5143: Persian words in a formula came out letter by letter, left to right.
+        // Persian words in a formula came out letter by letter, left to right.
         let xml = r#"<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>میانگین وزن</m:t></m:r><m:r><m:t>=</m:t></m:r><m:f><m:num><m:r><m:t>مجموع</m:t></m:r></m:num><m:den><m:r><m:t>تعداد</m:t></m:r></m:den></m:f></m:oMath>"#;
         let tree = from_omml(&crate::xml::parse(xml).unwrap());
         let b = layout_node(&tree, &Ctx { size: 12.0, color: crate::Color::BLACK }, true);

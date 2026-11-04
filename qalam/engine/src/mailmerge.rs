@@ -372,7 +372,7 @@ impl Document {
             }
             p.runs.retain(|r| !r.text.is_empty() || r.marker.is_some() || r.field.is_some());
         }
-        // Header and footer fields show the copy's first recipient (wordcraft #430).
+        // Header and footer fields show the copy's first recipient.
         let row = order.get(start).copied();
         for story in [&mut self.header, &mut self.footer].into_iter().flatten() {
             for p in &mut story.paragraphs {
@@ -550,7 +550,7 @@ mod tests {
 
     #[test]
     fn merge_resolves_header_and_footer_fields() {
-        // wordcraft #430: a recipient field in the header stayed «Name» after Finish & Merge.
+        // a recipient field in the header stayed «Name» after Finish & Merge.
         let mut d = Document::new(vec![Paragraph::new("نص")]);
         d.set_merge_source(Some(DataSource::parse_delimited("p.csv", "Name\nأحمد\nBeta\n").unwrap()), None);
         let story = |f: Field| Story { paragraphs: vec![Paragraph { runs: vec![Run { text: " ".into(), field: Some(f), ..Default::default() }], ..Default::default() }] };

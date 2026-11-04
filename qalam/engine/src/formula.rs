@@ -357,7 +357,7 @@ mod tests {
         assert_eq!(cell_number("$1,250.50 total"), Some(1250.5));
         assert_eq!(cell_number("(300)"), Some(-300.0));
         assert_eq!(cell_number("Q1"), None);
-        // Wordcraft #836: decimal commas, space grouping and Arabic separators.
+        // decimal commas, space grouping and Arabic separators.
         assert_eq!(cell_number_styled("1,5"), Some((1.5, NumberStyle::Comma)));
         assert_eq!(cell_number_styled("3,50 zł"), Some((3.5, NumberStyle::Comma)));
         assert_eq!(cell_number_styled("1 250,00"), Some((1250.0, NumberStyle::Comma)));

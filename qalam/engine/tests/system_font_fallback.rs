@@ -1,4 +1,4 @@
-//! wordcraft #565 / #505: scripts with no bundled face (Bengali, Chinese) draw with an installed
+//! scripts with no bundled face (Bengali, Chinese) draw with an installed
 //! font instead of empty boxes. Its own test binary, so system fonts load before any layout.
 
 use word_engine::fonts;

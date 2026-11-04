@@ -630,7 +630,7 @@ impl Document {
         let Some(s) = self.history.pop() else { return false };
         self.future.push(self.snapshot());
         self.restore(s);
-        // Formatting picked at the caret is undone with the step that set it (wordcraft #424).
+        // Formatting picked at the caret is undone with the step that set it.
         self.typing = None;
         self.last_edit = None;
         true
@@ -1659,7 +1659,7 @@ impl Document {
     pub fn delete_table_part(&mut self, part: TablePart) {
         let Some(cell) = self.current_cell() else { return };
         let Some(ti) = self.table_of_cell(cell) else { return };
-        // Every selected row or column goes, not only the focus cell's (wordcraft #431).
+        // Every selected row or column goes, not only the focus cell's.
         let Some(b) = self.cell_block().filter(|b| b.table == ti) else { return };
         self.checkpoint(EditKind::Other);
         let mut removed: Vec<u64> = vec![];
@@ -1976,7 +1976,7 @@ impl Document {
     }
     /// Bring a fragment copied from another document into this one: its pictures' media join
     /// `assets` (renamed when a part of that name holds other bytes), and their stored drawing
-    /// XML, whose relationship ids belong to the source package, is dropped (wordcraft #375).
+    /// XML, whose relationship ids belong to the source package, is dropped.
     pub fn adopt_assets(&mut self, fragment: &mut [Paragraph], assets: &HashMap<String, Asset>) {
         let mut renamed: HashMap<String, String> = HashMap::new();
         for img in fragment.iter_mut().flat_map(|p| p.runs.iter_mut()).filter_map(|r| r.image.as_mut()) {
@@ -2384,7 +2384,7 @@ impl Document {
     }
     pub fn word_count(&self) -> usize {
         let text = self.visible_text().split(|c: char| c.is_whitespace() || c == chars::OBJECT || c == chars::NOTE).filter(|w| !w.is_empty()).count();
-        // Word counts generated list numbers ("1.", "a)") as words, but not bullet glyphs (wordcraft #893).
+        // Word counts generated list numbers ("1.", "a)") as words, but not bullet glyphs.
         let mut markers = crate::numbering::MarkerCounter::default();
         let labels: usize = self.paragraphs.iter().filter_map(|p| self.para_format(p).numbering.and_then(|(num, ilvl)| markers.next(&self.numbering, num, ilvl)).filter(|_| !p.is_empty()))
             .map(|l| l.split_whitespace().filter(|w| w.chars().any(char::is_alphanumeric)).count()).sum();
@@ -2438,7 +2438,7 @@ mod tests {
 
     #[test]
     fn pictures_paste_into_another_document() {
-        // wordcraft #375: a picture copied from one document pasted into another without its media.
+        // a picture copied from one document pasted into another without its media.
         let mut a = doc("صورة ");
         a.select(5, 5);
         a.insert_image(vec![1, 2, 3], "image/png", 10.0, 10.0);
@@ -2460,7 +2460,7 @@ mod tests {
 
     #[test]
     fn undoing_bold_at_the_caret_stops_bold_typing() {
-        // wordcraft #424: Undo of Bold in an empty paragraph left bold typing active.
+        // Undo of Bold in an empty paragraph left bold typing active.
         let mut d = doc("");
         d.toggle_bold();
         d.undo();
@@ -2471,7 +2471,7 @@ mod tests {
 
     #[test]
     fn delete_columns_and_rows_take_the_whole_selection() {
-        // wordcraft #431: Delete Columns removed only the focus cell's column.
+        // Delete Columns removed only the focus cell's column.
         let make = || { let mut d = doc("x"); d.insert_table(2, 3); for t in ["أ", "b", "c", "d", "e", "f"] { d.replace(t); if t != "f" { d.move_cell(true); } } d };
         let cell = |d: &Document, r: usize, c: usize| { let id = d.tables[0].rows[r].cells[c].id; d.paragraph_start(d.paragraphs.iter().position(|p| p.cell == Some(id)).unwrap()) };
         for reversed in [false, true] {

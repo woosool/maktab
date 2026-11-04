@@ -104,7 +104,7 @@ mod tests {
 
     #[test]
     fn section_break_kind_after_paragraph() {
-        // wordcraft #42: the break is shown with Show/Hide ¶, so its kind must be known.
+        // the break is shown with Show/Hide ¶, so its kind must be known.
         let mut d = Document::new(vec![Paragraph::new("مرحبا"), Paragraph::new("Two"), Paragraph::new("Three")]);
         let p1 = d.paragraph_start(1);
         d.select(p1, p1);

@@ -112,7 +112,7 @@ pub struct WordApp {
     pub show_marks: bool,
     /// Rich copy of the last in-app copy, with its plain text to recognize it on paste.
     pub clipboard: Option<(String, Vec<Paragraph>)>,
-    /// Media of the copied pictures, so they paste into another document (wordcraft #375).
+    /// Media of the copied pictures, so they paste into another document.
     pub clipboard_assets: std::collections::HashMap<String, word_engine::model::Asset>,
     pub goal_x: Option<f32>,
     pub scroll_to_caret: bool,

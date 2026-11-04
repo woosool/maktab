@@ -778,7 +778,7 @@ mod tests {
 
     #[test]
     fn erased_horizontal_border_is_one_cell() {
-        // wordcraft #640: erasing the border between two rows of a column merges them on screen too.
+        // erasing the border between two rows of a column merges them on screen too.
         let mut d = grid(3, 3);
         let id = |d: &Document, r, c| d.tables[0].cell_at_grid(r, c).unwrap().1.id;
         let (a, b) = (id(&d, 0, 0), id(&d, 1, 0));
@@ -797,7 +797,7 @@ mod tests {
 
     #[test]
     fn header_table_style_bolds_arabic_too() {
-        // wordcraft #4198: the header row must set w:bCs beside w:b, or Arabic headers are plain in Word.
+        // the header row must set w:bCs beside w:b, or Arabic headers are plain in Word.
         let mut d = grid(2, 2);
         d.apply_table_style(TableStyle::HeaderShaded, Color::BLACK);
         let (_, cell) = d.tables[0].cell_at_grid(0, 0).unwrap();
