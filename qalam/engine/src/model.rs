@@ -94,8 +94,8 @@ pub struct Note { pub kind: NoteKind, pub id: String, pub paragraphs: Vec<Paragr
 pub enum Marker {
     CommentStart(String), CommentEnd(String), BookmarkStart(String), BookmarkEnd(String),
     /// The start (with its instruction) and end of a field whose result is ordinary paragraphs:
-    /// TOC, INDEX, TOA, BIBLIOGRAPHY.
-    FieldBegin(String), FieldEnd,
+    /// TOC, INDEX, TOA, BIBLIOGRAPHY. The flag is w:dirty: Word rebuilds the result on open.
+    FieldBegin(String, bool), FieldEnd,
 }
 
 /// A comment body (comments.js). Replies name their parent; the thread shares the parent's anchor.

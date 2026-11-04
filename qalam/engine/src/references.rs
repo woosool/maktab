@@ -167,7 +167,7 @@ pub fn blocks(doc: &Document) -> Vec<(usize, usize, String)> {
     for (i, p) in doc.paragraphs.iter().enumerate() {
         for r in &p.runs {
             match &r.marker {
-                Some(Marker::FieldBegin(instr)) => open = Some((i, instr.clone())),
+                Some(Marker::FieldBegin(instr, _)) => open = Some((i, instr.clone())),
                 Some(Marker::FieldEnd) => if let Some((s, instr)) = open.take() { out.push((s, i, instr)); },
                 _ => {}
             }
@@ -245,7 +245,7 @@ impl Document {
     /// Wrap entries in a field block.
     fn block(instr: &str, mut paras: Vec<Paragraph>, empty: &str) -> Vec<Paragraph> {
         if paras.is_empty() { paras.push(Paragraph::new(empty)); }
-        paras[0].runs.insert(0, Run::marker(Marker::FieldBegin(instr.to_string())));
+        paras[0].runs.insert(0, Run::marker(Marker::FieldBegin(instr.to_string(), false)));
         paras.last_mut().unwrap().runs.push(Run::marker(Marker::FieldEnd));
         paras
     }

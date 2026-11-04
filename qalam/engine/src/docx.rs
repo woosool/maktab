@@ -281,7 +281,8 @@ struct BodyReader<'a, 'b> {
     tables: Vec<Table>,
     assets: HashMap<String, Asset>,
     /// Complex field state: Some(instruction) while inside a field's result.
-    field: Vec<(String, bool)>,
+    /// Open complex fields: instruction, separated yet, w:dirty.
+    field: Vec<(String, bool, bool)>,
     /// The tracked change enclosing the runs being read.
     revision: Option<Revision>,
     /// Bookmark ids seen so far → names (bookmarkEnd refers to the id).
@@ -431,7 +432,7 @@ impl<'a, 'b> BodyReader<'a, 'b> {
             let in_instr = self.field.iter().any(|f| !f.1);
             match c.name.as_str() {
                 "w:fldChar" => match c.attr("w:fldCharType") {
-                    Some("begin") => self.field.push((String::new(), false)),
+                    Some("begin") => self.field.push((String::new(), false, c.attr("w:dirty").is_some_and(|v| v == "true" || v == "1"))),
                     Some("separate") => {
                         let nested_in_instr = self.field.len() >= 2 && !self.field[self.field.len() - 2].1;
                         if nested_in_instr { if let Some(f) = self.field.last_mut() { f.1 = true; } }
@@ -443,13 +444,13 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                                 f.0 = "#done".into();
                             } else if block_field(f.0.trim()) {
                                 flush(&mut text, runs);
-                                runs.push(Run::marker(Marker::FieldBegin(f.0.trim().to_string())));
+                                runs.push(Run::marker(Marker::FieldBegin(f.0.trim().to_string(), f.2)));
                                 f.0 = "#block".into();
                             }
                         }
                     }
                     Some("end") => {
-                        if let Some((instr, separated)) = self.field.pop() {
+                        if let Some((instr, separated, _)) = self.field.pop() {
                             // A field inside another's instruction (IF {MERGEFIELD X} = …) joins it.
                             if let Some(parent) = self.field.last_mut().filter(|p| !p.1) { parent.0.push_str(&format!(" {{{}}} ", instr.trim())); }
                             else if instr == "#block" { flush(&mut text, runs); runs.push(Run::marker(Marker::FieldEnd)); }
@@ -1188,9 +1189,11 @@ impl<'a> Writer<'a> {
             out.push(match run.marker { Some(Marker::BookmarkStart(_)) => el("w:bookmarkStart").with_attr("w:id", id).with_attr("w:name", name.clone()), _ => el("w:bookmarkEnd").with_attr("w:id", id) });
             return;
         }
-        if let Some(Marker::FieldBegin(instr)) = &run.marker {
+        if let Some(Marker::FieldBegin(instr, dirty)) = &run.marker {
             let mut r = el("w:r");
-            r.push(el("w:fldChar").with_attr("w:fldCharType", "begin"));
+            let mut begin = el("w:fldChar").with_attr("w:fldCharType", "begin");
+            if *dirty { begin.set_attr("w:dirty", "true"); }
+            r.push(begin);
             let mut i = el("w:instrText").with_attr("xml:space", "preserve");
             i.children.push(Node::Text(format!(" {instr} ")));
             r.push(i);
@@ -2204,7 +2207,7 @@ mod tests {
         assert!(f.image_at(0).unwrap().original.is_some());
     }
 
-    fn read_part(docx: &[u8], name: &str) -> Vec<u8> {
+    pub(super) fn read_part(docx: &[u8], name: &str) -> Vec<u8> {
         use std::io::Read;
         let mut z = zip::ZipArchive::new(std::io::Cursor::new(docx)).unwrap();
         let mut out = vec![];
@@ -2369,5 +2372,29 @@ mod tests {
         assert!(t.contains("Kept row") && !t.contains("Fallback row"), "{t:?}");
         assert!(t.contains("Fallback cell") && !t.contains("Unknown"), "{t:?}");
         assert_eq!(d.tables[0].rows.len(), 2);
+    }
+}
+#[cfg(test)]
+mod wordcraft_task10 {
+    use super::*;
+    use crate::model::{Marker, Paragraph};
+
+    fn toc_dirty(d: &Document) -> Option<bool> { d.paragraphs.iter().flat_map(|p| &p.runs).find_map(|r| match &r.marker { Some(Marker::FieldBegin(i, dirty)) if i.starts_with("TOC") => Some(*dirty), _ => None }) }
+
+    /// Wordcraft #877: a TOC marked w:dirty keeps the flag through a save, so Word rebuilds it.
+    #[test]
+    fn toc_dirty_flag_round_trips() {
+        let mut d = Document::new(vec![Paragraph { runs: vec![Run::text("مقدمة")], style: Some("Heading1".into()), ..Default::default() }, Paragraph::new("نص")]);
+        d.select(0, 0);
+        d.insert_toc(Default::default());
+        for r in d.paragraphs.iter_mut().flat_map(|p| p.runs.iter_mut()) { if let Some(Marker::FieldBegin(_, dirty)) = &mut r.marker { *dirty = true; } }
+        let bytes = write(&d).unwrap();
+        let xml = String::from_utf8(super::tests::read_part(&bytes, "word/document.xml")).unwrap();
+        assert!(xml.contains(r#"<w:fldChar w:fldCharType="begin" w:dirty="true"/><w:instrText xml:space="preserve"> TOC"#), "{xml}");
+        let mut back = read(&bytes).unwrap();
+        assert_eq!(toc_dirty(&back), Some(true));
+        // Updating the TOC in Qalam gives it a fresh result.
+        back.update_tables();
+        assert_eq!(toc_dirty(&back), Some(false));
     }
 }
