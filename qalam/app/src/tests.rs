@@ -1871,6 +1871,8 @@ fn paper_and_units_follow_the_region() {
 #[test]
 #[ignore]
 fn wordcraft_task10_qalam_renders() {
+    // Keeps the user's settings out of it (sets WORD_CONFIG_DIR once).
+    drop(harness(None));
     let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
     let fx = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_FX").expect("set WORDCRAFT_FX"));
     let shot_as = |h: &mut Harness<'static, WordApp>, n: u32, name: &str| {
@@ -1913,7 +1915,9 @@ fn wordcraft_task10_qalam_renders() {
     std::fs::write(&saved, word_engine::docx::write(&opened(886).state().doc).unwrap()).unwrap();
     let mut h = Harness::builder().with_size([1300.0, 900.0]).with_step_dt(1.0 / 60.0).wgpu().allow_missing_glyphs().build_eframe(move |cc| WordApp::new(cc, Some(saved)));
     shot_as(&mut h, 886, "qalam-after.png");
-    // Chinese text and interface (#794).
+    // Chinese text (#794). The app loads installed fonts in the background; tests skip that scan,
+    // so the CJK face it would find is registered here.
+    for f in ["/System/Library/Fonts/Hiragino Sans GB.ttc", "/System/Library/Fonts/STHeiti Medium.ttc"] { if std::path::Path::new(f).exists() { word_engine::fonts::register_font_file(std::path::Path::new(f)); break; } }
     let mut h = typed(&["数据触发了 SAP 端的运行时错误（ABAP dump），SAP 以 HTTP 500 拒绝了请求。", "这是网络或服务器问题。"], big);
     shot_as(&mut h, 794, "qalam.png");
     // Unsaved-changes prompt, Save focused (#861).
@@ -1944,6 +1948,8 @@ fn wordcraft_task10_qalam_renders() {
     shot_as(&mut h, 817, "qalam.png");
     // Ribbon chevrons at 200% (#818) and interface scale (#822).
     let mut h = typed(&["Scaled"], [1440.0, 860.0]);
+    let ctx = h.ctx.clone();
+    h.state_mut().set_dark(&ctx, false);
     h.ctx.set_pixels_per_point(2.0);
     shot_as(&mut h, 818, "qalam.png");
     shot_as(&mut h, 822, "qalam.png");
