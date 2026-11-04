@@ -94,7 +94,9 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                 if ribbon::small(ui, "zoomIn", None, false, true, "Zoom in").clicked() { app.set_zoom(app.zoom + 0.1); }
                 let mut pct = app.zoom * 100.0;
                 ui.spacing_mut().slider_width = 110.0;
-                if ui.add(egui::Slider::new(&mut pct, 25.0..=400.0).show_value(false).step_by(5.0)).changed() { app.set_zoom(pct / 100.0); }
+                let zr = ui.add(egui::Slider::new(&mut pct, 25.0..=400.0).show_value(false).step_by(5.0));
+                zr.widget_info(|| egui::WidgetInfo::slider(true, pct as f64, crate::i18n::tr("Zoom")));
+                if zr.changed() { app.set_zoom(pct / 100.0); }
                 if ribbon::small(ui, "zoomOut", None, false, true, "Zoom out").clicked() { app.set_zoom(app.zoom - 0.1); }
                 ui.add_space(8.0);
                 if ribbon::small(ui, "pilcrow", None, app.show_marks, true, "Formatting marks").clicked() { app.show_marks = !app.show_marks; }

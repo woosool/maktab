@@ -71,6 +71,8 @@ pub struct WordApp {
     pub doc: Document,
     pub layout: Layout,
     pub measure_cache: word_engine::MeasureCache,
+    /// The window title last sent; sending it again every frame would request a repaint each frame.
+    pub sent_title: String,
     pub path: Option<PathBuf>,
     pub zoom: f32,
     pub dialogs: Dialogs,
@@ -220,7 +222,7 @@ impl WordApp {
         // Nothing is laid out until the system fonts are known (the splash shows meanwhile).
         let layout = if cfg!(test) { layout_document(&doc) } else { Default::default() };
         let mut app = WordApp {
-            doc, layout, measure_cache: Default::default(), path: None, zoom: 1.0, dialogs: Dialogs::default(), find: FindState::default(),
+            doc, layout, measure_cache: Default::default(), sent_title: String::new(), path: None, zoom: 1.0, dialogs: Dialogs::default(), find: FindState::default(),
             show_outline: false, show_marks: false, clipboard: None, goal_x: None, scroll_to_caret: false,
             caret_blink: 0.0, preedit: String::new(), textures: HashMap::new(), status: None,
             drag: canvas_state::Drag::None, allow_close: false, canvas_focus: true,
@@ -709,7 +711,8 @@ impl WordApp {
         self.doc.file_name = self.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
         crate::ui::shortcuts(self, &ctx);
         self.relayout();
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.title()));
+        let title = self.title();
+        if title != self.sent_title { ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone())); self.sent_title = title; }
         if self.read_mode {
             crate::ui::read_bar(self, ui);
         } else if self.focus_mode {

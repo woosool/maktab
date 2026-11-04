@@ -80,6 +80,18 @@ fn ctrl_shift_2_inserts_zwnj() {
 }
 
 #[test]
+fn window_title_sent_only_when_it_changes() {
+    // wordcraft #117: sending the title every frame requested a repaint every frame.
+    let mut h = harness(None);
+    h.run_steps(3);
+    let first = h.state().sent_title.clone();
+    assert_eq!(first, h.state().title());
+    h.event(Event::Text("x".into()));
+    h.run_steps(2);
+    assert_eq!(h.state().sent_title, h.state().title());
+}
+
+#[test]
 fn opens_document_and_clicks_place_caret() {
     let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../documents/public/fixtures/tables.docx");
     if !fixture.exists() { return; }

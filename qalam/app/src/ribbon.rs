@@ -514,6 +514,8 @@ fn keyboard_combo(app: &mut WordApp, ui: &mut Ui, salt: &str, current: &str, ite
         st.scroll = true;
     }
     let r = ui.add(egui::TextEdit::singleline(&mut st.text).id(edit_id).desired_width(width).font(FontId::proportional(12.5)));
+    let name = crate::i18n::tr(match salt { "rb-font" => "Font", "rb-size" => "Font Size", _ => salt });
+    r.widget_info(|| { let mut w = egui::WidgetInfo::labeled(egui::WidgetType::TextInput, true, &name); w.current_text_value = Some(st.text.clone()); w });
     if r.gained_focus() { st.open = true; st.typed = false; st.highlight = shown.iter().position(|s| s.eq_ignore_ascii_case(current)).unwrap_or(0); st.scroll = true; }
     if r.has_focus() { app.canvas_focus = false; }
     if r.changed() { st.typed = true; st.highlight = 0; st.open = true; }
