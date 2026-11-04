@@ -68,6 +68,18 @@ fn typing_formatting_and_undo() {
 }
 
 #[test]
+fn ctrl_shift_2_inserts_zwnj() {
+    let mut h = harness(None);
+    h.run_steps(3);
+    h.event(Event::Text("می".into()));
+    h.run_steps(2);
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::Num2);
+    h.event(Event::Text("خواهم".into()));
+    h.run_steps(2);
+    assert_eq!(h.state().doc.text(), "می\u{200C}خواهم");
+}
+
+#[test]
 fn opens_document_and_clicks_place_caret() {
     let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../documents/public/fixtures/tables.docx");
     if !fixture.exists() { return; }

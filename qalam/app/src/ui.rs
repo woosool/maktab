@@ -48,6 +48,8 @@ pub fn shortcuts(app: &mut WordApp, ctx: &egui::Context) {
     if fire(CMD_SHIFT, Key::L) { app.doc.toggle_list(ListKind::Bullet); }
     if fire(CMD_SHIFT, Key::Num7) { app.doc.toggle_list(ListKind::Number); }
     if fire(CMD_SHIFT, Key::Num8) { app.show_marks = !app.show_marks; }
+    // Zero-width non-joiner (Persian half-space), as in Word.
+    if fire(CMD_SHIFT, Key::Num2) { app.doc.replace("\u{200C}"); app.relayout(); }
     for (k, style) in [(Key::Num1, "Heading1"), (Key::Num2, "Heading2"), (Key::Num3, "Heading3"), (Key::Num0, "Normal")] {
         if ctx.input_mut(|i| i.consume_shortcut(&sc(Modifiers { alt: true, ..CMD }, k))) { app.doc.set_paragraph_style(style); }
     }
