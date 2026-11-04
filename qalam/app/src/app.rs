@@ -584,7 +584,7 @@ impl WordApp {
 
     pub fn copy(&mut self, ctx: &egui::Context) -> bool {
         if self.doc.selection.is_caret() { return false; }
-        let text = self.doc.selected_text();
+        let text = word_engine::import::selection_text(&self.doc);
         let fragment = self.doc.fragment();
         let used: Vec<&String> = fragment.iter().flat_map(|p| p.runs.iter()).filter_map(|r| r.image.as_ref()).flat_map(|i| std::iter::once(&i.asset).chain(i.original.as_ref())).collect();
         self.clipboard_assets = used.into_iter().filter_map(|k| self.doc.assets.get(k).map(|a| (k.clone(), a.clone()))).collect();

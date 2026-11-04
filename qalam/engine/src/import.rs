@@ -135,6 +135,28 @@ pub fn to_text(doc: &Document) -> String {
     lines.join("\n")
 }
 
+/// The selection as plain text for the clipboard: when it spans paragraphs, each list item
+/// whose start is selected keeps its label and a tab, numbered as in the document (Word does this).
+pub fn selection_text(doc: &Document) -> String {
+    let (s, e) = doc.range();
+    let text = doc.selected_text();
+    if !text.contains('\n') { return text; }
+    let mut markers = crate::numbering::MarkerCounter::default();
+    let (mut at, mut out) = (0, String::new());
+    for p in &doc.paragraphs {
+        let len = p.len();
+        let label = doc.para_format(p).numbering.and_then(|(num, ilvl)| markers.next(&doc.numbering, num, ilvl).map(|l| format!("{}{}\t", "\t".repeat(ilvl as usize), text_bullet(&l))));
+        if at + len >= s && at <= e {
+            if at >= s && at < e { out.push_str(&label.unwrap_or_default()); }
+            out.push_str(&doc.text_between(s.max(at), e.min(at + len)));
+            if e > at + len { out.push('\n'); }
+        }
+        at += len + 1;
+        if at > e { break; }
+    }
+    out
+}
+
 /// Symbol-font bullets (private-use code points) become the plain bullet.
 fn text_bullet(label: &str) -> String {
     label.chars().map(|c| if ('\u{F000}'..='\u{F0FF}').contains(&c) { if c == '\u{F0A7}' { '▪' } else if c == '\u{F06F}' { 'o' } else { '•' } } else { c }).collect()
@@ -198,6 +220,20 @@ mod tests {
         let t = to_text(&d);
         assert!(t.contains("\tone") && t.contains("\ttwo") && !t.starts_with("one"), "{t:?}");
         assert!(t.contains("1.\tfirst") && t.contains("2.\tsecond"), "{t:?}");
+    }
+    #[test]
+    fn copied_list_items_keep_their_labels() {
+        let mut d = from_markdown("مقدمة\n\n1. الأول\n2. الثاني\n3. الثالث\n");
+        let n = d.len();
+        d.select(0, n);
+        assert_eq!(selection_text(&d), "مقدمة\n1.\tالأول\n2.\tالثاني\n3.\tالثالث");
+        // A partial copy keeps the items' own numbers.
+        let from = d.paragraphs[0].len() + 1 + d.paragraphs[1].len() + 1;
+        d.select(from, n);
+        assert_eq!(selection_text(&d), "2.\tالثاني\n3.\tالثالث");
+        // Within one item, just the text.
+        d.select(from, from + 3);
+        assert_eq!(selection_text(&d), "الث");
     }
     #[test]
     fn markdown_round_trip() {
