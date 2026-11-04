@@ -75,7 +75,15 @@ cp LICENSE "$STAGE/License.txt"
 [ -n "$CODESIGN_IDENTITY" ] || cp tools/maktab/open-help.txt "$STAGE/If an app won't open.txt"
 dmg="$DIST/Maktab-$VERSION-macos-$ARCH.dmg"
 rm -f "$dmg"
-hdiutil create -volname "Maktab $VERSION" -srcfolder "$STAGE" -ov -format ULMO "$dmg" >/dev/null
+# hdiutil sometimes fails with "Resource busy" on CI runners (a disk image still attached,
+# Spotlight indexing the stage): wait and try again.
+for try in 1 2 3 4 5; do
+  hdiutil create -volname "Maktab $VERSION" -srcfolder "$STAGE" -ov -format ULMO "$dmg" >/dev/null && break
+  [ "$try" = 5 ] && exit 1
+  echo "hdiutil create failed; retrying ($try)" >&2
+  rm -f "$dmg"
+  sleep $((try * 10))
+done
 if [ -n "$CODESIGN_IDENTITY" ]; then
   codesign --sign "$CODESIGN_IDENTITY" --timestamp "$dmg"
   if [ -n "$NOTARY_PROFILE" ]; then
