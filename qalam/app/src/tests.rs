@@ -1584,3 +1584,56 @@ fn wordcraft_task00_qalam_renders() {
     }
     for n in [529, 2883, 362] { shot(&mut h, n); }
 }
+
+/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
+/// in task 02, one `qalam.png` per issue folder under `WORDCRAFT_IMG`.
+#[test]
+#[ignore]
+fn wordcraft_task02_qalam_renders() {
+    use word_engine::page::SectionKind;
+    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
+    let shot = |h: &mut Harness<'static, WordApp>, n: u32| {
+        h.run_steps(6);
+        let dir = root.join(n.to_string());
+        std::fs::create_dir_all(&dir).unwrap();
+        h.render().expect("render").save(dir.join("qalam.png")).unwrap();
+    };
+    let typed = |paras: &[&str]| {
+        let mut h = Harness::builder().with_size([1200.0, 760.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+        h.run_steps(2);
+        for (i, t) in paras.iter().enumerate() {
+            h.event(Event::Text((*t).into()));
+            h.run_steps(1);
+            if i + 1 < paras.len() { h.key_press(Key::Enter); }
+        }
+        h
+    };
+    // Arabic typed RTL and joined (#56).
+    let mut h = typed(&["مرحبا بالعالم، هذا نص عربي.", "ภาษาไทย ทดสอบ"]);
+    shot(&mut h, 56);
+    // Show/Hide marks incl. a section break (#42 #70).
+    let mut h = typed(&["First section text", "سطر عربي"]);
+    h.state_mut().doc.select(5, 5);
+    h.key_press(Key::Tab);
+    h.run_steps(1);
+    h.state_mut().doc.select(19, 19);
+    h.state_mut().doc.insert_section_break(SectionKind::Continuous);
+    h.state_mut().show_marks = true;
+    for n in [42, 70] { shot(&mut h, n); }
+    // Inserted picture shows selection handles (#82).
+    let mut h = typed(&["Logo:"]);
+    let mut img = image::RgbaImage::new(200, 100);
+    for (x, _, p) in img.enumerate_pixels_mut() { *p = image::Rgba([(x % 255) as u8, 120, 200, 255]); }
+    let mut png = std::io::Cursor::new(vec![]);
+    image::DynamicImage::ImageRgba8(img).write_to(&mut png, image::ImageFormat::Png).unwrap();
+    let end = h.state().doc.len();
+    h.state_mut().doc.select(end, end);
+    h.state_mut().doc.insert_image(png.into_inner(), "image/png", 200.0, 100.0);
+    h.state_mut().doc.select(end, end + 1);
+    shot(&mut h, 82);
+    // View > Zoom (#67).
+    let mut h = typed(&["Zoomed text"]);
+    h.state_mut().set_zoom(1.5);
+    h.state_mut().tab = crate::ribbon::Tab::View;
+    shot(&mut h, 67);
+}
