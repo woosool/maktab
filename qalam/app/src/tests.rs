@@ -226,6 +226,29 @@ fn typed(text: &str) -> Harness<'static, WordApp> {
     h
 }
 
+/// Wordcraft #466: changing only Size in the Font dialog keeps double underline,
+/// small caps, hidden text and character spacing.
+#[test]
+fn font_dialog_applies_only_edited_settings() {
+    let mut h = typed("مرحبا Hello");
+    {
+        let a = h.state_mut();
+        a.doc.select_all();
+        a.doc.set_run_props(word_engine::RunProps { underline: Some("double".into()), caps: Some(word_engine::Caps::SmallCaps), spacing: Some(2.0), ..Default::default() });
+        a.open_font_dialog();
+        let mut d = a.dialogs.font.clone().unwrap();
+        d.size = 20.0;
+        let props = d.changes(a.dialogs.font_base.as_ref().unwrap());
+        assert_eq!(props, word_engine::RunProps { size: Some(20.0), size_cs: Some(20.0), ..Default::default() });
+        a.doc.set_run_props(props);
+    }
+    let r = h.state().doc.paragraphs[0].run_at(1).unwrap().props.clone();
+    assert_eq!(r.underline.as_deref(), Some("double"));
+    assert_eq!(r.caps, Some(word_engine::Caps::SmallCaps));
+    assert_eq!(r.spacing, Some(2.0));
+    assert_eq!(r.size, Some(20.0));
+}
+
 #[test]
 fn drag_and_drop_moves_and_copies_text() {
     let mut h = typed("alpha beta gamma");

@@ -10,6 +10,8 @@ pub struct Dialogs {
     pub page_setup: Option<word_engine::PageSettings>,
     pub paragraph: Option<ParagraphDraft>,
     pub font: Option<FontDraft>,
+    /// The Font dialog's settings as opened, so Apply changes only what was edited.
+    pub font_base: Option<FontDraft>,
     pub table_props: Option<TableDraft>,
     pub list: Option<ListDraft>,
     pub link: Option<String>,
@@ -36,11 +38,40 @@ pub enum ListDialogKind { Number, Bullet, Multilevel }
 pub struct ListDraft { pub kind: ListDialogKind, pub list: word_engine::editing::CustomList, pub level: usize, pub save: bool }
 
 /// The Font dialog's settings (font-dialog.js).
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct FontDraft {
     pub font: String, pub bold: bool, pub italic: bool, pub size: f32, pub color: Option<word_engine::Color>,
     pub underline: bool, pub strike: bool, pub double_strike: bool, pub superscript: bool, pub subscript: bool,
     pub small_caps: bool, pub all_caps: bool, pub hidden: bool, pub outline: bool, pub shadow: bool, pub spacing: f32,
+}
+
+impl FontDraft {
+    /// Run properties for the settings edited since `base`, so untouched formatting (double or
+    /// words-only underline, mixed values in the selection) is kept.
+    pub fn changes(&self, base: &FontDraft) -> word_engine::RunProps {
+        use word_engine::{Caps, Strike, VertAlign};
+        let mut p = word_engine::RunProps::default();
+        if self.font != base.font { p.font = Some(self.font.clone()); p.cs_font = Some(self.font.clone()); }
+        if self.bold != base.bold { p.bold = Some(self.bold); p.bold_cs = Some(self.bold); }
+        if self.italic != base.italic { p.italic = Some(self.italic); p.italic_cs = Some(self.italic); }
+        if self.size != base.size { p.size = Some(self.size); p.size_cs = Some(self.size); }
+        if self.color != base.color { p.color = Some(self.color); }
+        if self.underline != base.underline { p.underline = Some(if self.underline { "single" } else { "none" }.into()); }
+        if (self.strike, self.double_strike) != (base.strike, base.double_strike) {
+            p.strike = Some(if self.double_strike { Strike::Double } else if self.strike { Strike::Single } else { Strike::None });
+        }
+        if (self.superscript, self.subscript) != (base.superscript, base.subscript) {
+            p.vert_align = Some(if self.superscript { VertAlign::Superscript } else if self.subscript { VertAlign::Subscript } else { VertAlign::Baseline });
+        }
+        if (self.small_caps, self.all_caps) != (base.small_caps, base.all_caps) {
+            p.caps = Some(if self.all_caps { Caps::AllCaps } else if self.small_caps { Caps::SmallCaps } else { Caps::Normal });
+        }
+        if self.hidden != base.hidden { p.vanish = Some(self.hidden); }
+        if self.outline != base.outline { p.outline = Some(self.outline); }
+        if self.shadow != base.shadow { p.shadow = Some(self.shadow); }
+        if self.spacing != base.spacing { p.spacing = Some(self.spacing); }
+        p
+    }
 }
 
 /// The Table Properties dialog's settings (table-properties).
@@ -466,13 +497,15 @@ impl WordApp {
     }
     pub fn open_font_dialog(&mut self) {
         let f = self.doc.current_format();
-        self.dialogs.font = Some(FontDraft {
+        let draft = FontDraft {
             font: f.font.clone(), bold: f.bold, italic: f.italic, size: f.size, color: f.color, underline: f.underline,
             strike: f.strike == word_engine::Strike::Single, double_strike: f.strike == word_engine::Strike::Double,
             superscript: f.vert_align == word_engine::VertAlign::Superscript, subscript: f.vert_align == word_engine::VertAlign::Subscript,
             small_caps: f.caps == word_engine::Caps::SmallCaps, all_caps: f.caps == word_engine::Caps::AllCaps,
             hidden: f.vanish, outline: f.outline, shadow: f.shadow, spacing: f.spacing,
-        });
+        };
+        self.dialogs.font_base = Some(draft.clone());
+        self.dialogs.font = Some(draft);
     }
     pub fn open_table_properties(&mut self) {
         let Some(b) = self.doc.cell_block() else { return };

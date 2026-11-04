@@ -417,15 +417,9 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
             crate::theme::footer(ui, |ui| if crate::theme::primary(ui, "Apply").clicked() { apply = true; });
         });
         if apply {
-            use word_engine::{Caps, Strike, VertAlign};
-            app.doc.set_run_props(word_engine::RunProps {
-                font: Some(d.font.clone()), cs_font: Some(d.font.clone()), bold: Some(d.bold), bold_cs: Some(d.bold), italic: Some(d.italic), italic_cs: Some(d.italic),
-                size: Some(d.size), size_cs: Some(d.size), color: Some(d.color), underline: Some(if d.underline { "single" } else { "none" }.into()),
-                strike: Some(if d.double_strike { Strike::Double } else if d.strike { Strike::Single } else { Strike::None }),
-                vert_align: Some(if d.superscript { VertAlign::Superscript } else if d.subscript { VertAlign::Subscript } else { VertAlign::Baseline }),
-                caps: Some(if d.all_caps { Caps::AllCaps } else if d.small_caps { Caps::SmallCaps } else { Caps::Normal }),
-                vanish: Some(d.hidden), outline: Some(d.outline), shadow: Some(d.shadow), spacing: Some(d.spacing), ..Default::default()
-            });
+            let base = app.dialogs.font_base.clone().unwrap_or_else(|| d.clone());
+            let props = d.changes(&base);
+            if !props.is_empty() { app.doc.set_run_props(props); }
             app.dialogs.font = None;
             app.canvas_focus = true;
         } else if open { app.dialogs.font = Some(d); } else { app.dialogs.font = None; }
