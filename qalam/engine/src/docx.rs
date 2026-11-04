@@ -513,7 +513,11 @@ impl<'a, 'b> BodyReader<'a, 'b> {
         if uri.ends_with("wordprocessingGroup") {
             let descr = container.child("wp:docPr").and_then(|p| p.attr("descr")).unwrap_or_default();
             if descr.starts_with("word-ink") { return Some(Object::Ink(parse_ink(data.child("wpg:wgp")?, w, h, descr))); }
-            return None;
+            // Other shape groups are not drawn yet, but their XML is kept and written back as is.
+            let mut group = Shape { width: w, height: h, fill: None, outline: None, ..Shape::new(ShapeKind::Rect) };
+            group.name = container.child("wp:docPr").and_then(|p| p.attr("name")).unwrap_or_default().to_string();
+            group.raw = Some(d.to_xml());
+            return Some(Object::Shape(group));
         }
         if uri.ends_with("/chart") {
             let rel = self.rel(data.child("c:chart")?.attr("r:id")?)?;
@@ -2396,5 +2400,34 @@ mod wordcraft_task10 {
         // Updating the TOC in Qalam gives it a fresh result.
         back.update_tables();
         assert_eq!(toc_dirty(&back), Some(false));
+    }
+
+    /// Wordcraft #886: a shape group Qalam cannot draw yet survives a save untouched.
+    #[test]
+    fn shape_groups_survive_a_save() {
+        use std::io::{Cursor, Write};
+        let star = r#"<wps:wsp><wps:cNvPr id="3" name="Star"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="457200" cy="457200"/></a:xfrm><a:prstGeom prst="star5"><a:avLst/></a:prstGeom></wps:spPr><wps:txbx><w:txbxContent><w:p><w:r><w:t>نجمة</w:t></w:r></w:p></w:txbxContent></wps:txbx><wps:bodyPr/></wps:wsp>"#;
+        let group = format!(r#"<w:p><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="914400" cy="457200"/><wp:docPr id="2" name="Group 2"/><a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"><wpg:wgp><wpg:cNvGrpSpPr/><wpg:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="914400" cy="457200"/><a:chOff x="0" y="0"/><a:chExt cx="914400" cy="457200"/></a:xfrm></wpg:grpSpPr>{star}</wpg:wgp></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>"#);
+        let base = write(&Document::new(vec![Paragraph::new("x")])).unwrap();
+        let xml = String::from_utf8(super::tests::read_part(&base, "word/document.xml")).unwrap();
+        let i = xml.find("<w:p>").or_else(|| xml.find("<w:p ")).unwrap();
+        let j = xml.find("</w:p>").unwrap() + 6;
+        let xml = format!("{}{group}{}", &xml[..i], &xml[j..]);
+        let mut out = Cursor::new(Vec::new());
+        {
+            let mut z = zip::ZipArchive::new(Cursor::new(&base)).unwrap();
+            let mut w = zip::ZipWriter::new(&mut out);
+            for k in 0..z.len() {
+                let mut f = z.by_index(k).unwrap();
+                let name = f.name().to_string();
+                let mut data = vec![]; std::io::Read::read_to_end(&mut f, &mut data).unwrap();
+                w.start_file(name.as_str(), zip::write::SimpleFileOptions::default()).unwrap();
+                w.write_all(if name == "word/document.xml" { xml.as_bytes() } else { &data }).unwrap();
+            }
+            w.finish().unwrap();
+        }
+        let d = read(&out.into_inner()).unwrap();
+        let saved = String::from_utf8(super::tests::read_part(&write(&d).unwrap(), "word/document.xml")).unwrap();
+        assert!(saved.contains("<wpg:wgp>") && saved.contains(r#"prst="star5""#) && saved.contains("نجمة"), "{saved}");
     }
 }

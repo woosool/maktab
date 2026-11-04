@@ -1864,3 +1864,87 @@ fn paper_and_units_follow_the_region() {
         assert_eq!((uses_letter(region.as_deref()), default_units(region.as_deref())), (letter, units), "{locale}");
     }
 }
+
+/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
+/// in task 10, one `qalam.png` per issue folder under `WORDCRAFT_IMG`; the
+/// issues' .docx attachments are read from `WORDCRAFT_FX/<n>/s.docx`.
+#[test]
+#[ignore]
+fn wordcraft_task10_qalam_renders() {
+    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
+    let fx = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_FX").expect("set WORDCRAFT_FX"));
+    let shot_as = |h: &mut Harness<'static, WordApp>, n: u32, name: &str| {
+        h.run_steps(6);
+        let dir = root.join(n.to_string());
+        std::fs::create_dir_all(&dir).unwrap();
+        h.render().expect("render").save(dir.join(name)).unwrap();
+    };
+    let typed = |paras: &[&str], size: [f32; 2]| {
+        let mut h = Harness::builder().with_size(size).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+        h.run_steps(2);
+        for (i, t) in paras.iter().enumerate() {
+            h.event(Event::Text((*t).into()));
+            h.run_steps(1);
+            if i + 1 < paras.len() { h.key_press(Key::Enter); }
+        }
+        h
+    };
+    let opened = |n: u32| {
+        let p = fx.join(n.to_string()).join("s.docx");
+        let mut h = Harness::builder().with_size([1300.0, 900.0]).with_step_dt(1.0 / 60.0).wgpu().allow_missing_glyphs().build_eframe(move |cc| WordApp::new(cc, Some(p)));
+        h.run_steps(4);
+        h
+    };
+    let big = [1300.0, 860.0];
+    // Attached documents: continuous section break (#852), multi-column shape wrap (#884), DrawingML shapes (#886).
+    for n in [852, 884, 886] {
+        let mut h = opened(n);
+        if n == 852 { h.state_mut().show_marks = true; }
+        shot_as(&mut h, n, if n == 852 { "qalam-file.png" } else { "qalam.png" });
+    }
+    // #852 as described: "one", a continuous section break, "two" (also in Arabic).
+    let mut h = typed(&["one", "two", "واحد", "اثنان"], big);
+    h.state_mut().doc.select(3, 3);
+    h.state_mut().doc.insert_section_break(word_engine::page::SectionKind::Continuous);
+    h.state_mut().show_marks = true;
+    shot_as(&mut h, 852, "qalam.png");
+    // #886: the shapes document after a Qalam save and reopen.
+    let saved = std::env::temp_dir().join("qalam-wordcraft-886.docx");
+    std::fs::write(&saved, word_engine::docx::write(&opened(886).state().doc).unwrap()).unwrap();
+    let mut h = Harness::builder().with_size([1300.0, 900.0]).with_step_dt(1.0 / 60.0).wgpu().allow_missing_glyphs().build_eframe(move |cc| WordApp::new(cc, Some(saved)));
+    shot_as(&mut h, 886, "qalam-after.png");
+    // Chinese text and interface (#794).
+    let mut h = typed(&["数据触发了 SAP 端的运行时错误（ABAP dump），SAP 以 HTTP 500 拒绝了请求。", "这是网络或服务器问题。"], big);
+    shot_as(&mut h, 794, "qalam.png");
+    // Unsaved-changes prompt, Save focused (#861).
+    let mut h = typed(&["Unsaved text نص غير محفوظ"], big);
+    h.state_mut().dialogs.confirm = Some(crate::app::Pending::New);
+    shot_as(&mut h, 861, "qalam.png");
+    // Context menu opened with the Menu key (#821).
+    let mut h = typed(&["Open the menu from the keyboard: نص عربي"], big);
+    h.key_press(Key::Menu);
+    shot_as(&mut h, 821, "qalam.png");
+    // Comment card with date and time (#812).
+    let mut h = typed(&["Commented text"], big);
+    h.state_mut().doc.select(0, 9);
+    h.state_mut().new_comment();
+    h.run_steps(2);
+    h.event(Event::Text("A reply-worthy remark".into()));
+    shot_as(&mut h, 812, "qalam.png");
+    // Equation tab in dark mode (#817).
+    let mut h = typed(&["Equation: "], [1440.0, 860.0]);
+    let end = h.state().doc.len();
+    h.state_mut().doc.select(end, end);
+    h.state_mut().doc.insert_object(word_engine::objects::Object::Equation(word_engine::equation::Equation::new("x=(-b±√(b^2-4ac))/2a")));
+    h.state_mut().doc.select(end, end + 1);
+    let ctx = h.ctx.clone();
+    h.state_mut().set_dark(&ctx, true);
+    h.run_steps(2);
+    h.state_mut().tab = crate::ribbon::Tab::Equation;
+    shot_as(&mut h, 817, "qalam.png");
+    // Ribbon chevrons at 200% (#818) and interface scale (#822).
+    let mut h = typed(&["Scaled"], [1440.0, 860.0]);
+    h.ctx.set_pixels_per_point(2.0);
+    shot_as(&mut h, 818, "qalam.png");
+    shot_as(&mut h, 822, "qalam.png");
+}
