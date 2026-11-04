@@ -177,8 +177,8 @@ pub fn position_menu(app: &mut WordApp, ui: &mut egui::Ui) {
                 ui.painter().rect(page, 2.0, Color32::WHITE, Stroke::new(1.0, if r.hovered() { Color32::from_rgb(40, 110, 220) } else { Color32::from_gray(170) }), egui::StrokeKind::Inside);
                 for k in 0..7 { let y = page.min.y + 5.0 + k as f32 * 5.5; ui.painter().line_segment([egui::pos2(page.min.x + 4.0, y), egui::pos2(page.max.x - 4.0, y)], Stroke::new(1.0, Color32::from_gray(200))); }
                 let bw = vec2(12.0, 10.0);
-                let fx = match h { AnchorAlign::Start => 0.0, AnchorAlign::Center => 0.5, AnchorAlign::End => 1.0 };
-                let fy = match v { AnchorAlign::Start => 0.0, AnchorAlign::Center => 0.5, AnchorAlign::End => 1.0 };
+                let fx = match h { AnchorAlign::Start | AnchorAlign::Inside => 0.0, AnchorAlign::Center => 0.5, _ => 1.0 };
+                let fy = match v { AnchorAlign::Start | AnchorAlign::Inside => 0.0, AnchorAlign::Center => 0.5, _ => 1.0 };
                 let inner = page.shrink(4.0);
                 let b = Rect::from_min_size(inner.min + vec2((inner.width() - bw.x) * fx, (inner.height() - bw.y) * fy), bw);
                 ui.painter().rect_filled(b, 1.0, Color32::from_rgb(68, 114, 196));
@@ -205,7 +205,7 @@ fn layout_dialog(app: &mut WordApp, ctx: &egui::Context) {
         ui.add_enabled_ui(d.wrap.is_some(), |ui| {
             ui.separator();
             ui.label(egui::RichText::new(crate::i18n::tr("Position")).strong());
-            let names = |a: Option<AnchorAlign>, h: bool| match a { None => "Absolute", Some(AnchorAlign::Start) => if h { "Left" } else { "Top" }, Some(AnchorAlign::Center) => if h { "Centered" } else { "Middle" }, Some(AnchorAlign::End) => if h { "Right" } else { "Bottom" } };
+            let names = |a: Option<AnchorAlign>, h: bool| match a { None => "Absolute", Some(AnchorAlign::Start) => if h { "Left" } else { "Top" }, Some(AnchorAlign::Center) => if h { "Centered" } else { "Middle" }, Some(AnchorAlign::End) => if h { "Right" } else { "Bottom" }, Some(AnchorAlign::Inside) => "Inside", Some(AnchorAlign::Outside) => "Outside" };
             crate::theme::grid(ui, egui::Grid::new("layout-pos").num_columns(4), |ui| {
                 for horizontal in [true, false] {
                     ui.label(if horizontal { "Horizontal" } else { "Vertical" });

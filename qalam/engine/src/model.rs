@@ -143,9 +143,11 @@ pub enum Wrap { #[default] Square, Tight, TopBottom, Behind, InFront }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum RelFrom { #[default] Margin, Page, Paragraph }
 
-/// Alignment within the reference box, instead of an offset (wp:align).
+/// Alignment within the reference box, instead of an offset (wp:align). `Inside`/`Outside`
+/// follow the page: horizontally, outside is the right on odd pages and the left on even pages
+/// (for facing pages); vertically they are the top and the bottom.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AnchorAlign { Start, Center, End }
+pub enum AnchorAlign { Start, Center, End, Inside, Outside }
 
 /// A floating object's position: offsets in px from `x_from`/`y_from` (or an alignment), the
 /// wrap style and the gap kept between it and the text.

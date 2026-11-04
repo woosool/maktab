@@ -690,7 +690,7 @@ fn read_anchor(d: &Element) -> Option<crate::model::Anchor> {
         let Some(p) = a.child(name) else { return (0.0, RelFrom::Margin, None) };
         let from = match p.attr("relativeFrom").unwrap_or("margin") { "page" => RelFrom::Page, "paragraph" | "line" => RelFrom::Paragraph, _ => RelFrom::Margin };
         let off = p.child("wp:posOffset").and_then(|o| o.text().trim().parse::<f32>().ok()).map(|v| v / EMU_PER_PX).unwrap_or(0.0);
-        let align = p.child("wp:align").map(|al| match al.text().trim() { "center" => AnchorAlign::Center, "right" | "bottom" | "outside" => AnchorAlign::End, _ => AnchorAlign::Start });
+        let align = p.child("wp:align").map(|al| match al.text().trim() { "center" => AnchorAlign::Center, "right" | "bottom" => AnchorAlign::End, "inside" => AnchorAlign::Inside, "outside" => AnchorAlign::Outside, _ => AnchorAlign::Start });
         (off, from, align)
     };
     let (x, x_from, x_align) = axis("wp:positionH");
@@ -718,7 +718,7 @@ fn anchorize(mut d: Element, anchor: Option<crate::model::Anchor>, id: u32) -> E
         let rel = match (from, h) { (RelFrom::Page, _) => "page", (RelFrom::Paragraph, false) => "paragraph", _ => "margin" };
         let mut p = el(name).with_attr("relativeFrom", rel);
         match align {
-            Some(al) => { let mut e = el("wp:align"); e.children.push(Node::Text(match (al, h) { (AnchorAlign::Start, true) => "left", (AnchorAlign::Start, false) => "top", (AnchorAlign::Center, _) => "center", (AnchorAlign::End, true) => "right", (AnchorAlign::End, false) => "bottom" }.into())); p.push(e); }
+            Some(al) => { let mut e = el("wp:align"); e.children.push(Node::Text(match (al, h) { (AnchorAlign::Start, true) => "left", (AnchorAlign::Start, false) => "top", (AnchorAlign::Center, _) => "center", (AnchorAlign::End, true) => "right", (AnchorAlign::End, false) => "bottom", (AnchorAlign::Inside, _) => "inside", (AnchorAlign::Outside, _) => "outside" }.into())); p.push(e); }
             None => { let mut e = el("wp:posOffset"); e.children.push(Node::Text(((off * EMU_PER_PX).round() as i64).to_string())); p.push(e); }
         }
         p

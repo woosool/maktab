@@ -1418,9 +1418,12 @@ impl<'a> Placer<'a> {
             let (x_base, x_span) = match a.x_from { RelFrom::Page => (0.0, g.width), _ => (left, width) };
             let (y_base, y_span) = match a.y_from { RelFrom::Page => (0.0, g.height), RelFrom::Margin => (self.body_top, self.body_bottom - self.body_top), RelFrom::Paragraph => (para_top, 0.0) };
             let place = |base: f32, span: f32, size: f32, off: f32, al: Option<AnchorAlign>| match al {
-                Some(AnchorAlign::Start) => base, Some(AnchorAlign::Center) => base + (span - size) / 2.0, Some(AnchorAlign::End) => base + span - size, None => base + off,
+                Some(AnchorAlign::Start | AnchorAlign::Inside) => base, Some(AnchorAlign::Center) => base + (span - size) / 2.0, Some(AnchorAlign::End | AnchorAlign::Outside) => base + span - size, None => base + off,
             };
-            let x = place(x_base, x_span, f.w, a.x, a.x_align);
+            // Inside/outside swap sides on even (left-hand) pages.
+            let even = page % 2 == 1;
+            let x_align = match a.x_align { Some(AnchorAlign::Inside) if even => Some(AnchorAlign::End), Some(AnchorAlign::Outside) if even => Some(AnchorAlign::Start), al => al };
+            let x = place(x_base, x_span, f.w, a.x, x_align);
             let y = place(y_base, y_span, f.h, a.y, a.y_align);
             self.ensure_page(page);
             // Header/footer objects aren't selectable from the body.
@@ -2559,6 +2562,41 @@ mod tests {
         assert!(l.pages[0].under.iter().any(|i| matches!(i, DrawItem::Path { .. })), "painted under the text");
         assert_eq!(l.object_box(0).map(|b| (b.3, b.4)), Some((200.0, 100.0)));
         assert!(l.image_at(0, g.left + 50.0, g.top + 5.0).is_none(), "clicks over text reach the text");
+    }
+
+    #[test]
+    fn outside_aligned_floats_alternate_sides_on_facing_pages() {
+        use crate::model::{Anchor, AnchorAlign, Wrap};
+        use crate::objects::{Object, Shape, ShapeKind};
+        let mut d = doc("اليمين\nاليسار");
+        let shape = |d: &mut Document, pos: usize, al: AnchorAlign| {
+            d.select(pos, pos);
+            let mut s = Shape::new(ShapeKind::Rect);
+            s.width = 100.0; s.height = 50.0;
+            d.insert_object(Object::Shape(s));
+            let mut a = Anchor::new(Wrap::Square, 0.0, 0.0);
+            a.x_align = Some(al);
+            d.set_anchor(pos, Some(a));
+        };
+        shape(&mut d, 0, AnchorAlign::Outside);
+        d.paragraphs[1].props.page_break_before = Some(true);
+        let p2 = d.paragraph_start(1);
+        shape(&mut d, p2, AnchorAlign::Outside);
+        let g = d.page.geometry();
+        let l = layout_document(&d);
+        let (pg1, x1, ..) = l.object_box(0).unwrap();
+        let (pg2, x2, ..) = l.object_box(p2).unwrap();
+        assert_eq!((pg1, pg2), (0, 1));
+        assert!((x1 - (g.width - g.right - 100.0)).abs() < 1.0, "outside on page 1 is the right margin: {x1}");
+        assert!((x2 - g.left).abs() < 1.0, "outside on page 2 is the left margin: {x2}");
+        // Inside is the other way round, and both are kept on save.
+        let mut a = d.anchor_at(0).unwrap();
+        a.x_align = Some(AnchorAlign::Inside);
+        d.set_anchor(0, Some(a));
+        assert!((layout_document(&d).object_box(0).unwrap().1 - g.left).abs() < 1.0);
+        let e = crate::docx::read(&crate::docx::write(&d).unwrap()).unwrap();
+        assert_eq!(e.anchor_at(0).and_then(|a| a.x_align), Some(AnchorAlign::Inside));
+        assert_eq!(e.anchor_at(p2).and_then(|a| a.x_align), Some(AnchorAlign::Outside));
     }
 
     #[test]
