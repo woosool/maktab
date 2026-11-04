@@ -2245,3 +2245,25 @@ fn style_set_previews_stay_white_in_dark_mode() {
         assert!(p[0] > 240 && p[1] > 240 && p[2] > 240, "preview at x {x} is {p:?}");
     }
 }
+
+/// wordcraft task 11 screenshots (#897 ribbon tab strip with a table, #988 ribbon icons, #893 numbered list):
+/// `MAKTAB_SHOTS=dir cargo test -p <app> wordcraft_task11_shots -- --ignored`.
+#[test]
+#[ignore]
+fn wordcraft_task11_shots() {
+    let dir = std::path::PathBuf::from(std::env::var_os("MAKTAB_SHOTS").expect("set MAKTAB_SHOTS"));
+    for (lang, width, name) in [(crate::i18n::Lang::En, 1280.0, "897-en-1280"), (crate::i18n::Lang::Fr, 1280.0, "897-fr-1280"), (crate::i18n::Lang::Ar, 1100.0, "897-ar-1100"), (crate::i18n::Lang::Fr, 820.0, "897-fr-820")] {
+        let mut h = Harness::builder().with_size([width, 800.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+        h.run_steps(2);
+        h.event(Event::Text("أولاً\nSecond item\nثالثاً".into()));
+        h.run_steps(1);
+        h.state_mut().doc.select_all();
+        h.state_mut().doc.toggle_list(word_engine::numbering::ListKind::Number);
+        h.state_mut().doc.select(0, 0);
+        h.state_mut().doc.insert_table(3, 3);
+        h.state_mut().extras.options.settings.lang = lang;
+        h.run_steps(6);
+        let img = h.render().expect("render");
+        img.save(dir.join(format!("{name}.png"))).unwrap();
+    }
+}

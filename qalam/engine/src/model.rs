@@ -2369,7 +2369,14 @@ impl Document {
     fn visible_text(&self) -> String {
         self.paragraphs.iter().map(|p| p.runs.iter().filter(|r| r.revision.as_ref().is_none_or(|v| v.kind != RevKind::Del)).map(|r| r.text.as_str()).collect::<String>()).collect::<Vec<_>>().join("\n")
     }
-    pub fn word_count(&self) -> usize { self.visible_text().split(|c: char| c.is_whitespace() || c == chars::OBJECT || c == chars::NOTE).filter(|w| !w.is_empty()).count() }
+    pub fn word_count(&self) -> usize {
+        let text = self.visible_text().split(|c: char| c.is_whitespace() || c == chars::OBJECT || c == chars::NOTE).filter(|w| !w.is_empty()).count();
+        // Word counts generated list numbers ("1.", "a)") as words, but not bullet glyphs (wordcraft #893).
+        let mut markers = crate::numbering::MarkerCounter::default();
+        let labels: usize = self.paragraphs.iter().filter_map(|p| self.para_format(p).numbering.and_then(|(num, ilvl)| markers.next(&self.numbering, num, ilvl)).filter(|_| !p.is_empty()))
+            .map(|l| l.split_whitespace().filter(|w| w.chars().any(char::is_alphanumeric)).count()).sum();
+        text + labels
+    }
     pub fn character_count(&self) -> usize { self.visible_text().chars().filter(|c| !c.is_control() && *c != chars::OBJECT && *c != chars::NOTE).count() }
 
     /// Outline entries (outline.js): (paragraph index, level, text).

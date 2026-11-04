@@ -403,6 +403,21 @@ mod tests {
     }
 
     #[test]
+    fn word_count_includes_list_numbers_not_bullets() {
+        // wordcraft #893: Word counts "1." "2." as words; bullets are not words.
+        let mut d = doc("one two\nثلاثة أربعة\nfive");
+        assert_eq!(d.word_count(), 5);
+        d.select_all();
+        d.toggle_list(crate::numbering::ListKind::Number);
+        assert_eq!(d.word_count(), 8);
+        d.select_all();
+        d.toggle_list(crate::numbering::ListKind::Number);
+        d.select_all();
+        d.toggle_list(crate::numbering::ListKind::Bullet);
+        assert_eq!(d.word_count(), 5);
+    }
+
+    #[test]
     fn rtl_lists_and_custom_lists() {
         let mut d = doc("أول\nثاني\nثالث");
         d.select_all();
