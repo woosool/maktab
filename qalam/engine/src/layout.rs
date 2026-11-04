@@ -1279,6 +1279,23 @@ impl<'a> Placer<'a> {
                 last = Some((ax, ax + a.width, odd));
             }
         }
+        // A ligature (Arabic lam-alef, "ffi") gives its whole width to its first character; the
+        // caret between its letters goes to an even share of the width, as in Word.
+        let mut k = 0;
+        while k < l.atoms.len() {
+            let a = &l.atoms[k];
+            let mut e = k + 1;
+            if let (Some(p), Kind::Char, true) = (a.pos, a.kind, a.glyphs.1 > 0) {
+                while e < l.atoms.len() && { let b = &l.atoms[e]; b.kind == Kind::Char && b.glyphs.1 == 0 && b.width == 0.0 && b.level == a.level && !m.fmts[b.fmt].hidden && b.pos == Some(p + e - k) } { e += 1; }
+                let parts = (e - k) as f32;
+                let (ax, odd) = (left + l.x[k], a.level % 2 == 1 || k >= l.trail && l.rtl);
+                for j in 1..e - k {
+                    let i = p + j - l.start;
+                    if p + j >= l.start && i < n { let d = a.width * j as f32 / parts; by_pos[i] = Some(if odd { ax + a.width - d } else { ax + d }); }
+                }
+            }
+            k = e;
+        }
         // After the last character: its trailing edge.
         if by_pos[n].is_none() { if let Some((x0, x1, odd)) = last { by_pos[n] = Some(if odd { x0 } else { x1 }); } }
         let aligned_start = left + if l.rtl { l.right } else { l.left };
@@ -2534,6 +2551,16 @@ mod tests {
             let gap = sep - NOTE_SEPARATOR / 2.0 - last;
             assert!(gap >= after * PT - 0.01, "space after {after} pt clears the separator: gap {gap}");
         }
+    }
+
+    #[test]
+    fn caret_inside_a_ligature_sits_between_its_letters() {
+        // "سلام": lam and alef draw as one lam-alef glyph.
+        let d = doc("سلام");
+        let l = layout_document(&d);
+        let s = &l.lines[0].stops;
+        assert!(s.windows(2).all(|w| w[1] < w[0] - 0.5), "every stop strictly leftward, none stuck at the ligature's end: {s:?}");
+        assert!(s[2] < s[1] - 1.0 && s[2] > s[3] + 1.0, "between lam and alef is inside the ligature: {s:?}");
     }
 
     #[test]
