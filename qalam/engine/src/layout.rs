@@ -320,6 +320,11 @@ fn shift_measured(m: &mut Measured, delta: i64) {
     for f in &mut m.floats { mv(&mut f.pos); }
 }
 
+/// Han, kana and hangul letters, which Word spaces apart from Latin letters and digits.
+fn ideograph(c: char) -> bool {
+    matches!(c as u32, 0x3040..=0x30FF | 0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xAC00..=0xD7AF | 0xF900..=0xFAFF | 0x20000..=0x3FFFF)
+}
+
 fn display_char(c: char, f: &RunFormat) -> char {
     if f.caps != Caps::Normal { c.to_uppercase().next().unwrap_or(c) } else { c }
 }
@@ -500,6 +505,16 @@ impl<'a> Ctx<'a> {
         let end = pos;
         let rtl = format.rtl.unwrap_or_else(|| unicode_bidi::get_base_direction(p.text().as_str()) == unicode_bidi::Direction::Rtl);
         let glyphs = std::sync::Arc::new(shape_atoms(&mut atoms, &fmts, rtl));
+        // Word's automatic spacing (autoSpaceDE/autoSpaceDN, on by default) puts a quarter em
+        // between ideographs and Latin letters or digits.
+        for k in 1..atoms.len() {
+            let (a, b) = (&atoms[k - 1], &atoms[k]);
+            if a.kind == Kind::Char && b.kind == Kind::Char && !fmts[a.fmt].hidden && !fmts[b.fmt].hidden
+                && (ideograph(a.ch) && b.ch.is_ascii_alphanumeric() || a.ch.is_ascii_alphanumeric() && ideograph(b.ch)) {
+                let add = fmts[a.fmt].size.max(fmts[b.fmt].size) * 0.25;
+                atoms[k - 1].width += add;
+            }
+        }
 
         // indent_left/right are the start/end indents (§17.3.1.12); in RTL paragraphs start is on the right.
         let indent_left = twips(format.indent_left);
@@ -2324,6 +2339,20 @@ mod tests {
         assert!(l.page_count() > 2);
         let first: String = l.pages[0].items.iter().filter_map(|i| match i { DrawItem::Glyphs { glyphs, .. } => Some(glyphs.iter().map(|g| g.ch).collect::<String>()), _ => None }).collect();
         assert!(first.contains(&l.page_count().to_string()), "page count shown in the body: {first}");
+    }
+
+    #[test]
+    fn ideographs_and_latin_or_digits_get_a_quarter_em_apart() {
+        // "於83年": Word adds automatic spacing on both sides of the digits.
+        let spaced = layout_document(&doc("於83年"));
+        let plain = layout_document(&doc("於年83"));
+        let end = |l: &Layout| l.caret_rect(4).unwrap().x;
+        let gap = |l: &Layout| l.caret_rect(1).unwrap().x;
+        assert!(end(&spaced) - end(&plain) > 1.0, "two gaps against one: {} vs {}", end(&spaced), end(&plain));
+        assert!(gap(&spaced) - layout_document(&doc("於年")).caret_rect(1).unwrap().x > 1.0, "space after the ideograph before a digit");
+        // Arabic next to digits gets no extra space.
+        let a = layout_document(&doc("سنة 83"));
+        assert!(a.caret_rect(6).is_some());
     }
 
     #[test]
