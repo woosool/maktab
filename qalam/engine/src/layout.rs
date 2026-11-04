@@ -1842,30 +1842,34 @@ pub fn layout_document(doc: &Document) -> Layout { layout_with_cache(doc, &mut M
 /// Lay out a document, reusing measurements from `cache` (kept by the editor between edits).
 /// With PAGEREF fields, a first pass finds the bookmarks' pages and a second shows them.
 pub fn layout_with_cache(doc: &Document, cache: &mut MeasureCache) -> Layout {
-    let (mut layout, mut floats) = layout_pass(doc, cache, &HashMap::new(), &[]);
+    let (mut layout, mut floats) = layout_pass(doc, cache, &HashMap::new(), 1, &[]);
     // Wrapping floats are known everywhere on their page only after a pass: lay out again with
     // them in place, until they stop moving (at most three more passes).
     // Drop caps (pos from the top of the range) are placed exactly in one pass.
     let wraps = |f: &Vec<PlacedFloat>| f.iter().any(|p| p.pos < usize::MAX / 2 && !matches!(p.wrap, crate::model::Wrap::Behind | crate::model::Wrap::InFront));
     for _ in 0..3 {
         if !wraps(&floats) { break; }
-        let (next, next_floats) = layout_pass(doc, cache, &HashMap::new(), &floats);
+        let (next, next_floats) = layout_pass(doc, cache, &HashMap::new(), 1, &floats);
         let settled = next_floats.len() == floats.len() && next_floats.iter().zip(&floats).all(|(a, b)| a.page == b.page && (a.y0 - b.y0).abs() < 0.5 && (a.x0 - b.x0).abs() < 0.5);
         layout = next; floats = next_floats;
         if settled { break; }
     }
-    if !doc.paragraphs.iter().any(|p| p.runs.iter().any(|r| matches!(r.field, Some(Field::PageRef(_))))) { return layout; }
-    let pages: HashMap<String, usize> = doc.bookmarks().into_iter().map(|(n, s, _)| (n, layout.page_of(s))).collect();
-    layout_pass(doc, cache, &pages, &floats).0
+    let has = |f: fn(&Field) -> bool| doc.paragraphs.iter().any(|p| p.runs.iter().any(|r| r.field.as_ref().is_some_and(f)));
+    let page_refs = has(|f| matches!(f, Field::PageRef(_)));
+    // NUMPAGES in the body shows the page count only a first pass knows.
+    let num_pages = has(|f| matches!(f, Field::NumPages)) && layout.page_count() > 1;
+    if !page_refs && !num_pages { return layout; }
+    let pages: HashMap<String, usize> = if page_refs { doc.bookmarks().into_iter().map(|(n, s, _)| (n, layout.page_of(s))).collect() } else { HashMap::new() };
+    layout_pass(doc, cache, &pages, layout.page_count(), &floats).0
 }
 
-fn layout_pass(doc: &Document, cache: &mut MeasureCache, bookmark_pages: &HashMap<String, usize>, seed: &[PlacedFloat]) -> (Layout, Vec<PlacedFloat>) {
+fn layout_pass(doc: &Document, cache: &mut MeasureCache, bookmark_pages: &HashMap<String, usize>, page_count: usize, seed: &[PlacedFloat]) -> (Layout, Vec<PlacedFloat>) {
     let page = doc.view_override.as_ref().map(|v| v.0.geometry()).unwrap_or_else(|| doc.page.geometry());
     let plain = doc.view_override.as_ref().is_some_and(|v| v.1);
     let starts = doc.paragraph_starts();
     // Measure header height to push the body down when the header is taller than the margin.
     let mut placer = Placer {
-        ctx: Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count: 1, cache: std::mem::take(cache), note_labels: doc.note_labels(), bookmark_pages: bookmark_pages.clone(), refs: Default::default() },
+        ctx: Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count, cache: std::mem::take(cache), note_labels: doc.note_labels(), bookmark_pages: bookmark_pages.clone(), refs: Default::default() },
         pages: vec![], lines: vec![], cells: vec![], page: 0, y: page.top, body_top: page.top, body_bottom: page.height - page.bottom, foot_space: 0.0, page_notes: vec![], note_heights: HashMap::new(), merge_ends: HashMap::new(), floats: vec![], front: vec![], seeded: seed.to_vec(), float_origins: HashMap::new(), cols: vec![(page.left, page.width - page.left - page.right)], col: 0, col_top: page.top, col_bottom: None, col_max_y: page.top, col_separator: false, line_numbers: None, line_no: 0,
     };
     if let Some(h) = doc.header.as_ref().filter(|_| !plain) {
@@ -2119,6 +2123,19 @@ mod tests {
     use crate::model::{Document, Paragraph};
 
     fn doc(text: &str) -> Document { Document::new(text.split('\n').map(Paragraph::new).collect()) }
+
+
+    /// Wordcraft #451: NUMPAGES in a body paragraph shows the document's page count, not 1.
+    #[test]
+    fn body_numpages_field_shows_the_page_count() {
+        let mut d = doc(&vec!["سطر line"; 120].join("\n"));
+        d.select(0, 0);
+        d.insert_field(crate::model::Field::NumPages);
+        let l = layout_document(&d);
+        assert!(l.page_count() > 2);
+        let first: String = l.pages[0].items.iter().filter_map(|i| match i { DrawItem::Glyphs { glyphs, .. } => Some(glyphs.iter().map(|g| g.ch).collect::<String>()), _ => None }).collect();
+        assert!(first.contains(&l.page_count().to_string()), "page count shown in the body: {first}");
+    }
 
     #[test]
     fn wraps_and_paginates() {
