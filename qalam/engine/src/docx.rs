@@ -470,7 +470,7 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                 "w:br" | "w:cr" => text.push(match c.attr("w:type") { Some("page") => chars::PAGE_BREAK, Some("column") => chars::COLUMN_BREAK, _ => chars::LINE_BREAK }),
                 "w:noBreakHyphen" => text.push('\u{2011}'),
                 "w:softHyphen" => text.push('\u{AD}'),
-                "w:sym" => text.push(c.attr("w:char").and_then(|h| u32::from_str_radix(h, 16).ok()).and_then(|v| char::from_u32(if v >= 0xF000 { v - 0xF000 } else { v })).filter(|c| !c.is_control()).unwrap_or('\u{25A1}')),
+                "w:sym" => text.push(c.attr("w:char").and_then(|h| u32::from_str_radix(h, 16).ok()).and_then(|v| sym_char(c.attr("w:font").unwrap_or(""), v)).filter(|c| !c.is_control()).unwrap_or('\u{25A1}')),
                 "w:drawing" => {
                     flush(&mut text, runs);
                     if let Some(obj) = self.drawing_object(c) { runs.push(Run { text: chars::OBJECT.to_string(), object: Some(obj), anchor: read_anchor(c), ..base.with(String::new()) }); }
@@ -1838,6 +1838,31 @@ fn w3cdtf(secs: i64) -> String {
     format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", rem / 3600, rem / 60 % 60, rem % 60)
 }
 
+/// A `w:sym` character: Symbol and Wingdings codes (0xF020.., or 0x20..) become the Unicode
+/// character they draw, since those fonts are rarely installed; other fonts keep the code's
+/// low byte, as before.
+fn sym_char(font: &str, v: u32) -> Option<char> {
+    let b = if v >= 0xF000 { v - 0xF000 } else { v };
+    let mapped = match (font.to_ascii_lowercase().as_str(), b) {
+        ("symbol", 0x41..=0x5A) => Some("ΑΒΧΔΕΦΓΗΙϑΚΛΜΝΟΠΘΡΣΤΥςΩΞΨΖ".chars().nth((b - 0x41) as usize)),
+        ("symbol", 0x61..=0x7A) => Some("αβχδεφγηιϕκλμνοπθρστυϖωξψζ".chars().nth((b - 0x61) as usize)),
+        ("symbol", _) => Some(match b {
+            0x22 => Some('∀'), 0x24 => Some('∃'), 0x27 => Some('∋'), 0x40 => Some('≅'), 0x5E => Some('⊥'),
+            0xA3 => Some('≤'), 0xA5 => Some('∞'), 0xAC => Some('←'), 0xAD => Some('↑'), 0xAE => Some('→'), 0xAF => Some('↓'),
+            0xB0 => Some('°'), 0xB1 => Some('±'), 0xB3 => Some('≥'), 0xB4 => Some('×'), 0xB6 => Some('∂'), 0xB7 => Some('•'),
+            0xB8 => Some('÷'), 0xB9 => Some('≠'), 0xBB => Some('≈'), 0xC6 => Some('∅'), 0xCE => Some('∈'), 0xD1 => Some('∇'),
+            0xD6 => Some('√'), 0xE5 => Some('∑'), 0xF2 => Some('∫'), _ => None,
+        }),
+        ("wingdings", _) => Some(match b {
+            0x28 => Some('☎'), 0x4A => Some('☺'), 0x4C => Some('☹'), 0x6C => Some('●'), 0x6E => Some('■'), 0x6F => Some('□'),
+            0xA7 => Some('▪'), 0xD8 => Some('➢'), 0xE8 => Some('➔'), 0xFB => Some('✗'), 0xFC => Some('✓'), 0xFD => Some('☒'), 0xFE => Some('☑'),
+            _ => None,
+        }),
+        _ => None,
+    };
+    mapped.flatten().or_else(|| char::from_u32(b))
+}
+
 /// Serialize a document to .docx bytes.
 pub fn write(doc: &Document) -> Result<Vec<u8>, String> {
     let (mut parts, main, rels) = match &doc.package {
@@ -2039,6 +2064,33 @@ pub fn write(doc: &Document) -> Result<Vec<u8>, String> {
 mod tests {
     use super::*;
     use crate::numbering::ListKind;
+
+    #[test]
+    fn symbol_and_wingdings_sym_chars_become_unicode() {
+        // wordcraft #776: Wingdings / Symbol characters (w:sym) showed as plain letters or boxes.
+        let bytes = write(&Document::new(vec![Paragraph::new("MARK")])).unwrap();
+        let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+        let mut parts: Vec<(String, Vec<u8>)> = vec![];
+        for i in 0..zip.len() {
+            let mut f = zip.by_index(i).unwrap();
+            let mut b = vec![];
+            std::io::Read::read_to_end(&mut f, &mut b).unwrap();
+            parts.push((f.name().to_string(), b));
+        }
+        let syms = r#"<w:t>A</w:t><w:sym w:font="Wingdings" w:char="F0FC"/><w:sym w:font="Wingdings" w:char="F04A"/><w:sym w:font="Symbol" w:char="F061"/><w:sym w:font="Symbol" w:char="F0B3"/><w:sym w:font="Calibri" w:char="0042"/>"#;
+        let mut out = Cursor::new(Vec::new());
+        {
+            let mut z = zip::ZipWriter::new(&mut out);
+            for (name, b) in &parts {
+                z.start_file(name.as_str(), zip::write::SimpleFileOptions::default()).unwrap();
+                let b = if name == "word/document.xml" { String::from_utf8(b.clone()).unwrap().replace("<w:t>MARK</w:t>", syms).into_bytes() } else { b.clone() };
+                z.write_all(&b).unwrap();
+            }
+            z.finish().unwrap();
+        }
+        let d = read(&out.into_inner()).unwrap();
+        assert_eq!(d.paragraphs[0].text(), "A✓☺α≥B");
+    }
 
     #[test]
     fn round_trip_new_document() {
