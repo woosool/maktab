@@ -62,7 +62,13 @@ fn is_nary(c: char) -> bool { "∑∏∐∫∬∭∮∯∰⋃⋂⋁⋀".contains
 fn is_rel(c: char) -> bool { "=<>≤≥≠≈≡∼≃≅∝≪≫→←⇒⇐↔⇔↦⟹⟺∈∉∋⊂⊃⊆⊇∣∥⊥:".contains(c) }
 fn is_bin(c: char) -> bool { "+-−±∓×÷⋅∗⋆∘∙⊕⊗∪∩∖∧∨".contains(c) }
 
-struct Parser { s: Vec<char>, i: usize }
+/// How deeply groups may nest, and how deep a tree chained scripts and fractions may build
+/// (`x^1^1^1…`, `a/a/a…`), so pathological input can't overflow the stack when the tree is
+/// typeset, converted or dropped.
+const MAX_NESTING: usize = 40;
+const MAX_TREE: usize = 60;
+
+struct Parser { s: Vec<char>, i: usize, depth: usize }
 
 impl Parser {
     fn peek(&self) -> Option<char> { self.s.get(self.i).copied() }
@@ -88,6 +94,18 @@ impl Parser {
     }
     /// Elements until `end` (not consumed) or the input ends.
     fn row(&mut self, end: Option<char>) -> Node {
+        if self.depth >= MAX_NESTING {
+            // Too deep: the rest of the group is kept as plain characters.
+            let mut items = vec![];
+            while let Some(c) = self.peek().filter(|c| Some(*c) != end) { items.push(Node::Sym(c.to_string(), SymKind::Punct)); self.i += 1; }
+            return Node::Row(items);
+        }
+        self.depth += 1;
+        let r = self.row_items(end);
+        self.depth -= 1;
+        r
+    }
+    fn row_items(&mut self, end: Option<char>) -> Node {
         let mut items: Vec<Node> = vec![];
         loop {
             self.skip_ws();
@@ -103,15 +121,18 @@ impl Parser {
             if c == '^' || c == '_' {
                 self.i += 1;
                 let script = self.arg();
-                let base = items.pop().unwrap_or(Node::Row(vec![]));
+                let mut base = items.pop().unwrap_or(Node::Row(vec![]));
+                // A chain too deep starts again on an empty base.
+                if depth(&base) >= MAX_TREE { items.push(base); base = Node::Row(vec![]); }
                 items.push(attach(base, c == '^', script));
                 continue;
             }
             if c == '/' && !items.is_empty() {
                 // Linear fraction: the atom before over the atom after.
                 self.i += 1;
-                let num = items.pop().unwrap();
+                let mut num = items.pop().unwrap();
                 let den = self.atom().unwrap_or(Node::Row(vec![]));
+                if depth(&num) >= MAX_TREE { items.push(num); num = Node::Row(vec![]); }
                 items.push(Node::Frac(Box::new(strip_parens(num)), Box::new(strip_parens(den)), true));
                 continue;
             }
@@ -131,7 +152,7 @@ impl Parser {
                     self.skip_ws();
                     if let Some(b) = (self.peek().is_some_and(|c| Some(c) != end && c != '}' && !is_rel(c) && !is_bin(c))).then(|| self.atom()).flatten() {
                         let mut b = b;
-                        loop {
+                        while depth(&b) < MAX_TREE {
                             match self.peek() {
                                 Some('^') => { self.i += 1; let s = self.arg(); b = attach(b, true, s); }
                                 Some('_') => { self.i += 1; let s = self.arg(); b = attach(b, false, s); }
@@ -148,7 +169,7 @@ impl Parser {
                     self.skip_ws();
                     let arg = if self.peek().is_some_and(|c| Some(c) != end && c != '}' && !is_rel(c) && !is_bin(c)) {
                         let mut a = self.atom().unwrap_or(Node::Row(vec![]));
-                        while let Some(c @ ('^' | '_')) = self.peek() { self.i += 1; let s = self.arg(); a = attach(a, c == '^', s); }
+                        while let Some(c @ ('^' | '_')) = self.peek().filter(|_| depth(&a) < MAX_TREE) { self.i += 1; let s = self.arg(); a = attach(a, c == '^', s); }
                         a
                     } else { Node::Row(vec![]) };
                     items.push(Node::Func { name, under, arg: Box::new(arg) });
@@ -252,10 +273,20 @@ impl Parser {
         self.skip_ws();
         if self.peek() != Some('{') { return String::new(); }
         self.i += 1;
-        let st = self.i;
         let mut depth = 0;
-        while let Some(c) = self.peek() { if c == '{' { depth += 1; } if c == '}' { if depth == 0 { break; } depth -= 1; } self.i += 1; }
-        let t: String = self.s[st..self.i].iter().collect();
+        let mut t = String::new();
+        // Braces and backslashes in text are escaped (\{, \}, \textbackslash{}).
+        while let Some(c) = self.peek() {
+            if c == '\\' {
+                let rest: String = self.s[self.i + 1..(self.i + 16).min(self.s.len())].iter().collect();
+                if let Some(e) = rest.chars().next().filter(|e| matches!(e, '{' | '}')) { t.push(e); self.i += 2; continue; }
+                if rest.starts_with("textbackslash{}") { t.push('\\'); self.i += 16; continue; }
+            }
+            if c == '{' { depth += 1; }
+            if c == '}' { if depth == 0 { break; } depth -= 1; }
+            t.push(c);
+            self.i += 1;
+        }
         if self.peek() == Some('}') { self.i += 1; }
         t
     }
@@ -300,8 +331,24 @@ fn attach(base: Node, sup: bool, script: Node) -> Node {
 /// `(a+b)/c`: the parentheses of a linear fraction's operands are grouping, not shown.
 fn strip_parens(n: Node) -> Node { match n { Node::Delim { open: '(', close: ')', body } => *body, n => n } }
 
+/// How many levels deep a tree is.
+fn depth(n: &Node) -> usize {
+    let opt = |o: &Option<Box<Node>>| o.as_deref().map(depth).unwrap_or(0);
+    1 + match n {
+        Node::Sym(..) | Node::Text(_) => 0,
+        Node::Row(v) => v.iter().map(depth).max().unwrap_or(0),
+        Node::Frac(a, b, _) => depth(a).max(depth(b)),
+        Node::Scripts { base, sub, sup } => depth(base).max(opt(sub)).max(opt(sup)),
+        Node::Rad { deg, body } => depth(body).max(opt(deg)),
+        Node::Nary { sub, sup, body, .. } => depth(body).max(opt(sub)).max(opt(sup)),
+        Node::Delim { body, .. } | Node::Accent(_, body) => depth(body),
+        Node::Func { under, arg, .. } => depth(arg).max(opt(under)),
+        Node::Matrix(rows) => rows.iter().flatten().map(depth).max().unwrap_or(0),
+    }
+}
+
 pub fn parse(src: &str) -> Node {
-    let mut p = Parser { s: src.chars().collect(), i: 0 };
+    let mut p = Parser { s: src.chars().collect(), i: 0, depth: 0 };
     p.row(None)
 }
 
@@ -348,7 +395,11 @@ pub fn to_linear(n: &Node) -> String {
         }
         Node::Matrix(rows) => format!("\\begin{{matrix}}{}\\end{{matrix}}", matrix_linear(rows)),
         Node::Accent(c, b) => format!("\\{}{{{}}}", ACCENTS.iter().find(|a| a.1 == *c).map(|a| a.0).unwrap_or("hat"), to_linear(b)),
-        Node::Text(t) => if t.starts_with('\\') { t.clone() } else { format!("\\text{{{t}}}") },
+        Node::Text(t) => if t.starts_with('\\') { t.clone() } else {
+            let mut e = String::new();
+            for c in t.chars() { match c { '{' | '}' => { e.push('\\'); e.push(c); } '\\' => e.push_str("\\textbackslash{}"), c => e.push(c) } }
+            format!("\\text{{{e}}}")
+        },
     }
 }
 
@@ -897,6 +948,27 @@ mod tests {
         let latin = layout_node(&parse("a=b"), &Ctx { size: 12.0, color: crate::Color::BLACK }, true);
         let xs: Vec<f32> = latin.items.iter().filter_map(|i| match i { crate::layout::DrawItem::Glyphs { glyphs, .. } => glyphs.first().map(|g| g.x), _ => None }).collect();
         assert!(xs.windows(2).all(|w| w[0] < w[1]), "{xs:?}");
+    }
+
+    #[test]
+    fn deeply_nested_input_does_not_overflow_the_stack() {
+        // Chained scripts and fractions, nested operators, groups and roots, 5,000 deep.
+        let n = 5_000;
+        for src in [format!("x{}", "^1".repeat(n)), format!("a{}", "/a".repeat(n)), format!("{}x", "\\sum".repeat(n)), "{".repeat(n), "(".repeat(n), "\\sqrt{".repeat(n), format!("س{}", "_ع".repeat(n))] {
+            let tree = parse(&src);
+            assert!(depth(&tree) <= MAX_TREE + 2 * MAX_NESTING + 4, "{}", depth(&tree));
+            let _ = (to_linear(&tree), to_omml(&tree), tree.clone(), Equation::new(&src).metrics());
+        }
+        // Ordinary chains still nest.
+        assert!(matches!(parse("x^2^3"), Node::Scripts { .. }));
+    }
+
+    #[test]
+    fn text_with_braces_and_backslashes_survives() {
+        for t in ["a}b\\c", "نص {عربي", "x{y}z"] {
+            let n = Node::Text(t.into());
+            assert_eq!(parse(&to_linear(&n)), n, "{t}: {}", to_linear(&n));
+        }
     }
 
     #[test]
