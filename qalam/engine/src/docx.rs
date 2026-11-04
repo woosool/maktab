@@ -503,8 +503,10 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                         else if let Some(img) = self.drawing(d) { runs.push(Run { text: chars::OBJECT.to_string(), image: Some(img), anchor: read_anchor(d), ..base.with(String::new()) }); }
                     } else {
                         let shapes = vml_shapes(c);
-                        if !shapes.is_empty() { flush(&mut text, runs); }
+                        let pictures: Vec<(Image, Option<Anchor>)> = c.children_named("v:shape").filter_map(|e| self.vml_picture(e)).collect();
+                        if !shapes.is_empty() || !pictures.is_empty() { flush(&mut text, runs); }
                         for shape in shapes { runs.push(Run { text: chars::OBJECT.to_string(), object: Some(crate::objects::Object::Shape(shape)), ..base.with(String::new()) }); }
+                        for (img, anchor) in pictures { runs.push(Run { text: chars::OBJECT.to_string(), image: Some(img), anchor, ..base.with(String::new()) }); }
                     }
                 }
                 "w:footnoteReference" | "w:endnoteReference" => {
@@ -555,6 +557,35 @@ impl<'a, 'b> BodyReader<'a, 'b> {
         }
         let descr = container.child("wp:docPr").and_then(|p| p.attr("descr")).unwrap_or_default();
         Diagram::from_spec(descr, w, h).map(Object::Diagram)
+    }
+
+    /// A VML picture (`v:shape` with `v:imagedata`), as Word writes picture watermarks. Its
+    /// `gain` and `blacklevel` (Washout lowers the contrast and raises the brightness) are
+    /// applied to the pixels; a watermark sits centered behind the text.
+    fn vml_picture(&mut self, e: &Element) -> Option<(Image, Option<Anchor>)> {
+        let data = e.child("v:imagedata")?;
+        let rel = self.rel(data.attr("r:id")?)?;
+        let path = resolve_target(self.part, &rel.target);
+        let bytes = self.r.parts.get(&path)?.clone();
+        self.assets.insert(path.clone(), Asset { bytes, content_type: content_type_for(&path) });
+        let style = e.attr("style").unwrap_or_default();
+        let (width, height) = (css_px(style, "width")?, css_px(style, "height")?);
+        // 16.16 fixed point ("19661f") or a plain number.
+        let fixed = |a: &str| data.attr(a).and_then(|v| match v.strip_suffix('f') { Some(n) => n.trim().parse::<f32>().ok().map(|n| n / 65536.0), None => v.trim().parse().ok() });
+        let washout = fixed("gain").is_some_and(|g| g < 0.9) || fixed("blacklevel").is_some_and(|b| b > 0.1);
+        let watermark = e.attr("id").is_some_and(|id| id.starts_with("WordPictureWatermark"));
+        let mut img = Image { asset: path.clone(), width, height, alt: if watermark { "Watermark".into() } else { data.attr("o:title").unwrap_or_default().to_string() }, ..Default::default() };
+        if washout {
+            if let Some(png) = self.assets.get(&path).and_then(|a| crate::picture::bake(&a.bytes, &[crate::picture::PictureOp::Washout])) {
+                let mut n = 1;
+                while self.assets.contains_key(&format!("word/media/edited{n}.png")) || self.r.parts.contains_key(&format!("word/media/edited{n}.png")) { n += 1; }
+                let baked = format!("word/media/edited{n}.png");
+                self.assets.insert(baked.clone(), Asset { bytes: png, content_type: "image/png".into() });
+                (img.asset, img.original, img.effects) = (baked, Some(path), vec![crate::picture::PictureOp::Washout]);
+            }
+        }
+        let anchor = watermark.then_some(Anchor { wrap: Wrap::Behind, x: 0.0, y: 0.0, x_from: RelFrom::Margin, y_from: RelFrom::Margin, x_align: Some(AnchorAlign::Center), y_align: Some(AnchorAlign::Center), dist: 0.0, z: 0 });
+        Some((img, anchor))
     }
 
     fn drawing(&mut self, d: &Element) -> Option<Image> {
@@ -2666,6 +2697,31 @@ mod tests {
             zip.finish().unwrap();
         }
         out.into_inner()
+    }
+
+    #[test]
+    fn vml_picture_watermark_is_read_washed_out() {
+        // Word's picture watermark: a VML v:shape whose v:imagedata has Washout's gain/blacklevel.
+        let doc = r##"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body><w:p><w:r><w:pict><v:shape id="WordPictureWatermark1" style="position:absolute;width:200pt;height:100pt;z-index:-251657216" o:allowincell="f"><v:imagedata r:id="rId5" o:title="bg" gain="19661f" blacklevel="22938f"/></v:shape></w:pict></w:r><w:r><w:t>نص المستند</w:t></w:r></w:p></w:body></w:document>"##;
+        let rels = r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>"#;
+        let doc_rels = r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/></Relationships>"#;
+        let mut png = Cursor::new(vec![]);
+        image::RgbaImage::from_pixel(4, 2, image::Rgba([0, 0, 0, 255])).write_to(&mut png, image::ImageFormat::Png).unwrap();
+        let mut out = Cursor::new(Vec::new());
+        {
+            let mut zip = zip::ZipWriter::new(&mut out);
+            let opts = zip::write::SimpleFileOptions::default();
+            for (n, x) in [("_rels/.rels", rels.as_bytes()), ("word/document.xml", doc.as_bytes()), ("word/_rels/document.xml.rels", doc_rels.as_bytes()), ("word/media/image1.png", png.get_ref().as_slice())] { zip.start_file(n, opts).unwrap(); zip.write_all(x).unwrap(); }
+            zip.finish().unwrap();
+        }
+        let d = read(&out.into_inner()).unwrap();
+        let run = d.paragraphs[0].runs.iter().find(|r| r.image.is_some()).expect("the picture is read");
+        let img = run.image.as_ref().unwrap();
+        assert!((img.width - 200.0 * 4.0 / 3.0).abs() < 0.01 && (img.height - 100.0 * 4.0 / 3.0).abs() < 0.01 && img.alt == "Watermark");
+        assert_eq!(run.anchor.map(|a| a.wrap), Some(Wrap::Behind));
+        // Black pixels come out light: washed out.
+        let px = image::load_from_memory(&d.assets[&img.asset].bytes).unwrap().to_rgba8();
+        assert!(px.get_pixel(0, 0)[0] > 150, "{:?}", px.get_pixel(0, 0));
     }
 
     #[test]
