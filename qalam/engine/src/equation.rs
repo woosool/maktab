@@ -398,7 +398,10 @@ impl Ctx {
     fn smaller(&self, k: f32) -> Ctx { Ctx { size: (self.size * k).max(5.0), color: self.color } }
     fn text(&self, t: &str, upright: bool) -> MBox {
         let t: String = if upright { t.to_string() } else { t.chars().map(italic).collect() };
-        let (items, w) = crate::objects::text_line(&t, FONT, false, self.size, self.color, 0.0, 0.0);
+        // Math fonts carry a few Arabic letters for math alphabets; words in Arabic script take a
+        // text face so all their letters come from one font and join.
+        let font = if t.chars().any(crate::fonts::is_complex) { "Noto Sans" } else { FONT };
+        let (items, w) = crate::objects::text_line(&t, font, false, self.size, self.color, 0.0, 0.0);
         let em = self.em();
         // Glyph extents from the font's metrics would be exact; letters span about this much.
         let tall = t.chars().any(|c| c.is_uppercase() || c.is_ascii_digit() || "bdfhklt()[]{}|∂ℓβδζθλξ∫∑∏√".contains(c) || (c as u32) >= 0x1D400);
@@ -407,9 +410,43 @@ impl Ctx {
     }
 }
 
+/// Whether a node's first letter is right-to-left (Some(false) for left-to-right, None for none).
+fn first_strong_rtl(n: &Node) -> Option<bool> {
+    let kids: Vec<&Node> = match n {
+        Node::Sym(s, _) | Node::Text(s) => return s.chars().find(|c| c.is_alphabetic()).map(crate::fonts::is_complex),
+        Node::Row(v) => v.iter().collect(),
+        Node::Frac(a, b, _) => vec![a, b],
+        Node::Scripts { base, .. } | Node::Accent(_, base) => vec![base],
+        Node::Rad { body, .. } | Node::Nary { body, .. } | Node::Delim { body, .. } => vec![body],
+        Node::Func { arg, .. } => vec![arg],
+        Node::Matrix(rows) => rows.iter().flatten().collect(),
+    };
+    kids.into_iter().find_map(first_strong_rtl)
+}
+
 fn layout_node(n: &Node, c: &Ctx, display: bool) -> MBox {
     match n {
         Node::Row(v) => {
+            // Arabic and Hebrew letters split into one symbol each are joined back into words, so
+            // they are shaped together, and a row whose first letter is right-to-left runs right
+            // to left (wordcraft #5143).
+            let joined;
+            let v = if first_strong_rtl(n) == Some(true) {
+                let mut w: Vec<Node> = vec![];
+                for x in v {
+                    let word = match x { Node::Sym(s, _) | Node::Text(s) => Some(s), _ => None };
+                    let complex = word.is_some_and(|s| s.chars().any(crate::fonts::is_complex));
+                    let joins = word.is_some_and(|s| s.chars().all(|c| crate::fonts::is_complex(c) || c.is_whitespace()));
+                    match (w.last_mut(), word) {
+                        (Some(Node::Text(t)), Some(s)) if joins && t.chars().any(crate::fonts::is_complex) => t.push_str(s),
+                        (_, Some(s)) if complex => w.push(Node::Text(s.clone())),
+                        _ => w.push(x.clone()),
+                    }
+                }
+                w.reverse();
+                joined = w;
+                &joined
+            } else { v };
             let mut out = MBox::default();
             for (k, x) in v.iter().enumerate() {
                 // Spacing around binary operators and relations (none for a leading sign).
@@ -829,6 +866,26 @@ pub fn read_omml(e: &Element, display: bool) -> Equation {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn arabic_in_an_equation_is_shaped_right_to_left() {
+        // wordcraft #5143: Persian words in a formula came out letter by letter, left to right.
+        let xml = r#"<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>میانگین وزن</m:t></m:r><m:r><m:t>=</m:t></m:r><m:f><m:num><m:r><m:t>مجموع</m:t></m:r></m:num><m:den><m:r><m:t>تعداد</m:t></m:r></m:den></m:f></m:oMath>"#;
+        let tree = from_omml(&crate::xml::parse(xml).unwrap());
+        let b = layout_node(&tree, &Ctx { size: 12.0, color: crate::Color::BLACK }, true);
+        let runs: Vec<(f32, char, usize)> = b.items.iter().filter_map(|i| match i { crate::layout::DrawItem::Glyphs { glyphs, .. } => glyphs.first().map(|g| (g.x, g.ch, glyphs.len())), _ => None }).collect();
+        // Words are shaped whole (one glyph run per word), not one isolated letter per run.
+        assert!(runs.iter().filter(|r| r.1 != '=' && r.1 != ' ').all(|r| r.2 >= 3), "{runs:?}");
+        // Right to left: the left-hand side is right of "=", the fraction left of it.
+        let eq = runs.iter().find(|r| r.1 == '=').unwrap().0;
+        let x_of = |c: char| runs.iter().find(|r| r.1 == c).unwrap().0;
+        assert!(x_of('م') > eq || x_of('و') > eq, "{runs:?}");
+        assert!(x_of('ت') < eq, "the denominator is left of '=': {runs:?}");
+        // Latin rows keep their order.
+        let latin = layout_node(&parse("a=b"), &Ctx { size: 12.0, color: crate::Color::BLACK }, true);
+        let xs: Vec<f32> = latin.items.iter().filter_map(|i| match i { crate::layout::DrawItem::Glyphs { glyphs, .. } => glyphs.first().map(|g| g.x), _ => None }).collect();
+        assert!(xs.windows(2).all(|w| w[0] < w[1]), "{xs:?}");
+    }
 
     #[test]
     fn parses_typesets_and_round_trips_omml() {
