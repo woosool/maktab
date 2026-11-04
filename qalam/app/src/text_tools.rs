@@ -139,7 +139,7 @@ impl WordApp {
         let ext = p.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
         let read = std::fs::read(&p).map_err(|e| e.to_string()).and_then(|bytes| match ext.as_str() {
             "md" | "markdown" => Ok(word_engine::import::from_markdown(&String::from_utf8_lossy(&bytes))),
-            "txt" => Ok(word_engine::import::from_text(&String::from_utf8_lossy(&bytes))),
+            "txt" => Ok(word_engine::import::from_text(&word_engine::import::decode_text(&bytes))),
             _ => word_engine::docx::read(&bytes),
         });
         match read {

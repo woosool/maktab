@@ -10,6 +10,26 @@ pub fn from_text(text: &str) -> Document {
     Document::new(text.split('\n').map(Paragraph::new).collect())
 }
 
+/// Decode a text file's bytes: UTF-8 (with or without BOM), UTF-16 with a BOM or sniffed
+/// from its NUL bytes, else Windows-1252 (wordcraft #433).
+pub fn decode_text(bytes: &[u8]) -> String {
+    let utf16 = |b: &[u8], le: bool| String::from_utf16_lossy(&b.chunks_exact(2).map(|c| if le { u16::from_le_bytes([c[0], c[1]]) } else { u16::from_be_bytes([c[0], c[1]]) }).collect::<Vec<_>>());
+    if let Some(b) = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]) { return String::from_utf8_lossy(b).into_owned(); }
+    if let Some(b) = bytes.strip_prefix(&[0xFF, 0xFE]) { return utf16(b, true); }
+    if let Some(b) = bytes.strip_prefix(&[0xFE, 0xFF]) { return utf16(b, false); }
+    // Without a BOM, UTF-16 shows its ASCII as NULs in the odd (LE) or even (BE) bytes only;
+    // text files never contain NULs otherwise.
+    if bytes.len() >= 2 && bytes.len() % 2 == 0 {
+        let nul = |k: usize| bytes.iter().skip(k).step_by(2).filter(|b| **b == 0).count();
+        let (even, odd) = (nul(0), nul(1));
+        if odd > 0 && even * 10 < odd { return utf16(bytes, true); }
+        if even > 0 && odd * 10 < even { return utf16(bytes, false); }
+    }
+    if let Ok(s) = std::str::from_utf8(bytes) { return s.to_string(); }
+    const HIGH: [char; 32] = ['€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8D}', 'Ž', '\u{8F}', '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9D}', 'ž', 'Ÿ'];
+    bytes.iter().map(|&b| if (0x80..0xA0).contains(&b) { HIGH[b as usize - 0x80] } else { b as char }).collect()
+}
+
 /// Markdown headings, lists, emphasis, code and links.
 pub fn from_markdown(text: &str) -> Document {
     let mut doc = Document::new(vec![]);
@@ -104,7 +124,20 @@ fn inline(text: &str, base: RunProps) -> Vec<Run> {
 }
 
 /// Plain-text export (one line per paragraph, list markers kept as text).
-pub fn to_text(doc: &Document) -> String { doc.text().replace(crate::chars::OBJECT, "") }
+pub fn to_text(doc: &Document) -> String {
+    // List items keep their label and a tab, as Word writes them (wordcraft #434).
+    let mut markers = crate::numbering::MarkerCounter::default();
+    let lines: Vec<String> = doc.paragraphs.iter().map(|p| {
+        let label = doc.para_format(p).numbering.and_then(|(num, ilvl)| markers.next(&doc.numbering, num, ilvl).map(|l| format!("{}{}\t", "\t".repeat(ilvl as usize), text_bullet(&l))));
+        format!("{}{}", label.unwrap_or_default(), p.text().replace(crate::chars::OBJECT, ""))
+    }).collect();
+    lines.join("\n")
+}
+
+/// Symbol-font bullets (private-use code points) become the plain bullet.
+fn text_bullet(label: &str) -> String {
+    label.chars().map(|c| if ('\u{F000}'..='\u{F0FF}').contains(&c) { if c == '\u{F0A7}' { '▪' } else if c == '\u{F06F}' { 'o' } else { '•' } } else { c }).collect()
+}
 
 /// wordcraft #679: a link target fit to write into exported files: web, mail, an in-document
 /// `#bookmark` or a relative path, never `javascript:`, `data:`, `file:` or other schemes.
@@ -146,6 +179,27 @@ pub fn to_markdown(doc: &Document) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn text_import_decodes_1252_and_bomless_utf16() {
+        // wordcraft #433
+        assert_eq!(decode_text(&[0x80, b' ', b'5']), "€ 5");
+        let le: Vec<u8> = "مرحبا Hi".encode_utf16().flat_map(|u| u.to_le_bytes()).collect();
+        assert_eq!(decode_text(&le), "مرحبا Hi");
+        let be: Vec<u8> = "Hello".encode_utf16().flat_map(|u| u.to_be_bytes()).collect();
+        assert_eq!(decode_text(&be), "Hello");
+        let bom: Vec<u8> = [0xFF, 0xFE].into_iter().chain("نص".encode_utf16().flat_map(|u| u.to_le_bytes())).collect();
+        assert_eq!(decode_text(&bom), "نص");
+        assert_eq!(decode_text("\u{FEFF}نص عربي".as_bytes()), "نص عربي");
+        assert_eq!(decode_text("abcd".as_bytes()), "abcd");
+    }
+    #[test]
+    fn text_export_keeps_list_labels() {
+        // wordcraft #434
+        let d = from_markdown("- one\n- two\n\n1. first\n2. second\n");
+        let t = to_text(&d);
+        assert!(t.contains("\tone") && t.contains("\ttwo") && !t.starts_with("one"), "{t:?}");
+        assert!(t.contains("1.\tfirst") && t.contains("2.\tsecond"), "{t:?}");
+    }
     #[test]
     fn markdown_round_trip() {
         let d = from_markdown("# Title\n\nSome **bold** and *it* [link](https://x.y)\n\n- one\n- two\n");

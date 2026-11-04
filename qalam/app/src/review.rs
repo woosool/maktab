@@ -424,7 +424,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
         if go {
             let load = |p: &std::path::Path| -> Result<word_engine::Document, String> {
                 let bytes = std::fs::read(p).map_err(|e| e.to_string())?;
-                match p.extension().and_then(|e| e.to_str()).unwrap_or("") { "md" => Ok(word_engine::import::from_markdown(&String::from_utf8_lossy(&bytes))), "txt" => Ok(word_engine::import::from_text(&String::from_utf8_lossy(&bytes))), _ => word_engine::docx::read(&bytes) }
+                match p.extension().and_then(|e| e.to_str()).unwrap_or("") { "md" => Ok(word_engine::import::from_markdown(&String::from_utf8_lossy(&bytes))), "txt" => Ok(word_engine::import::from_text(&word_engine::import::decode_text(&bytes))), _ => word_engine::docx::read(&bytes) }
             };
             let result = (|| -> Result<word_engine::Document, String> {
                 let revised = load(d.revised.as_ref().unwrap())?;

@@ -396,7 +396,7 @@ impl WordApp {
         let ext = path.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
         let result = std::fs::read(&path).map_err(|e| e.to_string()).and_then(|bytes| match ext.as_str() {
             "md" | "markdown" => Ok((import::from_markdown(&String::from_utf8_lossy(&bytes)), false)),
-            "txt" | "text" => Ok((import::from_text(&String::from_utf8_lossy(&bytes)), false)),
+            "txt" | "text" => Ok((import::from_text(&import::decode_text(&bytes)), false)),
             _ => docx::read(&bytes).map(|d| (d, true)),
         });
         match result {
