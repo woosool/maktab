@@ -82,6 +82,17 @@ pub struct Line {
     pub bidi: bool,
 }
 
+impl Line {
+    /// x where the paragraph mark goes: the line's visual end for its paragraph direction
+    /// (rightmost edge for left-to-right, leftmost for right-to-left), not the caret after
+    /// the logically last character, which lands inside a run of the other direction.
+    pub fn visual_end_x(&self) -> f32 {
+        let edges = self.boxes.iter().flat_map(|b| [b.0, b.1]).chain(self.stops.iter().copied());
+        let fallback = *self.stops.last().unwrap_or(if self.rtl { &self.right } else { &self.left });
+        if self.rtl { edges.fold(fallback, f32::min) } else { edges.fold(fallback, f32::max) }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PageBox {
     pub width: f32,
@@ -2222,6 +2233,25 @@ mod tests {
         let from = start + 5;
         let to = l.visual_step(from, false).unwrap();
         assert!(p1.stops[to - start] < p1.stops[from - start]);
+    }
+
+    #[test]
+    fn paragraph_mark_sits_at_the_visual_end_of_mixed_direction_lines() {
+        // wordcraft #274: LTR paragraph ending in Arabic, RTL paragraph ending in Latin.
+        let d = doc("abc عربي\nمرحبا بالعالم abc");
+        let l = layout_document(&d);
+        let (p0, p1) = (&l.lines[0], &l.lines[1]);
+        assert!(!p0.rtl && p1.rtl);
+        let max_right = p0.boxes.iter().map(|b| b.1).fold(f32::MIN, f32::max);
+        assert!(*p0.stops.last().unwrap() < max_right - 1.0, "logical end is inside the Arabic run");
+        assert!(p0.visual_end_x() >= max_right - 0.01, "mark after the rightmost glyph");
+        let min_left = p1.boxes.iter().map(|b| b.0).fold(f32::MAX, f32::min);
+        assert!(*p1.stops.last().unwrap() > min_left + 1.0, "logical end is inside 'abc'");
+        assert!(p1.visual_end_x() <= min_left + 0.01, "mark before the leftmost glyph");
+        // Single-direction paragraphs are unchanged.
+        let d = doc("hello\nمرحبا");
+        let l = layout_document(&d);
+        for x in &l.lines { assert!((x.visual_end_x() - x.stops.last().unwrap()).abs() < 0.01); }
     }
 
     #[test]

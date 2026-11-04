@@ -589,14 +589,16 @@ fn paint_marks(app: &WordApp, painter: &egui::Painter, page: usize, zoom: f32, t
             painter.text(to_screen(page, x + w / 2.0, l.baseline - 3.0), egui::Align2::CENTER_BOTTOM, mark, font.clone(), color);
         }
         if l.last_in_paragraph {
-            let x = *l.stops.last().unwrap_or(&l.left);
-            painter.text(to_screen(page, x + 1.0, l.baseline), egui::Align2::LEFT_BOTTOM, "¶", font.clone(), color);
+            // wordcraft #274: at the line's visual end, outside the text, in the paragraph's direction.
+            let x = l.visual_end_x();
+            let (mx, align) = if l.rtl { (x - 1.0, egui::Align2::RIGHT_BOTTOM) } else { (x + 1.0, egui::Align2::LEFT_BOTTOM) };
+            painter.text(to_screen(page, mx, l.baseline), align, "¶", font.clone(), color);
             // A section break shows as a labelled double dotted line after the mark (as in Word).
             if let Some(kind) = app.doc.section_break_after(l.paragraph) {
                 use word_engine::page::SectionKind;
                 let label = crate::i18n::tr(match kind { SectionKind::NextPage => "Section Break (Next Page)", SectionKind::Continuous => "Section Break (Continuous)", SectionKind::EvenPage => "Section Break (Even Page)", SectionKind::OddPage => "Section Break (Odd Page)" });
                 // Right-to-left paragraphs end at the left: the line runs from the margin to the mark.
-                let (x0, x1) = if l.rtl { (l.left, x - 4.0) } else { (x + 10.0, l.right) };
+                let (x0, x1) = if l.rtl { (l.left, x - 12.0) } else { (x + 10.0, l.right) };
                 let (a, b) = (to_screen(page, x0, l.baseline - 4.0), to_screen(page, x1, l.baseline - 4.0));
                 if b.x > a.x {
                     for dy in [-1.5 * zoom, 1.5 * zoom] {
