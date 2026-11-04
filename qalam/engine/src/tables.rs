@@ -691,14 +691,28 @@ impl Document {
     pub fn convert_text_to_table(&mut self, sep: Separator) -> bool {
         let indices: Vec<usize> = self.selected_paragraph_indices().collect();
         if indices.iter().any(|&i| self.paragraphs[i].cell.is_some()) { return false; }
-        let split = |p: &Paragraph| -> Vec<String> {
-            let t = p.text();
-            match sep { Separator::Tab => t.split('\t').map(String::from).collect(), Separator::Comma => t.split(',').map(|x| x.trim().to_string()).collect(), Separator::Paragraph => vec![t] }
+        // Split each paragraph's runs at the separator, keeping every run's formatting, links and objects.
+        let split = |p: &Paragraph| -> Vec<Vec<Run>> {
+            let ch = match sep { Separator::Tab => Some('\t'), Separator::Comma => Some(','), Separator::Paragraph => None };
+            let mut fields: Vec<Vec<Run>> = vec![vec![]];
+            for r in &p.runs {
+                let plain = r.image.is_none() && r.field.is_none() && r.note.is_none() && r.object.is_none() && r.marker.is_none();
+                let Some(ch) = ch.filter(|_| plain) else { fields.last_mut().unwrap().push(r.clone()); continue };
+                for (k, piece) in r.text.split(ch).enumerate() {
+                    if k > 0 { fields.push(vec![]); }
+                    if !piece.is_empty() { fields.last_mut().unwrap().push(Run { text: piece.to_string(), ..r.clone() }); }
+                }
+            }
+            if sep == Separator::Comma {
+                for f in &mut fields {
+                    if let Some(r) = f.first_mut().filter(|r| r.object.is_none() && r.image.is_none()) { r.text = r.text.trim_start().to_string(); }
+                    if let Some(r) = f.last_mut().filter(|r| r.object.is_none() && r.image.is_none()) { r.text = r.text.trim_end().to_string(); }
+                    f.retain(|r| !r.text.is_empty() || r.image.is_some() || r.object.is_some() || r.field.is_some() || r.marker.is_some() || r.note.is_some());
+                }
+            }
+            fields
         };
-        let rows: Vec<Vec<String>> = match sep {
-            Separator::Paragraph => indices.iter().map(|&i| split(&self.paragraphs[i])).collect(),
-            _ => indices.iter().map(|&i| split(&self.paragraphs[i])).collect(),
-        };
+        let rows: Vec<Vec<Vec<Run>>> = indices.iter().map(|&i| split(&self.paragraphs[i])).collect();
         let cols = rows.iter().map(|r| r.len()).max().unwrap_or(1).max(1);
         self.checkpoint(EditKind::Other);
         let writing = self.page.width - self.page.left - self.page.right - self.page.gutter;
@@ -707,7 +721,6 @@ impl Document {
         let mut paragraphs = vec![];
         for (k, values) in rows.iter().enumerate() {
             let template = &self.paragraphs[indices[k]];
-            let run = template.runs.first().map(|r| Run { text: String::new(), props: r.props.clone(), style: r.style.clone(), ..Default::default() }).unwrap_or_default();
             let mut row = Row { cells: vec![], min_height: 0, exact: false, header: false, cant_split: false, grid_before: 0, grid_after: 0, extra: vec![] };
             for c in 0..cols {
                 let cell = Cell::new(w);
@@ -715,7 +728,7 @@ impl Document {
                 p.props.numbering = None;
                 p.props.space_after = Some(0.0);
                 p.cell = Some(cell.id);
-                if let Some(v) = values.get(c).filter(|v| !v.is_empty()) { p.runs.push(Run { text: v.clone(), ..run.clone() }); }
+                if let Some(v) = values.get(c) { p.runs = v.clone(); }
                 paragraphs.push(p);
                 row.cells.push(cell);
             }
@@ -937,6 +950,22 @@ mod tests {
         assert!(d.convert_table_to_text(Separator::Comma));
         assert_eq!(d.text(), "a, b, c\n1, 2, \nafter");
         assert!(d.tables.is_empty());
+    }
+
+    #[test]
+    fn text_to_table_keeps_inline_formatting() {
+        let mut p = Paragraph::new("مرحبا ");
+        p.runs.push(Run { text: "بالعالم\tسلام".into(), props: RunProps { bold: Some(true), ..Default::default() }, ..Default::default() });
+        p.runs.push(Run::text(", end"));
+        let mut d = Document::new(vec![p, Paragraph::new("after")]);
+        d.select(0, 3);
+        assert!(d.convert_text_to_table(Separator::Tab));
+        let first: Vec<&Paragraph> = d.paragraphs.iter().filter(|p| p.cell.is_some()).collect();
+        assert_eq!(first[0].text(), "مرحبا بالعالم");
+        assert_eq!(first[0].runs[1].props.bold, Some(true));
+        assert_eq!(first[1].text(), "سلام, end");
+        assert_eq!(first[1].runs[0].props.bold, Some(true));
+        assert_eq!(first[1].runs[1].props.bold, None);
     }
 }
 
