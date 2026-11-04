@@ -299,7 +299,7 @@ pub fn load_system_fonts(cache: Option<&std::path::Path>) -> usize {
                 (0..n).filter_map(|ix| {
                     let f = ttf_parser::Face::parse(&bytes, ix).ok()?;
                     // Text fonts only: they need a Unicode character map and outlines.
-                    ['a', '\u{0627}', '\u{1000}', '\u{0E01}', '\u{0915}'].iter().find_map(|&c| f.glyph_index(c))?;
+                    ['a', '\u{0627}', '\u{1000}', '\u{0985}', '\u{0915}', '\u{4E2D}', '\u{0E01}'].iter().find_map(|&c| f.glyph_index(c))?;
                     let fam = name_of(&f, &[16, 1])?;
                     Some((ix, fam, f.is_bold(), f.is_italic()))
                 }).collect()
@@ -432,7 +432,27 @@ pub fn fallback(key: FontKey, c: char) -> FontKey {
         if has_glyph(k.face, c) { return k; }
     }
     if let Some(face) = cjk_face(c, bold) { return FontKey { face, synthetic_bold: bold && !self::face(face).bold }; }
-    key
+    // Scripts with no bundled face (Bengali, Devanagari, CJK, Thai…) use an installed font.
+    system_fallback(c, bold).unwrap_or(key)
+}
+
+/// An installed upright face with a glyph for `c`, remembered per 128-character block so a run
+/// of one script keeps one face and the font files are searched once.
+fn system_fallback(c: char, bold: bool) -> Option<FontKey> {
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+    static CACHE: OnceLock<Mutex<HashMap<(u32, bool), Option<u16>>>> = OnceLock::new();
+    let block = (c as u32 >> 7, bold);
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(&hit) = cache.lock().ok()?.get(&block) {
+        if hit.is_some_and(|f| has_glyph(f, c)) { return hit.map(|f| FontKey { face: f, synthetic_bold: bold && !face(f).bold }); }
+        if hit.is_none() { return None; }
+    }
+    let all = faces();
+    let pick = |want_bold: bool| (0..all.len()).find(|&i| all[i].path.is_some() && !all[i].italic && all[i].bold == want_bold && has_glyph(i as u16, c));
+    let found = pick(bold).or_else(|| if bold { pick(false) } else { None }).map(|i| i as u16);
+    if let Ok(mut m) = cache.lock() { m.insert(block, found); }
+    found.map(|f| FontKey { face: f, synthetic_bold: bold && !face(f).bold })
 }
 
 /// wordcraft #604: installed font families likely to cover `c`'s script when no bundled font

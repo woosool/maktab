@@ -390,7 +390,10 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             if focused {
                 if !app.preedit.is_empty() {
                     let f = app.doc.current_format();
-                    let key = word_engine::fonts::resolve(&f.font, f.bold, f.italic);
+                    let mut key = word_engine::fonts::resolve(&f.font, f.bold, f.italic);
+                    // Composition in a script the run's font lacks (Bengali, Chinese…) draws in the
+                    // face the document will use for it, not as empty boxes.
+                    if let Some(c) = app.preedit.chars().find(|&c| !c.is_whitespace() && !word_engine::fonts::has_glyph(key.face, c)) { key = word_engine::fonts::fallback(key, c); }
                     let font = FontId::new(f.size * 4.0 / 3.0 * zoom, FontFamily::Name(face_name(key.face as usize).into()));
                     let g = painter.layout_no_wrap(app.preedit.clone(), font, Color32::BLACK);
                     let r = Rect::from_min_size(top, g.size());
