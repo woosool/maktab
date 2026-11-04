@@ -534,20 +534,24 @@ impl<'a> Ctx<'a> {
             let mut last_break: Option<usize> = None; // atom index after which we may break
             let mut j = i;
             let mut ended_by: Option<Kind> = None;
+            // A right, center or decimal stop past the right margin lets its text reach the
+            // stop, as in Word (wordcraft #749: a resume's dates at a stop beyond the margin).
+            let mut limit = avail;
             while j < atoms.len() {
                 let kind = atoms[j].kind;
                 if kind == Kind::Tab {
                     // Tab stops are relative to the text margin (content box left).
                     let abs = line_left + x;
                     let seg: f32 = atoms[j + 1..].iter().take_while(|a| !matches!(a.kind, Kind::Tab | Kind::LineBreak | Kind::PageBreak)).map(|a| a.width).sum();
-                    let (w, leader) = self.tab_width(&format, abs, seg, first && atoms[j].pos.is_none(), indent_left, &atoms[j + 1..]);
+                    let (w, leader, aligned) = self.tab_width(&format, abs, seg, first && atoms[j].pos.is_none(), indent_left, &atoms[j + 1..]);
+                    if aligned { limit = limit.max(x + w + seg + 0.5); }
                     atoms[j].width = w;
                     atoms[j].leader = leader;
                 }
                 let w = atoms[j].width;
                 // A no-break space (Ctrl+Shift+Space) joins its neighbors onto one line.
                 let breakable_space = kind == Kind::Space && atoms[j].ch != '\u{00A0}';
-                if !breakable_space && x + w > avail && j > line_start_atom && !matches!(kind, Kind::LineBreak | Kind::PageBreak) {
+                if !breakable_space && x + w > limit && j > line_start_atom && !matches!(kind, Kind::LineBreak | Kind::PageBreak) {
                     break;
                 }
                 xs.push(x);
@@ -643,8 +647,9 @@ impl<'a> Ctx<'a> {
         candidates.into_iter().rev().find(|&k| atoms[ws..ws + k].iter().map(|a| a.width).sum::<f32>() <= room).filter(|&k| ws + k > line_start).map(|k| (ws + k, hyphen_w))
     }
 
-    /// Width of a tab starting at `abs` (px from the content box left).
-    fn tab_width(&self, f: &ParaFormat, abs: f32, seg: f32, marker: bool, indent_left: f32, following: &[Atom]) -> (f32, Leader) {
+    /// Width of a tab starting at `abs` (px from the content box left), its leader, and whether
+    /// it reached a right, center or decimal stop.
+    fn tab_width(&self, f: &ParaFormat, abs: f32, seg: f32, marker: bool, indent_left: f32, following: &[Atom]) -> (f32, Leader, bool) {
         let mut stops: Vec<(f32, TabKind, Leader)> = f.tabs.iter().filter(|t| t.kind != TabKind::Clear).map(|t| (twips(t.pos), t.kind, t.leader)).collect();
         // The hanging indent acts as an implicit left stop (list markers, §17.3.1.37).
         if f.first_line < 0 { stops.push((indent_left, TabKind::Left, Leader::None)); }
@@ -660,12 +665,12 @@ impl<'a> Ctx<'a> {
                     pos - before - abs
                 }
             };
-            if pos > abs + eps && w > eps { return (w, leader); }
+            if pos > abs + eps && w > eps { return (w, leader, !matches!(kind, TabKind::Left | TabKind::Clear)); }
         }
-        if marker && abs < indent_left - eps { return (indent_left - abs, Leader::None); }
+        if marker && abs < indent_left - eps { return (indent_left - abs, Leader::None, false); }
         let d = self.page.default_tab.max(1.0);
         let next = ((abs + eps) / d).floor() * d + d;
-        (next - abs, Leader::None)
+        (next - abs, Leader::None, false)
     }
 
     /// Line metrics, bidi reordering (UAX #9 L1–L2) and alignment. `line_left` is the line's
@@ -2138,6 +2143,22 @@ mod tests {
         assert!(l.page_count() > 2);
         let first: String = l.pages[0].items.iter().filter_map(|i| match i { DrawItem::Glyphs { glyphs, .. } => Some(glyphs.iter().map(|g| g.ch).collect::<String>()), _ => None }).collect();
         assert!(first.contains(&l.page_count().to_string()), "page count shown in the body: {first}");
+    }
+
+    #[test]
+    fn right_tab_past_the_margin_keeps_its_text_on_the_line() {
+        // wordcraft #749: a resume sets 0.4" margins and a right stop at 8.06", past the right
+        // margin (8.1" text width); its dates stay on the heading's line, as in Word.
+        let mut d = doc("Florida Polytechnic University\tExpected Graduation: May 2028");
+        d.page.left = 576; d.page.right = 576;
+        d.paragraphs[0].props.tabs = Some(vec![TabStop { pos: 11610, kind: TabKind::Right, leader: Leader::None }]);
+        let l = layout_document(&d);
+        assert_eq!(l.lines.len(), 1, "the dated heading stays on one line");
+        let end = l.caret_rect(d.paragraphs[0].text().chars().count()).unwrap();
+        assert!((end.x - (twips(576) + twips(11610))).abs() < 1.5, "text ends at the stop: {}", end.x);
+        // A left stop past the margin still wraps.
+        d.paragraphs[0].props.tabs = Some(vec![TabStop { pos: 11610, kind: TabKind::Left, leader: Leader::None }]);
+        assert!(layout_document(&d).lines.len() > 1);
     }
 
     #[test]
