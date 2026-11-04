@@ -1055,8 +1055,11 @@ fn key_press(app: &mut WordApp, ui: &Ui, key: Key, m: Modifiers, mac: bool) {
         Key::Enter => {
             if m.shift { app.doc.insert_line_break(); }
             else if m.command { app.doc.insert_page_break(); }
-            else if app.doc.current_para_format().numbering.is_some() && app.doc.current_paragraph().is_empty() {
-                // Enter on an empty list item ends the list.
+            else if app.doc.current_para_format().numbering.is_some_and(|(_, l)| l > 0) && app.doc.current_paragraph().is_empty() {
+                // Enter on an empty nested item moves it up a level, as in Word.
+                app.doc.change_list_level(-1);
+            } else if app.doc.current_para_format().numbering.is_some() && app.doc.current_paragraph().is_empty() {
+                // Enter on an empty top-level list item ends the list.
                 app.doc.toggle_list(app.doc.numbering.kind(app.doc.current_para_format().numbering.unwrap().0).unwrap_or(word_engine::numbering::ListKind::Bullet));
             } else { app.doc.insert_paragraph(); }
         }

@@ -43,6 +43,26 @@ fn click(h: &mut Harness<'_, WordApp>, pos: Pos2) {
 }
 
 #[test]
+fn enter_on_an_empty_nested_list_item_moves_it_up_a_level() {
+    let mut h = harness(None);
+    h.run_steps(3);
+    h.state_mut().doc.toggle_list(word_engine::numbering::ListKind::Number);
+    h.event(Event::Text("مرحبا".into()));
+    h.key_press(Key::Enter);
+    h.key_press(Key::Tab);
+    h.run_steps(2);
+    assert_eq!(h.state().doc.current_para_format().numbering.map(|n| n.1), Some(1));
+    h.key_press(Key::Enter);
+    h.run_steps(2);
+    let d = &h.state().doc;
+    assert_eq!(d.paragraphs.len(), 2, "no new item is added");
+    assert_eq!(d.current_para_format().numbering.map(|n| n.1), Some(0), "the item moved up to the first level");
+    h.key_press(Key::Enter);
+    h.run_steps(2);
+    assert_eq!(h.state().doc.current_para_format().numbering, None, "a second Enter ends the list");
+}
+
+#[test]
 fn typing_formatting_and_undo() {
     let mut h = harness(None);
     h.run_steps(3);
