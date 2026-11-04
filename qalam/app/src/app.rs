@@ -402,7 +402,9 @@ impl WordApp {
         #[cfg(test)]
         if !TAKE_SENT_FILES.with(|t| t.get()) { return; }
         if self.dialogs.confirm.is_some() || !qalam_kit::open_files::pending() { return; }
-        let (here, rest) = qalam_kit::open_files::route(qalam_kit::open_files::take());
+        let (mut here, mut rest) = qalam_kit::open_files::route(qalam_kit::open_files::take());
+        // A window already holding a document keeps it: the files open in windows of their own.
+        if self.path.is_some() || self.doc.dirty { rest.extend(here.take()); }
         if !cfg!(test) { qalam_kit::open_files::open_elsewhere(&rest); }
         if let Some(p) = here { self.guarded(ctx, Pending::OpenPath(p)); }
     }

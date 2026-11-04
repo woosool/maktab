@@ -1496,6 +1496,22 @@ fn opens_a_file_the_system_sent() {
     let _ = std::fs::remove_file(&p);
 }
 
+/// A file sent while a document is open goes to its own window instead of replacing it.
+#[test]
+fn a_sent_file_does_not_replace_the_open_document() {
+    crate::app::TAKE_SENT_FILES.with(|t| t.set(true));
+    let p = std::env::temp_dir().join(format!("qalam-sent-second-{}.txt", std::process::id()));
+    std::fs::write(&p, "الملف الثاني").unwrap();
+    let mut h = typed("المستند الأول");
+    qalam_kit::open_files::push([p.clone()]);
+    h.run_steps(3);
+    assert_eq!(h.state().doc.text(), "المستند الأول");
+    assert!(h.state().dialogs.confirm.is_none(), "no save prompt: the open document stays");
+    assert!(!qalam_kit::open_files::pending());
+    crate::app::TAKE_SENT_FILES.with(|t| t.set(false));
+    let _ = std::fs::remove_file(&p);
+}
+
 /// The Home font name and size boxes work from the keyboard: type to filter, Up/Down, Enter.
 #[test]
 fn font_boxes_from_keyboard() {
