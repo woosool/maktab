@@ -1285,6 +1285,11 @@ fn context_menu_options_and_view_reset() {
     st.author = Some("سارة".into());
     st.save();
     assert_eq!(crate::options::Settings::load().author.as_deref(), Some("سارة"));
+    // Turning off spelling as you type is kept between sessions.
+    assert!(crate::options::Settings::load().spelling);
+    st.spelling = false;
+    st.save();
+    assert!(!crate::options::Settings::load().spelling);
     // Opening a document resets Split and Web Layout.
     h.state_mut().extras.view.split = true;
     h.state_mut().set_view(crate::view::ViewMode::Web);

@@ -42,11 +42,14 @@ pub struct Settings {
     pub last_update_check: u64,
     /// The User name from Options (comments, tracked changes); None until one is set.
     pub author: Option<String>,
+    /// Proofing: check spelling and mark grammar errors as you type.
+    pub spelling: bool,
+    pub grammar: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { lang: Default::default(), dark: false, units: default_units(system_region().as_deref()), ruler: true, nav_pane: false, zoom: 1.0, autosave_minutes: 10, backup: false, default_folder: None, remember_window: true, window: None, hidden_tabs: HashSet::new(), hidden_groups: HashSet::new(), custom_tab: vec![], custom_tab_name: "My Tab".into(), hidden_context: HashSet::new(), recent: vec![], auto_update: true, skipped_version: None, last_update_check: 0, author: None }
+        Settings { lang: Default::default(), dark: false, units: default_units(system_region().as_deref()), ruler: true, nav_pane: false, zoom: 1.0, autosave_minutes: 10, backup: false, default_folder: None, remember_window: true, window: None, hidden_tabs: HashSet::new(), hidden_groups: HashSet::new(), custom_tab: vec![], custom_tab_name: "My Tab".into(), hidden_context: HashSet::new(), recent: vec![], auto_update: true, skipped_version: None, last_update_check: 0, author: None, spelling: true, grammar: true }
     }
 }
 
@@ -96,6 +99,7 @@ impl Settings {
             custom_tab_name: v["custom_tab_name"].as_str().unwrap_or("My Tab").to_string(), hidden_context: set("hidden_context"), recent: list("recent"),
             auto_update: v["auto_update"].as_bool().unwrap_or(true), skipped_version: v["skipped_version"].as_str().map(String::from), last_update_check: v["last_update_check"].as_u64().unwrap_or(0),
             author: v["author"].as_str().map(str::trim).filter(|a| !a.is_empty()).map(String::from),
+            spelling: v["spelling"].as_bool().unwrap_or(true), grammar: v["grammar"].as_bool().unwrap_or(true),
         }
     }
 
@@ -108,6 +112,7 @@ impl Settings {
             "window": window, "hidden_tabs": sorted(&self.hidden_tabs), "hidden_groups": sorted(&self.hidden_groups), "custom_tab": self.custom_tab,
             "custom_tab_name": self.custom_tab_name, "hidden_context": sorted(&self.hidden_context), "recent": self.recent,
             "auto_update": self.auto_update, "skipped_version": self.skipped_version, "last_update_check": self.last_update_check, "author": self.author,
+            "spelling": self.spelling, "grammar": self.grammar,
         });
         let p = path();
         let _ = std::fs::create_dir_all(p.parent().unwrap());
@@ -125,8 +130,8 @@ pub struct OptionsState {
     /// Last window state seen, and when it changed (saved a moment later).
     pub window_seen: Option<([f32; 2], Option<[f32; 2]>, bool)>,
     pub window_changed: Option<f64>,
-    /// Ribbon-set preferences last saved: dark, units, ruler, navigation pane, zoom.
-    pub prefs_seen: Option<(bool, crate::view::Units, bool, bool, i32)>,
+    /// Ribbon-set preferences last saved: dark, units, ruler, navigation pane, zoom, proofing.
+    pub prefs_seen: Option<(bool, crate::view::Units, bool, bool, i32, (bool, bool))>,
     pub last_autosave: f64,
     pub recovered: Option<Vec<PathBuf>>,
     pub applied: bool,
@@ -148,6 +153,9 @@ impl WordApp {
         self.extras.options.hidden_context = s.hidden_context.clone();
         crate::i18n::set(s.lang);
         if let Some(a) = &s.author { self.author = a.clone(); }
+        let r = &mut self.extras.review;
+        if !r.settings_init { r.settings_init = true; r.show_comment_marks = true; }
+        (r.check_as_you_type, r.grammar) = (s.spelling, s.grammar);
         self.extras.options.settings = s;
         let files: Vec<PathBuf> = std::fs::read_dir(recovery_dir()).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "docx")).collect();
         if !files.is_empty() { self.extras.options.recovered = Some(files); }
@@ -160,6 +168,7 @@ impl WordApp {
         s.ruler = self.show_ruler;
         s.nav_pane = self.show_outline;
         s.zoom = self.zoom;
+        (s.spelling, s.grammar) = (self.extras.review.check_as_you_type, self.extras.review.grammar);
         s.hidden_context = self.extras.options.hidden_context.clone();
         let author = self.author.trim();
         if !author.is_empty() { s.author = Some(author.to_string()); }
@@ -181,7 +190,7 @@ impl WordApp {
             }
         }
         // Preferences changed from the ribbon are saved too.
-        let prefs = (self.extras.view.dark, self.extras.view.units, self.show_ruler, self.show_outline, (self.zoom * 100.0).round() as i32);
+        let prefs = (self.extras.view.dark, self.extras.view.units, self.show_ruler, self.show_outline, (self.zoom * 100.0).round() as i32, (self.extras.review.check_as_you_type, self.extras.review.grammar));
         let o = &mut self.extras.options;
         if o.prefs_seen != Some(prefs) { if o.prefs_seen.is_some() { o.window_changed = Some(now); } o.prefs_seen = Some(prefs); }
         let minutes = self.extras.options.settings.autosave_minutes;
@@ -347,7 +356,7 @@ pub fn dialog(app: &mut WordApp, ctx: &egui::Context) {
                             ui.add_space(12.0);
                             crate::theme::vcol(ui, |ui| {
                                 section(ui, "Custom tab");
-                                crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Name:")); ui.add(egui::TextEdit::singleline(&mut s.custom_tab_name).desired_width(160.0)); });
+                                crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Name:")); ui.add(qalam_kit::widgets::edit_line(&mut s.custom_tab_name).desired_width(160.0)); });
                                 ui.label(RichText::new(crate::i18n::tr("Commands on it (click to remove):")).small().weak());
                                 let mut remove = None;
                                 for (k, c) in s.custom_tab.iter().enumerate() { if ui.button(format!("✕  {c}")).clicked() { remove = Some(k); } }
