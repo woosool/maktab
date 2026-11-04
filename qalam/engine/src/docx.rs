@@ -1753,6 +1753,82 @@ fn ensure_content_types(parts: &mut BTreeMap<String, Vec<u8>>, main: &str) {
     parts.insert("[Content_Types].xml".into(), format!("{}{}", xml::DECL, root.to_xml()).into_bytes());
 }
 
+const REL_CORE: &str = "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties";
+
+/// wordcraft #260/#262: write the edited document properties to docProps/core.xml (they were
+/// read but never saved), and stamp the save: modified time and revision number.
+fn write_core_properties(parts: &mut BTreeMap<String, Vec<u8>>, props: &crate::model::Properties) {
+    let mut pkg = read_rels(parts, "");
+    let path = match pkg.iter().find(|r| r.kind == REL_CORE) {
+        Some(r) => r.target.trim_start_matches('/').to_string(),
+        None => {
+            let id = (1..).map(|n| format!("rId{n}")).find(|id| pkg.iter().all(|r| &r.id != id)).unwrap_or_default();
+            pkg.push(Rel { id, kind: REL_CORE.into(), target: "docProps/core.xml".into(), external: false });
+            parts.insert("_rels/.rels".into(), rels_xml(&pkg).into_bytes());
+            "docProps/core.xml".into()
+        }
+    };
+    let mut root = part_text(parts, &path).and_then(|t| xml::parse(&t).ok()).unwrap_or_else(|| Element::new("cp:coreProperties")
+        .with_attr("xmlns:cp", "http://schemas.openxmlformats.org/package/2006/metadata/core-properties")
+        .with_attr("xmlns:dc", "http://purl.org/dc/elements/1.1/")
+        .with_attr("xmlns:dcterms", "http://purl.org/dc/terms/")
+        .with_attr("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance"));
+    let prefix = |root: &Element, uri: &str, fallback: &str| root.attrs.iter().find(|(k, v)| k.starts_with("xmlns:") && v == uri).map(|(k, _)| k["xmlns:".len()..].to_string()).unwrap_or_else(|| {
+        fallback.to_string()
+    });
+    for (uri, p) in [("http://purl.org/dc/elements/1.1/", "dc"), ("http://purl.org/dc/terms/", "dcterms"), ("http://www.w3.org/2001/XMLSchema-instance", "xsi")] {
+        if !root.attrs.iter().any(|(k, v)| k.starts_with("xmlns:") && v == uri) { root.set_attr(&format!("xmlns:{p}"), uri); }
+    }
+    let (dc, cp, dct) = (prefix(&root, "http://purl.org/dc/elements/1.1/", "dc"), root.name.split_once(':').map(|x| x.0.to_string()).unwrap_or_default(), prefix(&root, "http://purl.org/dc/terms/", "dcterms"));
+    let q = |p: &str, local: &str| if p.is_empty() { local.to_string() } else { format!("{p}:{local}") };
+    let set = |root: &mut Element, name: String, value: &str, keep_empty: bool| {
+        let local = name.rsplit(':').next().unwrap_or("").to_string();
+        let found = root.elements_mut().find(|e| e.name.rsplit(':').next() == Some(local.as_str())).is_some();
+        if value.is_empty() && !keep_empty { root.children.retain(|c| !matches!(c, Node::Element(e) if e.name.rsplit(':').next() == Some(local.as_str()))); return; }
+        if !found { root.push(Element::new(&name)); }
+        let e = root.elements_mut().find(|e| e.name.rsplit(':').next() == Some(local.as_str())).unwrap();
+        e.children = vec![Node::Text(value.to_string())];
+    };
+    set(&mut root, q(&dc, "title"), &props.title, false);
+    set(&mut root, q(&dc, "subject"), &props.subject, false);
+    set(&mut root, q(&dc, "creator"), &props.author, false);
+    set(&mut root, q(&cp, "keywords"), &props.keywords, false);
+    set(&mut root, q(&dc, "description"), &props.description, false);
+    let revision = root.elements().find(|e| e.name.rsplit(':').next() == Some("revision")).and_then(|e| e.text().trim().parse::<u64>().ok()).unwrap_or(0) + 1;
+    set(&mut root, q(&cp, "revision"), &revision.to_string(), true);
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    let stamp = w3cdtf(now);
+    if root.elements().all(|e| e.name.rsplit(':').next() != Some("created")) { set(&mut root, q(&dct, "created"), &stamp, true); }
+    set(&mut root, q(&dct, "modified"), &stamp, true);
+    let xsi = prefix(&root, "http://www.w3.org/2001/XMLSchema-instance", "xsi");
+    for e in root.elements_mut().filter(|e| matches!(e.name.rsplit(':').next(), Some("created" | "modified"))) { e.set_attr(&format!("{xsi}:type"), format!("{dct}:W3CDTF")); }
+    parts.insert(path.clone(), format!("{}{}", xml::DECL, root.to_xml()).into_bytes());
+    // The content type for the core part.
+    let ct = parts.get("[Content_Types].xml").map(|b| String::from_utf8_lossy(b).to_string());
+    let mut types = ct.and_then(|t| xml::parse(&t).ok()).unwrap_or_else(|| Element::new("Types").with_attr("xmlns", "http://schemas.openxmlformats.org/package/2006/content-types"));
+    let name = format!("/{path}");
+    if !types.elements().any(|e| e.name == "Override" && e.attr("PartName") == Some(name.as_str())) {
+        types.push(Element::new("Override").with_attr("PartName", name).with_attr("ContentType", "application/vnd.openxmlformats-package.core-properties+xml"));
+        parts.insert("[Content_Types].xml".into(), format!("{}{}", xml::DECL, types.to_xml()).into_bytes());
+    }
+}
+
+/// Seconds since the Unix epoch as a W3CDTF UTC timestamp (2026-11-04T10:30:00Z).
+fn w3cdtf(secs: i64) -> String {
+    let (days, rem) = (secs.div_euclid(86400), secs.rem_euclid(86400));
+    // Civil date from days (Howard Hinnant's algorithm).
+    let z = days + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + if m <= 2 { 1 } else { 0 };
+    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", rem / 3600, rem / 60 % 60, rem % 60)
+}
+
 /// Serialize a document to .docx bytes.
 pub fn write(doc: &Document) -> Result<Vec<u8>, String> {
     let (mut parts, main, rels) = match &doc.package {
@@ -1931,6 +2007,7 @@ pub fn write(doc: &Document) -> Result<Vec<u8>, String> {
     let new_parts = std::mem::take(&mut w.new_parts);
     parts.extend(new_parts);
     parts.insert(rels_path(&main), rels_xml(&w.rels).into_bytes());
+    write_core_properties(&mut parts, &doc.properties);
     ensure_content_types(&mut parts, &main);
 
     let mut out = Cursor::new(Vec::new());
@@ -1973,6 +2050,28 @@ mod tests {
         // Saving again keeps every part.
         let again = read(&write(&e).unwrap()).unwrap();
         assert_eq!(again.text(), d.text());
+    }
+
+    #[test]
+    fn document_properties_are_saved_and_the_save_is_stamped() {
+        // wordcraft #260/#262: typed Title/Author survive Save; revision and modified time advance.
+        let mut d = Document::new(vec![Paragraph::new("XYZ")]);
+        d.properties.title = "ALPHA عنوان".into();
+        d.properties.author = "BETA & co".into();
+        let e = read(&write(&d).unwrap()).unwrap();
+        assert_eq!(e.properties.title, "ALPHA عنوان");
+        assert_eq!(e.properties.author, "BETA & co");
+        assert_eq!(e.text(), "XYZ");
+        let core = |bytes: &[u8]| { let mut z = zip::ZipArchive::new(Cursor::new(bytes.to_vec())).unwrap(); let mut s = String::new(); std::io::Read::read_to_string(&mut z.by_name("docProps/core.xml").unwrap(), &mut s).unwrap(); s };
+        let first = write(&e).unwrap();
+        assert!(core(&first).contains("<cp:revision>2</cp:revision>"), "{}", core(&first));
+        assert!(core(&first).contains("dcterms:modified xsi:type=\"dcterms:W3CDTF\""));
+        let mut again = read(&first).unwrap();
+        again.properties.title = String::new();
+        let second = core(&write(&again).unwrap());
+        assert!(second.contains("<cp:revision>3</cp:revision>") && !second.contains("title"), "{second}");
+        assert_eq!(w3cdtf(0), "1970-01-01T00:00:00Z");
+        assert_eq!(w3cdtf(1_793_791_800), "2026-11-04T11:30:00Z");
     }
 
     #[test]
