@@ -37,9 +37,10 @@ pub fn format_date(iso: &str, picture: &str) -> String {
         let run = pic[i..].iter().take_while(|&&x| x == c).count();
         match c {
             '\'' => { let end = pic[i + 1..].iter().position(|&x| x == '\'').map(|p| i + 1 + p).unwrap_or(pic.len()); out.extend(&pic[i + 1..end]); i = end + 1; continue; }
-            'd' => out += &match run { 1 => d.to_string(), 2 => format!("{d:02}"), 3 => DAYS[weekday(y, mo, d)][..3].to_string(), _ => DAYS[weekday(y, mo, d)].to_string() },
+            // Word accepts D and Y as d and y (M and m differ, so they stay case-sensitive).
+            'd' | 'D' => out += &match run { 1 => d.to_string(), 2 => format!("{d:02}"), 3 => DAYS[weekday(y, mo, d)][..3].to_string(), _ => DAYS[weekday(y, mo, d)].to_string() },
             'M' => out += &match run { 1 => mo.to_string(), 2 => format!("{mo:02}"), 3 => MONTHS[mo as usize - 1][..3].to_string(), _ => MONTHS[mo as usize - 1].to_string() },
-            'y' => out += &if run <= 2 { format!("{:02}", y % 100) } else { y.to_string() },
+            'y' | 'Y' => out += &if run <= 2 { format!("{:02}", y % 100) } else { y.to_string() },
             'h' => { let h12 = if h % 12 == 0 { 12 } else { h % 12 }; out += &if run == 1 { h12.to_string() } else { format!("{h12:02}") }; }
             'H' => out += &if run == 1 { h.to_string() } else { format!("{h:02}") },
             'm' => out += &if run == 1 { mi.to_string() } else { format!("{mi:02}") },
@@ -94,5 +95,7 @@ mod tests {
         assert_eq!(super::format_date(t, "M/d/yy h:mm am/pm"), "10/22/26 4:05 pm");
         assert_eq!(super::format_date(t, "yyyy-MM-dd HH:mm:ss"), "2026-10-22 16:05:09");
         assert_eq!(super::format_date(t, "d MMM 'at' H"), "22 Oct at 16");
+        assert_eq!(super::format_date(t, "DD/MM/YYYY"), "22/10/2026", "uppercase D and Y");
+        assert_eq!(super::format_date(t, "'Day' D"), "Day 22");
     }
 }

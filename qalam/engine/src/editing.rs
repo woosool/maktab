@@ -202,7 +202,7 @@ impl Document {
             // Case mappings that change the length (ß → SS) keep the original character.
             out.push_str(if mapped.chars().count() == 1 { &mapped } else { "" });
             if mapped.chars().count() != 1 { out.push(c); }
-            if c.is_alphabetic() { start_of_sentence = false; }
+            if c.is_alphanumeric() { start_of_sentence = false; }
             if matches!(c, '.' | '!' | '?' | '\n') { start_of_sentence = true; }
             start_of_word = !c.is_alphanumeric() && c != '\'';
         }
@@ -482,6 +482,10 @@ mod tests {
         d.select(0, 13);
         d.cycle_case();
         assert_eq!(d.text(), "مرحبا بالعالم");
+        let mut d = doc("PI IS 3.14 ROUGHLY");
+        d.select(0, 18);
+        d.change_case(CaseMode::Sentence);
+        assert_eq!(d.text(), "Pi is 3.14 roughly", "a decimal point does not start a sentence");
         let mut d = doc("pear\n10\napple\n9");
         d.select_all();
         assert!(d.sort_paragraphs(false));
