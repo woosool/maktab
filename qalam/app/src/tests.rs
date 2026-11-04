@@ -1682,6 +1682,31 @@ fn paragraph_dialog_formatting_exceptions() {
     assert!(d.no_line_numbers && d.no_hyphenate, "the dialog reads them back");
 }
 
+/// Apply in the Paragraph dialog sets only what was changed: selected paragraphs keep their own
+/// alignment and indents.
+#[test]
+fn paragraph_dialog_changes_only_what_was_edited() {
+    let mut h = typed("فقرة عربية");
+    let doc = &mut h.state_mut().doc;
+    doc.replace("\nEnglish line");
+    doc.select(0, 0);
+    doc.set_para_props(word_engine::ParaProps { alignment: Some(word_engine::Alignment::Center), indent_left: Some(720), ..Default::default() });
+    doc.select_all();
+    crate::ui::open_paragraph_dialog(h.state_mut());
+    h.run_steps(3);
+    h.get_by_label("Keep with next").click();
+    h.run_steps(2);
+    h.get_by_label("Apply").click();
+    h.run_steps(3);
+    let doc = &h.state().doc;
+    let (a, b) = (doc.para_format(&doc.paragraphs[0]), doc.para_format(&doc.paragraphs[1]));
+    assert!(a.keep_next && b.keep_next);
+    assert_eq!(a.alignment, word_engine::Alignment::Center);
+    assert_eq!(a.indent_left, 720);
+    assert_ne!(b.alignment, word_engine::Alignment::Center);
+    assert_eq!(b.indent_left, 0);
+}
+
 /// right-clicking a gallery style offers Update … to Match Selection.
 #[test]
 fn style_gallery_update_to_match_selection() {

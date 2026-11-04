@@ -28,6 +28,9 @@ pub struct ParagraphDraft {
     pub left: f32, pub right: f32, pub first: f32, pub before: f32, pub after: f32, pub rule: word_engine::LineRule, pub spacing: f32,
     pub alignment: word_engine::Alignment, pub rtl: bool, pub outline: u8, pub contextual: bool, pub no_line_numbers: bool, pub no_hyphenate: bool,
     pub widow: bool, pub keep_next: bool, pub keep_lines: bool, pub page_break_before: bool,
+    /// The values the dialog opened with: Apply sets only what was changed, so the other
+    /// selected paragraphs keep their own settings.
+    pub opened: Option<Box<ParagraphDraft>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

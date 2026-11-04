@@ -63,12 +63,14 @@ pub fn shortcuts(app: &mut WordApp, ctx: &egui::Context) {
 pub fn open_paragraph_dialog(app: &mut WordApp) {
     let f = app.doc.current_para_format();
     let rtl = app.doc.paragraph_rtl(app.doc.current_paragraph());
-    app.dialogs.paragraph = Some(ParagraphDraft {
+    let mut draft = ParagraphDraft {
         left: f.indent_left as f32 / 1440.0, right: f.indent_right as f32 / 1440.0, first: f.first_line as f32 / 1440.0,
         before: f.space_before, after: f.space_after, rule: f.line_rule, spacing: f.line_spacing,
         alignment: f.alignment, rtl, outline: f.outline_level, contextual: f.contextual_spacing, no_line_numbers: f.suppress_line_numbers, no_hyphenate: f.suppress_hyphens,
-        widow: f.widow_control, keep_next: f.keep_next, keep_lines: f.keep_lines, page_break_before: f.page_break_before,
-    });
+        widow: f.widow_control, keep_next: f.keep_next, keep_lines: f.keep_lines, page_break_before: f.page_break_before, opened: None,
+    };
+    draft.opened = Some(Box::new(draft.clone()));
+    app.dialogs.paragraph = Some(draft);
 }
 
 pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
@@ -273,11 +275,16 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
             crate::theme::footer(ui, |ui| if crate::theme::primary(ui, "Apply").clicked() { apply = true; });
         });
         if apply {
+            // Without the opening values (never expected), everything is applied.
+            let all = d.opened.is_none();
+            let o = d.opened.as_deref().cloned().unwrap_or_else(|| d.clone());
+            let set = |changed: bool| all || changed;
+            let line = set(d.rule != o.rule || d.spacing != o.spacing);
             app.doc.set_para_props(word_engine::ParaProps {
-                indent_left: Some((d.left * 1440.0).round() as i32), indent_right: Some((d.right * 1440.0).round() as i32), first_line: Some((d.first * 1440.0).round() as i32),
-                space_before: Some(d.before), space_after: Some(d.after), line_rule: Some(d.rule), line_spacing: Some(d.spacing),
-                alignment: Some(d.alignment), rtl: Some(d.rtl), outline_level: Some(d.outline), contextual_spacing: Some(d.contextual), suppress_line_numbers: Some(d.no_line_numbers), suppress_hyphens: Some(d.no_hyphenate),
-                widow_control: Some(d.widow), keep_next: Some(d.keep_next), keep_lines: Some(d.keep_lines), page_break_before: Some(d.page_break_before), ..Default::default()
+                indent_left: set(d.left != o.left).then_some(d.left).map(|v| (v * 1440.0).round() as i32), indent_right: set(d.right != o.right).then_some(d.right).map(|v| (v * 1440.0).round() as i32), first_line: set(d.first != o.first).then_some(d.first).map(|v| (v * 1440.0).round() as i32),
+                space_before: set(d.before != o.before).then_some(d.before), space_after: set(d.after != o.after).then_some(d.after), line_rule: line.then_some(d.rule), line_spacing: line.then_some(d.spacing),
+                alignment: set(d.alignment != o.alignment).then_some(d.alignment), rtl: set(d.rtl != o.rtl).then_some(d.rtl), outline_level: set(d.outline != o.outline).then_some(d.outline), contextual_spacing: set(d.contextual != o.contextual).then_some(d.contextual), suppress_line_numbers: set(d.no_line_numbers != o.no_line_numbers).then_some(d.no_line_numbers), suppress_hyphens: set(d.no_hyphenate != o.no_hyphenate).then_some(d.no_hyphenate),
+                widow_control: set(d.widow != o.widow).then_some(d.widow), keep_next: set(d.keep_next != o.keep_next).then_some(d.keep_next), keep_lines: set(d.keep_lines != o.keep_lines).then_some(d.keep_lines), page_break_before: set(d.page_break_before != o.page_break_before).then_some(d.page_break_before), ..Default::default()
             });
             app.dialogs.paragraph = None;
         } else if open { app.dialogs.paragraph = Some(d); } else { app.dialogs.paragraph = None; }
