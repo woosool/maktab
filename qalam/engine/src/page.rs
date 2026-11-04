@@ -96,6 +96,22 @@ pub struct PageGeometry {
 
 pub fn twips(v: i32) -> f32 { v as f32 / 15.0 }
 
+impl PageGeometry {
+    /// A section's text columns on the page: (left, width) each, in px.
+    pub fn columns(&self, c: &Columns) -> Vec<(f32, f32)> {
+        let total = self.width - self.left - self.right;
+        if c.count <= 1 { return vec![(self.left, total)]; }
+        if !c.widths.is_empty() {
+            let mut x = self.left;
+            return c.widths.iter().map(|&(w, sp)| { let col = (x, twips(w)); x += twips(w) + twips(sp); col }).collect();
+        }
+        let n = c.count as f32;
+        let space = twips(c.space);
+        let w = ((total - space * (n - 1.0)) / n).max(24.0);
+        (0..c.count).map(|k| (self.left + k as f32 * (w + space), w)).collect()
+    }
+}
+
 impl PageSettings {
     pub fn validate(&self) -> Result<(), String> {
         if self.width < 1440 || self.height < 1440 { return Err("Pages must be at least one inch wide and high.".into()); }

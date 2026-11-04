@@ -56,11 +56,15 @@ fn text_box(app: &WordApp) -> (f32, f32) {
             return (b.x0 + m(3), b.x1 - m(1));
         }
     }
-    (g.left, g.width - g.right)
+    // In columns, the caret's column.
+    let section = app.doc.section_at(app.doc.current_section());
+    let x = app.layout.caret_rect(app.doc.selection.focus).map(|c| c.x).unwrap_or(g.left);
+    let dist = |&(l, w): &(f32, f32)| if x < l { l - x } else if x > l + w { x - l - w } else { 0.0 };
+    g.columns(&section.columns).into_iter().min_by(|a, b| dist(a).total_cmp(&dist(b))).map(|(l, w)| (l, l + w)).unwrap_or((g.left, g.width - g.right))
 }
 
 /// Physical marker positions in page px: (first line, hanging/left, right, start side is right).
-fn markers(app: &WordApp) -> (f32, f32, f32, bool) {
+pub(crate) fn markers(app: &WordApp) -> (f32, f32, f32, bool) {
     let (bl, br) = text_box(app);
     let f = app.doc.current_para_format();
     let rtl = app.doc.paragraph_rtl(app.doc.current_paragraph());

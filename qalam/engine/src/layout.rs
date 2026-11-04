@@ -1024,20 +1024,7 @@ impl<'a> Placer<'a> {
     }
 
     /// Column positions for a section on this page.
-    fn section_columns(&self, s: &crate::page::Section) -> Vec<(f32, f32)> {
-        let g = self.ctx.page;
-        let total = g.width - g.left - g.right;
-        let c = &s.columns;
-        if c.count <= 1 { return vec![(g.left, total)]; }
-        if !c.widths.is_empty() {
-            let mut x = g.left;
-            return c.widths.iter().map(|&(w, sp)| { let col = (x, twips(w)); x += twips(w) + twips(sp); col }).collect();
-        }
-        let n = c.count as f32;
-        let space = twips(c.space);
-        let w = ((total - space * (n - 1.0)) / n).max(24.0);
-        (0..c.count).map(|k| (g.left + k as f32 * (w + space), w)).collect()
-    }
+    fn section_columns(&self, s: &crate::page::Section) -> Vec<(f32, f32)> { self.ctx.page.columns(&s.columns) }
 
     /// Start a section: its break (new page, even/odd page, or continuing below the previous
     /// section), then its columns and line numbering. `height` (an estimate of the section's

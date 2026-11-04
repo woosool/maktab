@@ -483,6 +483,27 @@ fn arabic_typing_rtl_and_arrows() {
     save(&mut h, "arabic");
 }
 
+/// In columns, the ruler's indent markers sit over the caret's column.
+#[test]
+fn ruler_indent_markers_follow_the_caret_column() {
+    let mut h = typed("السطر الأول");
+    h.key_press(Key::Enter);
+    h.event(Event::Text("Line 2".into()));
+    h.run_steps(2);
+    h.state_mut().doc.set_columns(word_engine::page::Columns { count: 2, ..Default::default() });
+    let p = h.state().doc.paragraph_start(1);
+    h.state_mut().doc.select(p, p);
+    h.state_mut().doc.replace(&word_engine::chars::COLUMN_BREAK.to_string());
+    h.run_steps(3);
+    let app = h.state();
+    let caret = app.layout.caret_rect(app.doc.selection.focus).unwrap();
+    let g = app.page_geometry();
+    assert!(caret.x > g.width / 2.0, "the caret is in the second column");
+    let (_, left, right, _) = crate::ruler::markers(app);
+    assert!((left - caret.x).abs() < 2.0, "the left indent marker is over the second column ({left} vs {})", caret.x);
+    assert!((right - (g.width - g.right)).abs() < 2.0, "the right indent marker is at the column's right edge");
+}
+
 #[test]
 fn lists_ruler_and_table_handles() {
     use word_engine::numbering::NumFmt;
