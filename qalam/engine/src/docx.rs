@@ -501,6 +501,9 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                         flush(&mut text, runs);
                         if let Some(obj) = self.drawing_object(d) { runs.push(Run { text: chars::OBJECT.to_string(), object: Some(obj), anchor: read_anchor(d), ..base.with(String::new()) }); }
                         else if let Some(img) = self.drawing(d) { runs.push(Run { text: chars::OBJECT.to_string(), image: Some(img), anchor: read_anchor(d), ..base.with(String::new()) }); }
+                    } else if let Some(shape) = vml_shape(c) {
+                        flush(&mut text, runs);
+                        runs.push(Run { text: chars::OBJECT.to_string(), object: Some(crate::objects::Object::Shape(shape)), ..base.with(String::new()) });
                     }
                 }
                 "w:footnoteReference" | "w:endnoteReference" => {
@@ -2087,6 +2090,62 @@ pub fn write(doc: &Document) -> Result<Vec<u8>, String> {
     Ok(out.into_inner())
 }
 
+
+/// A VML shape inside w:pict (v:rect, v:roundrect, v:oval, v:line, or a v:shape of a preset
+/// type such as `#_x0000_t13`, the right arrow), as the matching DrawingML shape.
+fn vml_shape(pict: &Element) -> Option<crate::objects::Shape> {
+    use crate::objects::{Shape, ShapeKind};
+    let (e, kind) = pict.elements().find_map(|e| {
+        let kind = match e.name.as_str() {
+            "v:rect" => Some(ShapeKind::Rect),
+            "v:roundrect" => Some(ShapeKind::RoundRect),
+            "v:oval" => Some(ShapeKind::Ellipse),
+            "v:line" => Some(ShapeKind::Line),
+            "v:shape" => {
+                // The preset number: from the shape type it names, or that type's id (_x0000_tNN).
+                let id = e.attr("type").map(|t| t.trim_start_matches('#'))?;
+                let spt = pict.children_named("v:shapetype").find(|t| t.attr("id") == Some(id)).and_then(|t| t.attr("o:spt")).map(str::to_string)
+                    .or_else(|| id.strip_prefix("_x0000_t").map(str::to_string))?;
+                match spt.parse::<f32>().ok()? as u32 {
+                    1 => Some(ShapeKind::Rect), 2 => Some(ShapeKind::RoundRect), 3 => Some(ShapeKind::Ellipse), 4 => Some(ShapeKind::Diamond),
+                    5 => Some(ShapeKind::Triangle), 6 => Some(ShapeKind::RightTriangle), 7 => Some(ShapeKind::Parallelogram), 8 => Some(ShapeKind::Trapezoid),
+                    9 => Some(ShapeKind::Hexagon), 10 => Some(ShapeKind::Octagon), 11 => Some(ShapeKind::Plus), 12 => Some(ShapeKind::Star5),
+                    13 => Some(ShapeKind::RightArrow), 20 | 32 => Some(ShapeKind::Line), 55 => Some(ShapeKind::Chevron), 56 => Some(ShapeKind::Pentagon),
+                    61 => Some(ShapeKind::Callout), 66 => Some(ShapeKind::LeftArrow), 67 => Some(ShapeKind::DownArrow), 68 => Some(ShapeKind::UpArrow),
+                    74 => Some(ShapeKind::Heart), _ => None,
+                }
+            }
+            _ => None,
+        }?;
+        // A shape showing a picture is a picture, not a drawn shape.
+        (e.child("v:imagedata").is_none()).then_some((e, kind))
+    })?;
+    // Size from the CSS style (width:150pt;height:20.25pt), in px.
+    let style = e.attr("style").unwrap_or_default();
+    let dim = |name: &str| style.split(';').filter_map(|d| d.split_once(':')).find(|(k, _)| k.trim() == name).and_then(|(_, v)| {
+        let v = v.trim();
+        let (num, unit) = v.split_at(v.find(|c: char| c.is_ascii_alphabetic()).unwrap_or(v.len()));
+        let n = num.trim().parse::<f32>().ok()?;
+        let px = n * match unit { "pt" => 96.0 / 72.0, "in" => 96.0, "cm" => 96.0 / 2.54, "mm" => 96.0 / 25.4, "pc" => 16.0, _ => 1.0 };
+        px.is_finite().then_some(px.max(0.0))
+    });
+    let mut shape = Shape::new(kind);
+    if let (Some(w), Some(h)) = (dim("width"), dim("height")) { (shape.width, shape.height) = (w, h); }
+    // VML colors: "#ED7D31", "#ED7D31 [3205]", or a few names.
+    let color = |v: &str| { let v = v.split_whitespace().next().unwrap_or_default(); Color::from_hex(v).or(match v { "black" => Some(Color::BLACK), "white" => Some(Color::WHITE), _ => None }) };
+    let off = |a: &str| e.attr(a).is_some_and(|v| v == "f" || v == "false");
+    // VML's defaults: white fill and a black, 0.75 pt line.
+    shape.fill = if off("filled") || kind.is_line() { None } else { Some(e.attr("fillcolor").and_then(color).unwrap_or(Color::WHITE)) };
+    shape.outline = if off("stroked") { None } else { Some(e.attr("strokecolor").and_then(color).unwrap_or(Color::BLACK)) };
+    shape.outline_width = e.attr("strokeweight").and_then(|w| w.trim_end_matches("pt").trim().parse::<f32>().ok()).filter(|w| w.is_finite()).unwrap_or(0.75);
+    if let Some(tx) = e.find("w:txbxContent") {
+        shape.text = tx.children_named("w:p").map(|p| p.text()).collect::<Vec<_>>().join("\n");
+        shape.text_color = tx.find("w:color").and_then(|c| c.attr("w:val")).and_then(Color::from_hex).unwrap_or(Color::BLACK);
+        shape.textbox = true;
+    }
+    Some(shape)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2219,6 +2278,19 @@ mod tests {
         assert_eq!(d.para_format(&outside).space_after, 8.0);
         assert!(!d.run_format(&outside, &outside.runs[0]).bold);
         assert!(d.styles.table_style_borders("RedGrid"));
+    }
+
+    #[test]
+    fn vml_preset_shapes_are_drawn() {
+        use crate::objects::{Object, ShapeKind};
+        let doc = r##"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><w:body><w:p><w:r><w:pict><v:shapetype id="_x0000_t13" coordsize="21600,21600" o:spt="13" path="m@0,l@0@3,0@3,0@2@0@2@0,21600,21600,10800xe"/><v:shape id="s1" type="#_x0000_t13" style="width:36pt;height:18pt" fillcolor="#ed7d31 [3205]" strokecolor="#2f528f"/></w:pict></w:r><w:r><w:t>مسار المريض</w:t></w:r></w:p><w:p><w:r><w:pict><v:oval style="width:1in;height:0.5in" stroked="f"/></w:pict></w:r></w:p></w:body></w:document>"##;
+        let d = read(&raw_docx(doc)).unwrap();
+        let shapes: Vec<_> = d.paragraphs.iter().flat_map(|p| p.runs.iter()).filter_map(|r| match &r.object { Some(Object::Shape(s)) => Some(s.clone()), _ => None }).collect();
+        assert_eq!(shapes.len(), 2);
+        assert_eq!((shapes[0].kind, shapes[0].width, shapes[0].height), (ShapeKind::RightArrow, 48.0, 24.0));
+        assert_eq!((shapes[0].fill, shapes[0].outline), (Color::from_hex("ED7D31"), Color::from_hex("2F528F")));
+        assert_eq!((shapes[1].kind, shapes[1].width, shapes[1].outline), (ShapeKind::Ellipse, 96.0, None));
+        assert!(d.paragraphs[0].text().ends_with("مسار المريض"));
     }
 
     #[test]
