@@ -745,9 +745,13 @@ pub fn render_diagram(d: &Diagram, x: f32, y: f32) -> Vec<DrawItem> {
 mod tests {
     use super::*;
     /// Glyph runs left to right: (first char of the run, glyph ids).
+    /// A run's first letter in reading order (its glyphs are in visual order).
+    fn first_in(text: &str, glyphs: &[Glyph]) -> char {
+        glyphs.iter().map(|g| g.ch).filter(|c| *c != crate::layout::CONTINUATION).min_by_key(|c| text.find(*c).unwrap_or(usize::MAX)).unwrap_or(' ')
+    }
     fn runs(text: &str) -> Vec<(char, Vec<u16>)> {
         let mut v: Vec<(f32, char, Vec<u16>)> = text_line(text, "Calibri", false, 12.0, Color::BLACK, 0.0, 0.0).0.into_iter()
-            .filter_map(|d| if let DrawItem::Glyphs { glyphs, .. } = d { Some((glyphs[0].x, glyphs[0].ch, glyphs.iter().map(|g| g.gid).collect())) } else { None }).collect();
+            .filter_map(|d| if let DrawItem::Glyphs { glyphs, .. } = d { Some((glyphs[0].x, first_in(text, &glyphs), glyphs.iter().map(|g| g.gid).collect())) } else { None }).collect();
         v.sort_by(|a, b| a.0.total_cmp(&b.0));
         v.into_iter().map(|(_, c, g)| (c, g)).collect()
     }
@@ -762,7 +766,7 @@ mod tests {
         assert!(text_is_rtl("السنة 2026") && !text_is_rtl("2026 Hello"));
         // A wrapped line of an Arabic paragraph that starts with a number keeps the paragraph's
         // direction: the number sits at the right end.
-        let d: Vec<f32> = text_line_dir("2026 السنة", true, "Calibri", false, 12.0, Color::BLACK, 0.0, 0.0).0.into_iter().filter_map(|d| if let DrawItem::Glyphs { glyphs, .. } = d { (glyphs[0].ch == '2').then_some(glyphs[0].x) } else { None }).collect();
+        let d: Vec<f32> = text_line_dir("2026 السنة", true, "Calibri", false, 12.0, Color::BLACK, 0.0, 0.0).0.into_iter().filter_map(|d| if let DrawItem::Glyphs { glyphs, .. } = d { glyphs.iter().any(|g| g.ch == '2').then_some(glyphs[0].x) } else { None }).collect();
         assert!(d[0] > 20.0, "number at the right of an rtl line: {d:?}");
         // Plain Latin text is unaffected.
         assert_eq!(runs("Hello 2026").len(), 1);

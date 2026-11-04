@@ -76,7 +76,7 @@ fn formatting_pane(app: &mut WordApp, ui: &mut Ui) {
         crate::theme::grid(ui, egui::Grid::new("fmt-para").num_columns(2), |ui| {
             let mut row = |k: &str, v: String| { ui.label(crate::i18n::tr(k)); ui.label(v); ui.end_row(); };
             row("Style:", title_case(&app.doc.paragraph_style()));
-            row("Alignment:", match p.alignment { Alignment::Left => "Left", Alignment::Center => "Centered", Alignment::Right => "Right", Alignment::Justify => "Justified" }.into());
+            row("Alignment:", match p.alignment { Alignment::Left => "Left", Alignment::Center => "Centered", Alignment::Right => "Right", Alignment::Justify => "Justified", Alignment::Kashida(_) => "Justify (kashida)" }.into());
             row("Indent:", format!("Left {:.2}\", Right {:.2}\"", p.indent_left as f32 / 1440.0, p.indent_right as f32 / 1440.0));
             if p.first_line != 0 { row(if p.first_line > 0 { "First line:" } else { "Hanging:" }, format!("{:.2}\"", p.first_line.abs() as f32 / 1440.0)); }
             row("Spacing:", crate::i18n::trf("Before {} pt, After {} pt", &[&p.space_before, &p.space_after]));

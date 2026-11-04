@@ -239,8 +239,8 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
             crate::theme::section(ui, "General");
             crate::theme::grid(ui, egui::Grid::new("para-general").num_columns(2), |ui| {
                 ui.label(crate::i18n::tr("Alignment"));
-                crate::theme::Combo::from_id_salt("p-align").selected_text(crate::i18n::tr(&(match d.alignment { Alignment::Left => if d.rtl { "Right (start)" } else { "Left" }, Alignment::Center => "Centered", Alignment::Right => if d.rtl { "Left (end)" } else { "Right" }, Alignment::Justify => "Justified" }))).show_ui(ui, |ui| {
-                    for (a, n) in [(Alignment::Left, "Start (left)"), (Alignment::Center, "Centered"), (Alignment::Right, "End (right)"), (Alignment::Justify, "Justified")] { ui.selectable_value(&mut d.alignment, a, crate::i18n::tr(&n)); }
+                crate::theme::Combo::from_id_salt("p-align").selected_text(crate::i18n::tr(&(match d.alignment { Alignment::Left => if d.rtl { "Right (start)" } else { "Left" }, Alignment::Center => "Centered", Alignment::Right => if d.rtl { "Left (end)" } else { "Right" }, Alignment::Justify => "Justified", Alignment::Kashida(_) => "Justify (kashida)" }))).show_ui(ui, |ui| {
+                    for (a, n) in [(Alignment::Left, "Start (left)"), (Alignment::Center, "Centered"), (Alignment::Right, "End (right)"), (Alignment::Justify, "Justified"), (Alignment::Kashida(2), "Justify (kashida)")] { ui.selectable_value(&mut d.alignment, a, crate::i18n::tr(&n)); }
                 });
                 ui.end_row();
                 ui.label(crate::i18n::tr("Outline level"));

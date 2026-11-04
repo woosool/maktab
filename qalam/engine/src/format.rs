@@ -155,14 +155,15 @@ impl RunFormat {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum Alignment { #[default] Left, Center, Right, Justify }
+/// `Kashida(1..=3)`: justified by lengthening Arabic joins (low, medium, high kashida).
+pub enum Alignment { #[default] Left, Center, Right, Justify, Kashida(u8) }
 
 impl Alignment {
     pub fn from_ooxml(v: &str) -> Alignment {
-        match v { "center" => Alignment::Center, "right" | "end" => Alignment::Right, "both" | "distribute" | "lowKashida" | "mediumKashida" | "highKashida" | "thaiDistribute" => Alignment::Justify, _ => Alignment::Left }
+        match v { "center" => Alignment::Center, "right" | "end" => Alignment::Right, "lowKashida" => Alignment::Kashida(1), "mediumKashida" => Alignment::Kashida(2), "highKashida" => Alignment::Kashida(3), "both" | "distribute" | "thaiDistribute" => Alignment::Justify, _ => Alignment::Left }
     }
     pub fn ooxml(&self) -> &'static str {
-        match self { Alignment::Left => "left", Alignment::Center => "center", Alignment::Right => "right", Alignment::Justify => "both" }
+        match self { Alignment::Left => "left", Alignment::Center => "center", Alignment::Right => "right", Alignment::Justify => "both", Alignment::Kashida(1) => "lowKashida", Alignment::Kashida(2) => "mediumKashida", Alignment::Kashida(_) => "highKashida" }
     }
 }
 

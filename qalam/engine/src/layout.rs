@@ -239,6 +239,9 @@ struct Atom {
     glyphs: (u32, u16),
     /// A shape, chart or diagram drawn in this atom's box (`image` holds its size).
     object: Option<std::sync::Arc<crate::objects::Object>>,
+    /// Kashida justification: extra width drawn as tatweel between this Arabic letter and the
+    /// one it joins (on its left).
+    kashida: f32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -413,9 +416,9 @@ impl<'a> Ctx<'a> {
                         '\u{F000}'..='\u{F0FF}' => ['\u{2022}', '\u{25E6}', '\u{25AA}'][ilvl as usize % 3],
                         c => c,
                     };
-                    atoms.push(Atom { ch: c, pos: None, width: fonts::advance(f.key, c, f.size), fmt: fi, kind: Kind::Char, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None });
+                    atoms.push(Atom { ch: c, pos: None, width: fonts::advance(f.key, c, f.size), fmt: fi, kind: Kind::Char, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None, kashida: 0.0 });
                 }
-                atoms.push(Atom { ch: '\t', pos: None, width: 0.0, fmt: fi, kind: Kind::Tab, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None });
+                atoms.push(Atom { ch: '\t', pos: None, width: 0.0, fmt: fi, kind: Kind::Tab, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None, kashida: 0.0 });
             }
         }
 
@@ -436,7 +439,7 @@ impl<'a> Ctx<'a> {
                 let (w, h, asset, rot, flip) = match (&run.object, &run.image) { (Some(o), _) => { let (w, h) = o.size(); (w, h, String::new(), 0.0, (false, false)) } (_, Some(i)) => (i.width, i.height, i.asset.clone(), i.rotation, (i.flip_h, i.flip_v)), _ => (0.0, 0.0, String::new(), 0.0, (false, false)) };
                 let contour = if anchor.wrap == crate::model::Wrap::Tight && run.image.is_some() { doc.assets.get(&asset).and_then(|a| crate::picture::contour(&asset, &a.bytes)).map(|c| c.iter().map(|&(u, v)| (u * w, v * h)).collect()) } else { None };
                 floats.push(FloatSpec { pos, w, h, anchor, asset, rot, flip, object: run.object.clone().map(std::sync::Arc::new), contour });
-                atoms.push(Atom { ch: chars::OBJECT, pos: Some(pos), width: 0.0, fmt: fi, kind: Kind::Image, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None });
+                atoms.push(Atom { ch: chars::OBJECT, pos: Some(pos), width: 0.0, fmt: fi, kind: Kind::Image, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None, kashida: 0.0 });
                 pos += run.len();
                 continue;
             }
@@ -444,13 +447,13 @@ impl<'a> Ctx<'a> {
                 let (w, h) = obj.size();
                 let rot = match obj { crate::objects::Object::Shape(s) => s.rotation, _ => 0.0 };
                 let (bw, _) = rotated_bbox(w, h, rot);
-                atoms.push(Atom { ch: chars::OBJECT, pos: Some(pos), width: bw, fmt: fi, kind: Kind::Image, image: Some((String::new(), w, h, rot, (false, false))), leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: Some(std::sync::Arc::new(obj.clone())) });
+                atoms.push(Atom { ch: chars::OBJECT, pos: Some(pos), width: bw, fmt: fi, kind: Kind::Image, image: Some((String::new(), w, h, rot, (false, false))), leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: Some(std::sync::Arc::new(obj.clone())), kashida: 0.0 });
                 pos += run.len();
                 continue;
             }
             if let Some(img) = &run.image {
                 let (bw, _) = rotated_bbox(img.width, img.height, img.rotation);
-                atoms.push(Atom { ch: chars::OBJECT, pos: Some(pos), width: bw, fmt: fi, kind: Kind::Image, image: Some((img.asset.clone(), img.width, img.height, img.rotation, (img.flip_h, img.flip_v))), leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None });
+                atoms.push(Atom { ch: chars::OBJECT, pos: Some(pos), width: bw, fmt: fi, kind: Kind::Image, image: Some((img.asset.clone(), img.width, img.height, img.rotation, (img.flip_h, img.flip_v))), leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None, kashida: 0.0 });
                 pos += run.len();
                 continue;
             }
@@ -460,7 +463,7 @@ impl<'a> Ctx<'a> {
                 if nf.shift == 0.0 { let full = nf.size; nf.size = full * 0.65; nf.shift = full * 0.33; }
                 let ni = match fmts.iter().position(|x| x.key == nf.key && x.size == nf.size && x.shift == nf.shift && x.color == nf.color && x.revision == nf.revision && x.link.is_none()) { Some(i) => i, None => { fmts.push(nf.clone()); fmts.len() - 1 } };
                 let w: f32 = label.chars().map(|c| fonts::advance(nf.key, c, nf.size)).sum();
-                atoms.push(Atom { ch: chars::NOTE, pos: Some(pos), width: if nf.hidden { 0.0 } else { w }, fmt: ni, kind: Kind::Note, image: None, leader: Leader::None, note: Some((n.kind, n.id.clone())), field: None, key: None, level: 0, glyphs: (0, 0), object: None });
+                atoms.push(Atom { ch: chars::NOTE, pos: Some(pos), width: if nf.hidden { 0.0 } else { w }, fmt: ni, kind: Kind::Note, image: None, leader: Leader::None, note: Some((n.kind, n.id.clone())), field: None, key: None, level: 0, glyphs: (0, 0), object: None, kashida: 0.0 });
                 pos += run.len();
                 continue;
             }
@@ -470,7 +473,7 @@ impl<'a> Ctx<'a> {
                 let n = run.len();
                 // A field's result is one unit for editing purposes: the first atom carries its width.
                 for (k, _) in run.text.chars().enumerate() {
-                    atoms.push(Atom { ch: ' ', pos: Some(pos + k), width: if k == 0 { w } else { 0.0 }, fmt: fi, kind: Kind::Field, image: None, leader: Leader::None, note: None, field: if k == 0 { Some(field.clone()) } else { None }, key: None, level: 0, glyphs: (0, 0), object: None });
+                    atoms.push(Atom { ch: ' ', pos: Some(pos + k), width: if k == 0 { w } else { 0.0 }, fmt: fi, kind: Kind::Field, image: None, leader: Leader::None, note: None, field: if k == 0 { Some(field.clone()) } else { None }, key: None, level: 0, glyphs: (0, 0), object: None, kashida: 0.0 });
                 }
                 pos += n;
                 continue;
@@ -496,9 +499,9 @@ impl<'a> Ctx<'a> {
                     Kind::Char | Kind::Space => fonts::advance(af.key, shown, af.size) + af.spacing,
                     _ => 0.0,
                 } };
-                atoms.push(Atom { ch: shown, pos: Some(pos), width, fmt: afi, kind, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None });
+                atoms.push(Atom { ch: shown, pos: Some(pos), width, fmt: afi, kind, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None, kashida: 0.0 });
                 // Capitals of ß are two letters (SS, as Word shows); the extra one has no document position.
-                if shown != c { for e in c.to_uppercase().skip(1) { let width = if af.hidden { 0.0 } else { fonts::advance(af.key, e, af.size) + af.spacing }; atoms.push(Atom { ch: e, pos: None, width, fmt: afi, kind, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None }); } }
+                if shown != c { for e in c.to_uppercase().skip(1) { let width = if af.hidden { 0.0 } else { fonts::advance(af.key, e, af.size) + af.spacing }; atoms.push(Atom { ch: e, pos: None, width, fmt: afi, kind, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None, kashida: 0.0 }); } }
                 pos += 1;
             }
         }
@@ -780,12 +783,24 @@ impl<'a> Ctx<'a> {
         // Alignment: left/right are start/end, mirrored in right-to-left paragraphs.
         let natural_w: f32 = atoms[..trail].iter().map(|a| a.width).sum();
         let extra = (avail - natural_w).max(0.0);
-        let justify = f.alignment == Alignment::Justify && !last && !soft_break;
-        let align = match f.alignment { Alignment::Justify => Alignment::Left, a => a };
+        let justify = matches!(f.alignment, Alignment::Justify | Alignment::Kashida(_)) && !last && !soft_break;
+        let align = match f.alignment { Alignment::Justify | Alignment::Kashida(_) => Alignment::Left, a => a };
         let align = if rtl { match align { Alignment::Left => Alignment::Right, Alignment::Right => Alignment::Left, a => a } } else { align };
         // A line wider than its room overflows on its end side: past the left edge in RTL.
         let mut offset = line_left + if rtl { (avail - natural_w).min(0.0) } else { 0.0 };
         if !justify { match align { Alignment::Center => offset += extra / 2.0, Alignment::Right => offset += extra, _ => {} } }
+        let mut extra = extra;
+        if justify && let Alignment::Kashida(level) = f.alignment {
+            // Kashida justification: part of the room (a third, two thirds or all of it for
+            // low, medium and high) lengthens joins between Arabic letters, one per word.
+            let joins = kashida_points(&atoms[..trail]);
+            if !joins.is_empty() {
+                let share = extra * (level.clamp(1, 3) as f32 / 3.0);
+                let add = share / joins.len() as f32;
+                for k in joins { atoms[k].kashida = add; atoms[k].width += add; }
+                extra -= share;
+            }
+        }
         if justify {
             // Spaces after the last tab expand; the final line keeps natural spacing.
             let from = atoms[..trail].iter().rposition(|a| a.kind == Kind::Tab).map(|t| t + 1).unwrap_or(0);
@@ -808,6 +823,25 @@ impl<'a> Ctx<'a> {
         }
         MLine { atoms, x: xs, height, baseline, start: 0, end: 0, page_break_after: false, column_break_after: false, last, left: line_left, right: right_edge, order, trail, rtl, hyphen: false, skip: 0.0 }
     }
+}
+
+/// Where kashidas go: in each word, the last Arabic letter that joins the letter after it
+/// (not before a lam-alef ligature).
+fn kashida_points(atoms: &[Atom]) -> Vec<usize> {
+    let letter = |c: char| ('\u{0620}'..='\u{064A}').contains(&c) && c != '\u{0621}' && c != '\u{0640}';
+    let joins_next = |c: char| letter(c) && !"اأإآٱدذرزوؤةى".contains(c);
+    let mark = |c: char| ('\u{064B}'..='\u{065F}').contains(&c) || c == '\u{0670}';
+    let mut out = vec![];
+    let mut best: Option<usize> = None;
+    for k in 0..atoms.len() {
+        let a = &atoms[k];
+        if a.kind != Kind::Char { if let Some(b) = best.take() { out.push(b); } continue; }
+        if a.level % 2 == 0 || !joins_next(a.ch) { continue; }
+        let next = atoms[k + 1..].iter().find(|n| !(n.kind == Kind::Char && mark(n.ch)));
+        if let Some(n) = next && n.kind == Kind::Char && letter(n.ch) && !(a.ch == 'ل' && "اأإآ".contains(n.ch)) { best = Some(k); }
+    }
+    if let Some(b) = best { out.push(b); }
+    out
 }
 
 /// The bounding box of a w×h box turned by `deg`: what a rotated inline object takes in its line.
@@ -1321,7 +1355,7 @@ impl<'a> Placer<'a> {
         let aligned_start = left + if l.rtl { l.right } else { l.left };
         let empty_x = left + match (m.format.alignment, l.rtl) {
             (Alignment::Center, _) => (l.left + l.right) / 2.0,
-            (Alignment::Right, false) | (Alignment::Left | Alignment::Justify, true) => l.right,
+            (Alignment::Right, false) | (Alignment::Left | Alignment::Justify | Alignment::Kashida(_), true) => l.right,
             _ => l.left,
         };
         let mut prev = if l.atoms.is_empty() { empty_x } else { aligned_start };
@@ -1389,7 +1423,17 @@ impl<'a> Placer<'a> {
                     for c in text.chars() { glyphs.push(Glyph { ch: c, gid: fonts::glyph_id(face.face, c), x: fx, dy: 0.0 }); fx += fonts::advance(face, c, f.size); }
                 };
                 match at.kind {
-                    Kind::Char if !f.hidden && at.ch != '\u{AD}' => for (n, g) in m.glyphs[at.glyphs.0 as usize..at.glyphs.0 as usize + at.glyphs.1 as usize].iter().enumerate() { glyphs.push(Glyph { ch: if n == 0 { at.ch } else { CONTINUATION }, gid: g.gid, x: gx + g.dx, dy: g.dy }); },
+                    Kind::Char if !f.hidden && at.ch != '\u{AD}' => {
+                        // A kashida: the letter at its box's right, tatweels filling the left.
+                        let k = at.kashida;
+                        for (n, g) in m.glyphs[at.glyphs.0 as usize..at.glyphs.0 as usize + at.glyphs.1 as usize].iter().enumerate() { glyphs.push(Glyph { ch: if n == 0 { at.ch } else { CONTINUATION }, gid: g.gid, x: gx + k + g.dx, dy: g.dy }); }
+                        if k > 0.0 {
+                            let tw = fonts::advance(face, '\u{0640}', f.size).max(0.5);
+                            let gid = fonts::glyph_id(face.face, '\u{0640}');
+                            let count = (k / tw).ceil() as usize;
+                            for i in 0..count { glyphs.push(Glyph { ch: CONTINUATION, gid, x: gx + (i as f32 * tw).min(k - tw), dy: 0.0 }); }
+                        }
+                    }
                     // Spaces paint nothing but keep word boundaries for PDF text extraction.
                     Kind::Space if !f.hidden => glyphs.push(Glyph { ch: ' ', gid: fonts::glyph_id(face.face, ' '), x: gx, dy: 0.0 }),
                     Kind::Note if !f.hidden => text_glyphs(&at.note.as_ref().and_then(|n| self.ctx.note_labels.get(n)).cloned().unwrap_or_default(), &mut glyphs),
@@ -2503,6 +2547,24 @@ mod tests {
         edit(&mut d);
         let l = layout_document(&d);
         (d, l)
+    }
+
+    #[test]
+    fn kashida_justification_lengthens_arabic_joins() {
+        let text = vec!["سلام عليكم ورحمة الله وبركاته"; 6].join(" ");
+        let mut d = doc(&text);
+        d.select(0, 0);
+        d.set_alignment(Alignment::Kashida(3));
+        let l = layout_document(&d);
+        let first = &l.lines[0];
+        assert!(!first.last_in_paragraph, "the paragraph wraps");
+        let tatweels = l.pages[0].items.iter().filter_map(|i| match i { DrawItem::Glyphs { glyphs, font, .. } => Some(glyphs.iter().filter(|g| g.gid == crate::fonts::glyph_id(font.face, '\u{0640}')).count()), _ => None }).sum::<usize>();
+        assert!(tatweels > 0, "tatweels fill the lengthened joins");
+        // The justified line still spans the full width.
+        let span = |ln: &Line| { let xs = ln.boxes.iter().flat_map(|b| [b.0, b.1]); let (a, b) = xs.fold((f32::MAX, f32::MIN), |(a, b), x| (a.min(x), b.max(x))); b - a };
+        assert!((span(first) - (first.right - first.left)).abs() < 2.0, "{} vs {}", span(first), first.right - first.left);
+        // It is saved as Word's kashida alignment.
+        assert_eq!(Alignment::from_ooxml(Alignment::Kashida(3).ooxml()), Alignment::Kashida(3));
     }
 
     #[test]

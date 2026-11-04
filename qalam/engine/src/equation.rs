@@ -936,13 +936,13 @@ mod tests {
         let xml = r#"<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>میانگین وزن</m:t></m:r><m:r><m:t>=</m:t></m:r><m:f><m:num><m:r><m:t>مجموع</m:t></m:r></m:num><m:den><m:r><m:t>تعداد</m:t></m:r></m:den></m:f></m:oMath>"#;
         let tree = from_omml(&crate::xml::parse(xml).unwrap());
         let b = layout_node(&tree, &Ctx { size: 12.0, color: crate::Color::BLACK }, true);
-        let runs: Vec<(f32, char, usize)> = b.items.iter().filter_map(|i| match i { crate::layout::DrawItem::Glyphs { glyphs, .. } => glyphs.first().map(|g| (g.x, g.ch, glyphs.len())), _ => None }).collect();
+        let runs: Vec<(f32, char, usize, String)> = b.items.iter().filter_map(|i| match i { crate::layout::DrawItem::Glyphs { glyphs, .. } => glyphs.first().map(|g| (g.x, g.ch, glyphs.len(), glyphs.iter().map(|g| g.ch).collect())), _ => None }).collect();
         // Words are shaped whole (one glyph run per word), not one isolated letter per run.
         assert!(runs.iter().filter(|r| r.1 != '=' && r.1 != ' ').all(|r| r.2 >= 3), "{runs:?}");
         // Right to left: the left-hand side is right of "=", the fraction left of it.
         let eq = runs.iter().find(|r| r.1 == '=').unwrap().0;
-        let x_of = |c: char| runs.iter().find(|r| r.1 == c).unwrap().0;
-        assert!(x_of('م') > eq || x_of('و') > eq, "{runs:?}");
+        let x_of = |c: char| runs.iter().find(|r| r.3.contains(c)).unwrap().0;
+        assert!(x_of('ی') > eq, "{runs:?}");
         assert!(x_of('ت') < eq, "the denominator is left of '=': {runs:?}");
         // Latin rows keep their order.
         let latin = layout_node(&parse("a=b"), &Ctx { size: 12.0, color: crate::Color::BLACK }, true);

@@ -1401,7 +1401,7 @@ impl Document {
     }
 
     pub fn set_alignment(&mut self, a: Alignment) {
-        let rec = self.rec_enter(|| format!("align(\"{}\");", match a { Alignment::Left => "left", Alignment::Center => "center", Alignment::Right => "right", Alignment::Justify => "justify" }));
+        let rec = self.rec_enter(|| format!("align(\"{}\");", match a { Alignment::Left => "left", Alignment::Center => "center", Alignment::Right => "right", Alignment::Justify | Alignment::Kashida(_) => "justify" }));
         let r = self.set_alignment__impl(a);
         self.rec_exit(rec);
         r
@@ -1986,7 +1986,7 @@ impl Document {
         for p in fragment {
             let pf = self.para_format(p);
             let dir = match pf.rtl { Some(true) => "rtl", Some(false) => "ltr", None => "auto" };
-            let align = match pf.alignment { Alignment::Left => "", Alignment::Center => "text-align:center;", Alignment::Right => "text-align:right;", Alignment::Justify => "text-align:justify;" };
+            let align = match pf.alignment { Alignment::Left => "", Alignment::Center => "text-align:center;", Alignment::Right => "text-align:right;", Alignment::Justify | Alignment::Kashida(_) => "text-align:justify;" };
             out.push_str(&format!("<p dir=\"{dir}\" style=\"margin:0 0 {}pt 0;{align}\">", pf.space_after));
             for r in &p.runs {
                 let text: String = r.text.chars().filter(|&c| c != crate::chars::OBJECT).collect();
