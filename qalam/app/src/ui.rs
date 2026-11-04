@@ -714,7 +714,8 @@ pub fn comments_panel(app: &mut WordApp, ui: &mut Ui) {
                                     let root2 = root.clone();
                                     if ui.small_button(crate::i18n::tr(if done { "Reopen" } else { "Resolve" })).clicked() { action = Some(Box::new(move |app| app.doc.set_comment_done(&root2, !done))); }
                                     let (root2, text) = (root.clone(), thread[0].text.clone());
-                                    if ui.small_button(crate::i18n::tr("Edit")).clicked() { action = Some(Box::new(move |app| app.comment_edit = Some((root2, text, false)))); }
+                                    // Only the comment's author can edit it.
+                                    if thread[0].author == app.author && ui.small_button(crate::i18n::tr("Edit")).clicked() { action = Some(Box::new(move |app| app.comment_edit = Some((root2, text, false)))); }
                                     let root2 = root.clone();
                                     if ui.small_button(crate::i18n::tr("Delete")).clicked() { action = Some(Box::new(move |app| app.doc.delete_comment(&root2))); }
                                 });

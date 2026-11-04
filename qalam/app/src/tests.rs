@@ -1106,6 +1106,11 @@ fn comment_post_and_cancel_click() {
     assert!(h.state().comment_edit.is_none(), "Cancel closed the editor");
     assert_eq!(h.state().doc.comments.len(), 1);
     save(&mut h, "comments");
+    // Edit shows on your own comments only.
+    assert!(h.query_by_label("Edit").is_some());
+    h.state_mut().author = "تعليق آخر".into();
+    h.run_steps(2);
+    assert!(h.query_by_label("Edit").is_none(), "another author's comment can't be edited");
 }
 
 /// Review, View and Mailings features in the running app, with snapshots.
