@@ -20,7 +20,32 @@ fn cell_margins(t: &crate::model::Table, c: &crate::model::Cell) -> [f32; 4] {
     out
 }
 
-struct TableGeo { col_x: Vec<f32>, borders: bool }
+/// `spans`: each cell's range of the table's paragraphs (its own, then tables nested in it).
+struct TableGeo { spans: HashMap<u64, (usize, usize)>, col_x: Vec<f32>, borders: bool }
+
+/// Where each of a table's cells starts and ends in its paragraphs (in document order, so a
+/// cell runs up to the next cell's first paragraph). Rows then only look at their own cells'
+/// paragraphs, keeping long tables linear.
+fn cell_spans(table: &crate::model::Table, paragraphs: &[(usize, usize)], doc: &Document) -> HashMap<u64, (usize, usize)> {
+    let own: std::collections::HashSet<u64> = table.rows.iter().flat_map(|r| r.cells.iter().map(|c| c.id)).collect();
+    let mut starts: Vec<(u64, usize)> = vec![];
+    let mut seen = std::collections::HashSet::new();
+    // A nested table's paragraphs belong to the cell of this table that holds it.
+    let mut owner: HashMap<u64, Option<u64>> = HashMap::new();
+    for (k, &(pi, _)) in paragraphs.iter().enumerate() {
+        let Some(c) = doc.paragraphs[pi].cell else { continue };
+        let o = *owner.entry(c).or_insert_with(|| {
+            let mut cur = c;
+            for _ in 0..32 {
+                if own.contains(&cur) { return Some(cur); }
+                cur = doc.table_of_cell(cur).and_then(|t| doc.tables[t].parent)?;
+            }
+            None
+        });
+        if let Some(o) = o { if seen.insert(o) { starts.push((o, k)); } }
+    }
+    (0..starts.len()).map(|i| (starts[i].0, (starts[i].1, starts.get(i + 1).map(|n| n.1).unwrap_or(paragraphs.len())))).collect()
+}
 
 /// `Glyph::ch` of a cluster's second and later glyphs (Arabic dots, marks drawn apart): they
 /// carry no text of their own, so text extraction doesn't repeat the letter.
@@ -1609,12 +1634,14 @@ impl<'a> Placer<'a> {
         // Nested and autofit tables fit the space they're in.
         let sum: f32 = grid.iter().sum();
         if (table.parent.is_some() || !table.fixed) && sum > writing + 0.5 { for g in grid.iter_mut() { *g *= writing / sum; } }
-        if !table.fixed { self.autofit_grid(ti, paragraphs, &mut grid, writing); }
+        let spans = cell_spans(table, paragraphs, doc);
+        if !table.fixed { self.autofit_grid(ti, paragraphs, &spans, &mut grid, writing); }
         let table_w: f32 = grid.iter().sum();
         let x0 = col_left + twips(table.indent) + match table.alignment { Alignment::Center => (writing - table_w) / 2.0, Alignment::Right => writing - table_w, _ => 0.0 };
         let mut col_x = vec![x0];
         for g in &grid { col_x.push(col_x.last().unwrap() + g); }
         let t = TableGeo {
+            spans,
             col_x,
             borders: table.borders || table.style.as_deref().is_some_and(|s| doc.styles.table_style_borders(s)),
         };
@@ -1637,7 +1664,7 @@ impl<'a> Placer<'a> {
     /// Autofit layout: a column narrower than its widest unbreakable content (a long word, an
     /// equation, a picture) widens to fit it, taking the room from columns with space to spare;
     /// the table grows up to the writing width when that isn't enough.
-    fn autofit_grid(&mut self, ti: usize, paragraphs: &[(usize, usize)], grid: &mut [f32], writing: f32) {
+    fn autofit_grid(&mut self, ti: usize, paragraphs: &[(usize, usize)], spans: &HashMap<u64, (usize, usize)>, grid: &mut [f32], writing: f32) {
         let doc = self.ctx.doc;
         let table = &doc.tables[ti];
         let n = grid.len();
@@ -1650,7 +1677,8 @@ impl<'a> Placer<'a> {
                 if span == 1 && g < n {
                     let m4 = cell_margins(table, cell);
                     let mut widest = 0.0f32;
-                    for &(pi, start) in paragraphs.iter().filter(|(pi, _)| doc.paragraphs[*pi].cell == Some(cell.id)) {
+                    let own = spans.get(&cell.id).map(|&(a, b)| &paragraphs[a..b]).unwrap_or(&[]);
+                    for &(pi, start) in own.iter().filter(|(pi, _)| doc.paragraphs[*pi].cell == Some(cell.id)) {
                         let m = self.ctx.measure(pi, &doc.paragraphs[pi], start, 1.0);
                         for l in &m.lines {
                             let w: f32 = l.atoms[..l.trail.min(l.atoms.len())].iter().map(|a| a.width).sum();
@@ -1699,7 +1727,11 @@ impl<'a> Placer<'a> {
         let mut nested: Vec<u64> = vec![];
         let mut g = row.grid_before as usize;
         let last_x = t.col_x.len() - 1;
+        // Each cell's grid column (§17.4.14 gridBefore, then the spans before it).
+        let gcols: HashMap<u64, usize> = row.cells.iter().scan(row.grid_before as usize, |at, c| { let here = *at; *at += c.span as usize; Some((c.id, here)) }).collect();
         for cell in &row.cells {
+            // Only this cell's own paragraphs (and tables nested in it).
+            let paragraphs = t.spans.get(&cell.id).map(|&(a, b)| &paragraphs[a..b]).unwrap_or(&[]);
             let span = cell.span.max(1) as usize;
             let (cx0, cx1) = (t.col_x[g.min(last_x)], t.col_x[(g + span).min(last_x)]);
             g += span;
@@ -1758,13 +1790,13 @@ impl<'a> Placer<'a> {
         // A vertically merged cell's content spans its rows: it sets no height until its last row,
         // which grows to fit whatever the earlier rows didn't.
         let continues_below = |cell: &crate::model::Cell| -> Option<usize> {
-            let gcol = table.find_cell(cell.id).map(|(r, k)| table.grid_col(r, k))?;
+            let gcol = *gcols.get(&cell.id)?;
             let next = table.rows.get(row_index + 1)?;
             let mut at = next.grid_before as usize;
             next.cells.iter().any(|c| { let hit = at == gcol && c.v_merge == VMerge::Continue; at += c.span.max(1) as usize; hit }).then_some(gcol)
         };
         for r in &results {
-            let gcol = table.find_cell(r.0.id).map(|(rr, k)| table.grid_col(rr, k)).unwrap_or(0);
+            let gcol = gcols.get(&r.0.id).copied().unwrap_or(0);
             if r.0.v_merge == VMerge::Restart && continues_below(r.0).is_some() { self.merge_ends.insert((ti, gcol), (r.3, r.4)); continue; }
             let (p, y) = if r.0.v_merge == VMerge::Continue {
                 match (continues_below(r.0), self.merge_ends.get(&(ti, gcol)).copied()) {
@@ -1786,13 +1818,13 @@ impl<'a> Placer<'a> {
         for (cell, cx0, cx1, _, _, _) in &results {
             let mut spans_down = false;
             if cell.v_merge == VMerge::Restart || cell.v_merge == VMerge::Continue {
-                let gcol = table.find_cell(cell.id).map(|(r, c)| table.grid_col(r, c)).unwrap_or(0);
+                let gcol = gcols.get(&cell.id).copied().unwrap_or(0);
                 spans_down = table.rows.get(row_index + 1).is_some_and(|next| {
                     let mut at = next.grid_before as usize;
                     next.cells.iter().any(|c| { let hit = at == gcol && c.v_merge == VMerge::Continue; at += c.span.max(1) as usize; hit })
                 });
             }
-            let (gcol, gspan) = table.find_cell(cell.id).map(|(r, k)| (table.grid_col(r, k), cell.span.max(1) as usize)).unwrap_or((0, 1));
+            let (gcol, gspan) = gcols.get(&cell.id).map(|&g| (g, cell.span.max(1) as usize)).unwrap_or((0, 1));
             for page in row_top_page..=end_page {
                 let top = if page == row_top_page { row_top } else { self.body_top };
                 let bottom = if page == end_page { end_y } else { self.body_bottom };
@@ -1994,7 +2026,11 @@ fn layout_pass(doc: &Document, cache: &mut MeasureCache, bookmark_pages: &HashMa
             // Collect the whole table's paragraphs.
             let ti = doc.root_table_of_cell(cell);
             let mut members = vec![];
-            while i < doc.paragraphs.len() && doc.paragraphs[i].cell.is_some_and(|c| ti.is_some_and(|t| doc.table_contains_cell(t, c))) {
+            // The cells of the table and of tables nested in it, looked up once (long tables).
+            let cells: std::collections::HashSet<u64> = ti.map(|t| doc.tables.iter().enumerate()
+                .filter(|(k, x)| *k == t || x.parent.is_some_and(|pc| doc.table_contains_cell(t, pc)))
+                .flat_map(|(_, x)| x.rows.iter().flat_map(|r| r.cells.iter().map(|c| c.id))).collect()).unwrap_or_default();
+            while i < doc.paragraphs.len() && doc.paragraphs[i].cell.is_some_and(|c| cells.contains(&c)) {
                 members.push((i, starts[i])); i += 1;
             }
             if members.is_empty() { members.push((i, starts[i])); i += 1; }
@@ -2339,6 +2375,19 @@ mod tests {
         assert_eq!(down, first_cell.start);
         let up = l.vertical(down, false, l.caret_rect(down).unwrap().x).unwrap();
         assert_eq!(l.lines[l.line_index(up).unwrap()].start, start);
+    }
+
+    #[test]
+    fn long_tables_lay_out_in_linear_time() {
+        // 1,500 rows × 6 columns: each row looks only at its own cells' paragraphs.
+        let mut d = doc("قبل الجدول");
+        d.select(0, 0);
+        d.insert_table(1500, 6);
+        let t = std::time::Instant::now();
+        let l = layout_document(&d);
+        assert!(t.elapsed().as_secs_f32() < 5.0, "{:?}", t.elapsed());
+        assert!(l.pages.len() > 30);
+        assert_eq!(l.lines.iter().filter(|x| x.cell.is_some()).count(), 9000);
     }
 
     #[test]
