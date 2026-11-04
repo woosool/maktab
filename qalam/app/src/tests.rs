@@ -1755,3 +1755,18 @@ fn draw_ink_lands_on_the_page_drawn_on() {
     for p in &h.state().doc.paragraphs { for r in &p.runs { if let Some(Object::Ink(_)) = &r.object { on.push(h.state().layout.object_box(pos).map(|b| b.0)); } pos += r.len(); } pos += 1; }
     assert_eq!(on, vec![Some(last)]);
 }
+
+#[test]
+fn saving_replaces_the_file_whole_or_not_at_all() {
+    let dir = std::env::temp_dir().join(format!("qalam-replace-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("مستند.docx");
+    std::fs::write(&file, b"old").unwrap();
+    crate::app::write_replacing(&file, "جديد".as_bytes()).unwrap();
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "جديد");
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no temporary file left behind");
+    // A write that cannot complete leaves the destination untouched.
+    assert!(crate::app::write_replacing(&dir.join("missing").join("x.docx"), b"x").is_err());
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "جديد");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

@@ -175,6 +175,17 @@ pub enum TableTool { Pen, Eraser }
 
 /// The current UTC time as an OOXML date (yyyy-mm-ddThh:mm:ssZ).
 /// Local date and time for DATE/TIME fields.
+/// Write a file through a temporary sibling renamed over it, so a failed or interrupted write
+/// leaves the existing file whole.
+pub fn write_replacing(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let tmp = path.with_file_name(format!(".{name}.{}.tmp", std::process::id()));
+    let result = (|| { let mut f = std::fs::File::create(&tmp)?; f.write_all(bytes)?; f.sync_all()?; if let Ok(m) = std::fs::metadata(path) { std::fs::set_permissions(&tmp, m.permissions())?; } std::fs::rename(&tmp, path) })();
+    if result.is_err() { let _ = std::fs::remove_file(&tmp); }
+    result
+}
+
 pub fn local_iso() -> String { chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string() }
 
 pub fn now_iso() -> String {
@@ -428,7 +439,7 @@ impl WordApp {
             }
         };
         self.backup_before_save(&path);
-        match docx::write(&self.doc).and_then(|bytes| std::fs::write(&path, bytes).map_err(|e| e.to_string())) {
+        match docx::write(&self.doc).and_then(|bytes| write_replacing(&path, &bytes).map_err(|e| e.to_string())) {
             Ok(()) => {
                 self.clear_recovery();
                 self.remember_recent(&path);
@@ -450,7 +461,7 @@ impl WordApp {
         let name = self.path.as_ref().and_then(|p| p.file_stem()).map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "Document".into());
         if let Some(p) = rfd::FileDialog::new().add_filter(label, &[ext]).set_file_name(format!("{name}.{ext}")).save_file() {
             let text = if markdown { import::to_markdown(&self.doc) } else { import::to_text(&self.doc) };
-            match std::fs::write(&p, text) {
+            match write_replacing(&p, text.as_bytes()) {
                 Ok(()) => self.notify(ctx, crate::i18n::trf("Exported {}", &[&p.display()])),
                 Err(e) => self.dialogs.error = Some(e.to_string()),
             }
@@ -463,7 +474,7 @@ impl WordApp {
         let Some(p) = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_file_name(format!("{name}.pdf")).save_file() else { return };
         self.relayout();
         let bytes = word_engine::pdf::export(&self.doc, &self.layout, &name);
-        match std::fs::write(&p, bytes) {
+        match write_replacing(&p, &bytes) {
             Ok(()) => self.notify(ctx, crate::i18n::trf("Exported {}", &[&p.display()])),
             Err(e) => self.dialogs.error = Some(e.to_string()),
         }
