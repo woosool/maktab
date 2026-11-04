@@ -201,6 +201,9 @@ pub fn export_pages(doc: &Document, layout: &Layout, title: &str, pages: &[usize
         let mut annots = vec![];
         for (x, y, w, lh, target) in &page.links {
             if target.starts_with('#') { continue; }
+            // Script and data targets are not web links: never put them into a URI action.
+            let scheme = target.trim_start().split(':').next().unwrap_or("").to_ascii_lowercase();
+            if target.contains(':') && matches!(scheme.trim(), "javascript" | "vbscript" | "data") { continue; }
             let (x0, y0, x1, y1) = (x * PT, h - (y + lh) * PT, (x + w) * PT, h - y * PT);
             let mut uri = String::new();
             for ch in target.chars() { if matches!(ch, '(' | ')' | '\\') { uri.push('\\'); } uri.push(ch); }
@@ -288,6 +291,16 @@ mod tests {
         // xref offsets point at objects.
         let xref_at: usize = text.rsplit("startxref\n").next().unwrap().lines().next().unwrap().parse().unwrap();
         assert!(bytes[xref_at..].starts_with(b"xref"));
+    }
+
+    #[test]
+    fn script_link_targets_are_not_exported() {
+        let mut d = Document::new(vec![Paragraph::new("click here")]);
+        d.select(0, 5);
+        d.set_link(Some(" JavaScript:alert(1)".into()));
+        let layout = crate::layout_document(&d);
+        let text = String::from_utf8_lossy(&export(&d, &layout, "Test")).into_owned();
+        assert!(!text.to_ascii_lowercase().contains("javascript"));
     }
 }
 

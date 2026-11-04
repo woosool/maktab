@@ -384,6 +384,8 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                 "w:hyperlink" => {
                     let target = c.attr("r:id").and_then(|id| self.rel(id)).map(|r| r.target.clone())
                         .or_else(|| c.attr("w:anchor").map(|a| format!("#{a}")));
+                    // LibreOffice writes `<w:hyperlink r:id>` with an empty target: plain text, not a link.
+                    let target = target.filter(|t| !t.trim().is_empty() && t != "#");
                     let t = target.or(link.map(String::from));
                     self.inline(c, runs, t.as_deref());
                 }
@@ -2079,6 +2081,15 @@ mod tests {
         assert!(second.contains("<cp:revision>3</cp:revision>") && !second.contains("title"), "{second}");
         assert_eq!(w3cdtf(0), "1970-01-01T00:00:00Z");
         assert_eq!(w3cdtf(1_793_791_800), "2026-11-04T11:30:00Z");
+    }
+
+    #[test]
+    fn empty_hyperlink_target_is_not_a_link() {
+        let mut d = Document::new(vec![Paragraph::new("plain words")]);
+        d.paragraphs[0].runs[0].link = Some(String::new());
+        let e = read(&write(&d).unwrap()).unwrap();
+        assert_eq!(e.text(), "plain words");
+        assert!(e.paragraphs[0].runs.iter().all(|r| r.link.is_none()));
     }
 
     #[test]
