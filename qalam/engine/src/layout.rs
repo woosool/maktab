@@ -270,6 +270,8 @@ struct Ctx<'a> {
     note_labels: HashMap<(NoteKind, String), String>,
     /// Pages of bookmarks, from a first layout pass (PAGEREF results).
     bookmark_pages: HashMap<String, usize>,
+    /// Pages of body PAGE fields by position, from a first layout pass.
+    field_pages: HashMap<usize, usize>,
     /// SEQ numbers by position and citation numbers by tag, computed on first use.
     refs: std::sync::OnceLock<(HashMap<usize, u32>, HashMap<String, usize>)>,
 }
@@ -306,7 +308,7 @@ impl<'a> Ctx<'a> {
             Field::Citation(tag) => crate::references::citation_text(self.doc, tag, &refs().1),
             Field::IndexEntry(_) | Field::Authority { .. } => String::new(),
             Field::Merge(_) | Field::AddressBlock | Field::GreetingLine { .. } | Field::MergeIf { .. } | Field::MergeRec | Field::MergeSeq | Field::NextRecord | Field::NextIf { .. } | Field::SkipIf { .. } => self.doc.mail_merge.field_text(field),
-            Field::Page => self.page_number.to_string(),
+            Field::Page => pos.and_then(|p| self.field_pages.get(&p)).map(|p| p + 1).unwrap_or(self.page_number).to_string(),
             Field::NumPages => self.page_count.max(1).to_string(),
             Field::Ref(name) => self.doc.bookmark_text(name).unwrap_or_else(|| "Error! Reference source not found.".into()),
             Field::PageRef(name) => self.bookmark_pages.get(name).map(|p| (p + 1).to_string()).unwrap_or_else(|| "?".into()),
@@ -1861,6 +1863,8 @@ impl<'a> Placer<'a> {
         self.ctx.page_count = count;
         let geo = self.ctx.page;
         let width = geo.width - geo.left - geo.right;
+        // Story positions are not body positions: their PAGE fields follow the page painted.
+        let field_pages = std::mem::take(&mut self.ctx.field_pages);
         for page in 0..count {
             if page == 0 && doc.page.title_page { continue; }
             self.ctx.page_number = page + 1;
@@ -1880,6 +1884,7 @@ impl<'a> Placer<'a> {
                 self.lines.truncate(saved);
             }
         }
+        self.ctx.field_pages = field_pages;
     }
 }
 
@@ -1889,14 +1894,14 @@ pub fn layout_document(doc: &Document) -> Layout { layout_with_cache(doc, &mut M
 /// Lay out a document, reusing measurements from `cache` (kept by the editor between edits).
 /// With PAGEREF fields, a first pass finds the bookmarks' pages and a second shows them.
 pub fn layout_with_cache(doc: &Document, cache: &mut MeasureCache) -> Layout {
-    let (mut layout, mut floats) = layout_pass(doc, cache, &HashMap::new(), 1, &[]);
+    let (mut layout, mut floats) = layout_pass(doc, cache, &HashMap::new(), &HashMap::new(), 1, &[]);
     // Wrapping floats are known everywhere on their page only after a pass: lay out again with
     // them in place, until they stop moving (at most three more passes).
     // Drop caps (pos from the top of the range) are placed exactly in one pass.
     let wraps = |f: &Vec<PlacedFloat>| f.iter().any(|p| p.pos < usize::MAX / 2 && !matches!(p.wrap, crate::model::Wrap::Behind | crate::model::Wrap::InFront));
     for _ in 0..3 {
         if !wraps(&floats) { break; }
-        let (next, next_floats) = layout_pass(doc, cache, &HashMap::new(), 1, &floats);
+        let (next, next_floats) = layout_pass(doc, cache, &HashMap::new(), &HashMap::new(), 1, &floats);
         let settled = next_floats.len() == floats.len() && next_floats.iter().zip(&floats).all(|(a, b)| a.page == b.page && (a.y0 - b.y0).abs() < 0.5 && (a.x0 - b.x0).abs() < 0.5);
         layout = next; floats = next_floats;
         if settled { break; }
@@ -1905,29 +1910,42 @@ pub fn layout_with_cache(doc: &Document, cache: &mut MeasureCache) -> Layout {
     let page_refs = has(|f| matches!(f, Field::PageRef(_)));
     // NUMPAGES in the body shows the page count only a first pass knows.
     let num_pages = has(|f| matches!(f, Field::NumPages)) && layout.page_count() > 1;
-    if !page_refs && !num_pages { return layout; }
+    // PAGE in the body shows the page each field lands on, which a first pass places.
+    let page_fields = has(|f| matches!(f, Field::Page)) && layout.page_count() > 1;
+    if !page_refs && !num_pages && !page_fields { return layout; }
     let pages: HashMap<String, usize> = if page_refs { doc.bookmarks().into_iter().map(|(n, s, _)| (n, layout.page_of(s))).collect() } else { HashMap::new() };
-    layout_pass(doc, cache, &pages, layout.page_count(), &floats).0
+    let mut field_pages = HashMap::new();
+    if page_fields {
+        let mut pos = 0;
+        for p in &doc.paragraphs {
+            for r in &p.runs {
+                if r.field == Some(Field::Page) { field_pages.insert(pos, layout.page_of(pos)); }
+                pos += r.len();
+            }
+            pos += 1;
+        }
+    }
+    layout_pass(doc, cache, &pages, &field_pages, layout.page_count(), &floats).0
 }
 
-fn layout_pass(doc: &Document, cache: &mut MeasureCache, bookmark_pages: &HashMap<String, usize>, page_count: usize, seed: &[PlacedFloat]) -> (Layout, Vec<PlacedFloat>) {
+fn layout_pass(doc: &Document, cache: &mut MeasureCache, bookmark_pages: &HashMap<String, usize>, field_pages: &HashMap<usize, usize>, page_count: usize, seed: &[PlacedFloat]) -> (Layout, Vec<PlacedFloat>) {
     let page = doc.view_override.as_ref().map(|v| v.0.geometry()).unwrap_or_else(|| doc.page.geometry());
     let plain = doc.view_override.as_ref().is_some_and(|v| v.1);
     let starts = doc.paragraph_starts();
     // Measure header height to push the body down when the header is taller than the margin.
     let mut placer = Placer {
-        ctx: Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count, cache: std::mem::take(cache), note_labels: doc.note_labels(), bookmark_pages: bookmark_pages.clone(), refs: Default::default() },
+        ctx: Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count, cache: std::mem::take(cache), note_labels: doc.note_labels(), bookmark_pages: bookmark_pages.clone(), field_pages: field_pages.clone(), refs: Default::default() },
         pages: vec![], lines: vec![], cells: vec![], page: 0, y: page.top, body_top: page.top, body_bottom: page.height - page.bottom, foot_space: 0.0, page_notes: vec![], note_heights: HashMap::new(), merge_ends: HashMap::new(), floats: vec![], front: vec![], seeded: seed.to_vec(), float_origins: HashMap::new(), cols: vec![(page.left, page.width - page.left - page.right)], col: 0, col_top: page.top, col_bottom: None, col_max_y: page.top, col_separator: false, line_numbers: None, line_no: 0, box_end: None,
     };
     if let Some(h) = doc.header.as_ref().filter(|_| !plain) {
         let width = page.width - page.left - page.right;
-        let mut tmp = Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count: 1, cache: MeasureCache::default(), note_labels: HashMap::new(), bookmark_pages: HashMap::new(), refs: Default::default() };
+        let mut tmp = Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count: 1, cache: MeasureCache::default(), note_labels: HashMap::new(), bookmark_pages: HashMap::new(), field_pages: HashMap::new(), refs: Default::default() };
         let hh: f32 = h.paragraphs.iter().map(|p| tmp.measure(0, p, 0, width).lines.iter().map(|l| l.height).sum::<f32>()).sum();
         placer.body_top = page.top.max(page.header + hh);
     }
     if let Some(f) = doc.footer.as_ref().filter(|_| !plain) {
         let width = page.width - page.left - page.right;
-        let mut tmp = Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count: 1, cache: MeasureCache::default(), note_labels: HashMap::new(), bookmark_pages: HashMap::new(), refs: Default::default() };
+        let mut tmp = Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count: 1, cache: MeasureCache::default(), note_labels: HashMap::new(), bookmark_pages: HashMap::new(), field_pages: HashMap::new(), refs: Default::default() };
         let fh: f32 = f.paragraphs.iter().map(|p| tmp.measure(0, p, 0, width).lines.iter().map(|l| l.height).sum::<f32>()).sum();
         placer.body_bottom = (page.height - page.bottom).min(page.height - page.footer - fh);
     }
@@ -1945,7 +1963,7 @@ fn layout_pass(doc: &Document, cache: &mut MeasureCache, bookmark_pages: &HashMa
         let mut h = 0.0;
         for (i, p) in doc.paragraphs.iter().enumerate().filter(|(i, _)| sec_of[*i] == k) {
             if p.cell.is_some() { h += 20.0; continue; }
-            let mut c = Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count: 1, cache: MeasureCache::default(), note_labels: HashMap::new(), bookmark_pages: HashMap::new(), refs: Default::default() };
+            let mut c = Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count: 1, cache: MeasureCache::default(), note_labels: HashMap::new(), bookmark_pages: HashMap::new(), field_pages: HashMap::new(), refs: Default::default() };
             let m = c.measure_with(i, p, starts[i], w, None, &[], None);
             h += m.lines.iter().map(|l| l.height).sum::<f32>() + (m.format.space_before + m.format.space_after) * PT;
         }
@@ -1994,7 +2012,7 @@ fn layout_pass(doc: &Document, cache: &mut MeasureCache, bookmark_pages: &HashMa
                 if let Some(e) = placer.ctx.cache.entries.get(&n.id).filter(|e| e.paragraph == *n && e.width == width) {
                     return e.measured.lines.first().map(|l| l.height).unwrap_or(0.0);
                 }
-                let mut c = Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count: 1, cache: MeasureCache::default(), note_labels: HashMap::new(), bookmark_pages: HashMap::new(), refs: Default::default() };
+                let mut c = Ctx { doc, page, markers: MarkerCounter::default(), page_number: 1, page_count: 1, cache: MeasureCache::default(), note_labels: HashMap::new(), bookmark_pages: HashMap::new(), field_pages: HashMap::new(), refs: Default::default() };
                 c.measure(i + 1, n, starts[i + 1], width).lines.first().map(|l| l.height).unwrap_or(0.0)
             }).unwrap_or(0.0)
         } else { 0.0 };
@@ -2187,6 +2205,23 @@ mod tests {
         let mut tops: Vec<f32> = sides.iter().map(|s| s.0).collect(); tops.sort_by(f32::total_cmp);
         let mut ends: Vec<f32> = sides.iter().map(|s| s.1).collect(); ends.sort_by(f32::total_cmp);
         assert!(tops.iter().skip(2).all(|t| ends.iter().any(|e| (e - t).abs() < 0.01)), "side lines run on without gaps: {sides:?}");
+    }
+
+    /// PAGE in the body shows the page it lands on, not 1.
+    #[test]
+    fn body_page_field_shows_its_own_page() {
+        let mut d = doc(&vec!["سطر line"; 120].join("\n"));
+        let end = d.paragraph_start(d.paragraphs.len() - 1);
+        d.select(end, end);
+        d.insert_field(crate::model::Field::Page);
+        d.select(0, 0);
+        d.insert_field(crate::model::Field::Page);
+        let l = layout_document(&d);
+        let n = l.page_count();
+        assert!(n > 2);
+        let text = |k: usize| -> String { l.pages[k].items.iter().filter_map(|i| match i { DrawItem::Glyphs { glyphs, .. } => Some(glyphs.iter().map(|g| g.ch).collect::<String>()), _ => None }).collect() };
+        assert!(text(0).contains("رطس1line"), "first page: {}", text(0));
+        assert!(text(n - 1).contains(&n.to_string()), "last page shows its number: {}", text(n - 1));
     }
 
     /// NUMPAGES in a body paragraph shows the document's page count, not 1.
