@@ -1971,6 +1971,41 @@ impl Document {
 
     // ---- clipboard fragments ---------------------------------------------------------------------
 
+    /// Paragraphs (a [`Self::fragment`]) as HTML with their character and paragraph formatting,
+    /// the rich text other programs read from the clipboard.
+    pub fn fragment_html(&self, fragment: &[Paragraph]) -> String {
+        use crate::format::{Alignment, Strike, VertAlign};
+        let esc = |s: &str, attr: bool| { let mut o = String::new(); crate::xml::escape_into(s, &mut o, attr); o };
+        let mut out = String::new();
+        for p in fragment {
+            let pf = self.para_format(p);
+            let dir = match pf.rtl { Some(true) => "rtl", Some(false) => "ltr", None => "auto" };
+            let align = match pf.alignment { Alignment::Left => "", Alignment::Center => "text-align:center;", Alignment::Right => "text-align:right;", Alignment::Justify => "text-align:justify;" };
+            out.push_str(&format!("<p dir=\"{dir}\" style=\"margin:0 0 {}pt 0;{align}\">", pf.space_after));
+            for r in &p.runs {
+                let text: String = r.text.chars().filter(|&c| c != crate::chars::OBJECT).collect();
+                if text.is_empty() { continue; }
+                let f = self.run_format(p, r);
+                if f.vanish { continue; }
+                let mut css = format!("font-family:'{}';font-size:{}pt;", esc(&f.font, true), f.size);
+                if f.bold { css.push_str("font-weight:bold;"); }
+                if f.italic { css.push_str("font-style:italic;"); }
+                let lines = [(f.underline, "underline"), (f.strike != Strike::None, "line-through")].iter().filter(|x| x.0).map(|x| x.1).collect::<Vec<_>>();
+                if !lines.is_empty() { css.push_str(&format!("text-decoration:{};", lines.join(" "))); }
+                if let Some(c) = f.color { css.push_str(&format!("color:#{};", c.hex())); }
+                if let Some(c) = f.highlight.or(f.shading) { css.push_str(&format!("background-color:#{};", c.hex())); }
+                match f.vert_align { VertAlign::Superscript => css.push_str("vertical-align:super;"), VertAlign::Subscript => css.push_str("vertical-align:sub;"), VertAlign::Baseline => {} }
+                let body = esc(&text, false).replace('\n', "<br>").replace('\t', "&#9;");
+                match &r.link {
+                    Some(l) if !l.starts_with('#') => out.push_str(&format!("<a href=\"{}\"><span style=\"{css}\">{body}</span></a>", esc(l, true))),
+                    _ => out.push_str(&format!("<span style=\"{css}\">{body}</span>")),
+                }
+            }
+            out.push_str("</p>");
+        }
+        out
+    }
+
     /// Selected content as paragraphs (cell membership removed), for rich in-app paste.
     pub fn fragment(&self) -> Vec<Paragraph> {
         let (s, e) = self.range();
@@ -2453,6 +2488,17 @@ mod tests {
     use super::*;
 
     fn doc(text: &str) -> Document { Document::new(text.split('\n').map(Paragraph::new).collect()) }
+
+    #[test]
+    fn copied_text_carries_its_formatting_as_html() {
+        let mut d = doc("مرحبا بالعالم <و>");
+        d.select(0, 5);
+        d.toggle_bold();
+        d.select(0, d.len());
+        let html = d.fragment_html(&d.fragment());
+        assert!(html.contains("font-weight:bold;\">مرحبا</span>"), "{html}");
+        assert!(html.contains("بالعالم &lt;و&gt;"), "{html}");
+    }
 
     #[test]
     fn the_font_group_shows_the_arabic_font_at_arabic_text() {

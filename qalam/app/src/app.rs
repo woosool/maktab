@@ -581,8 +581,17 @@ impl WordApp {
         let fragment = self.doc.fragment();
         let used: Vec<&String> = fragment.iter().flat_map(|p| p.runs.iter()).filter_map(|r| r.image.as_ref()).flat_map(|i| std::iter::once(&i.asset).chain(i.original.as_ref())).collect();
         self.clipboard_assets = used.into_iter().filter_map(|k| self.doc.assets.get(k).map(|a| (k.clone(), a.clone()))).collect();
+        let html = self.doc.fragment_html(&fragment);
         self.clipboard = Some((text.clone(), fragment));
-        ctx.copy_text(text);
+        // The formatted text goes on the system clipboard as HTML too (with the plain text), so
+        // other programs paste it formatted.
+        // One clipboard kept for the app's life: on Linux the contents go when it is dropped.
+        static SYSTEM: std::sync::Mutex<Option<arboard::Clipboard>> = std::sync::Mutex::new(None);
+        let rich = !cfg!(test) && SYSTEM.lock().ok().is_some_and(|mut c| {
+            if c.is_none() { *c = arboard::Clipboard::new().ok(); }
+            c.as_mut().is_some_and(|c| c.set_html(&html, Some(&text)).is_ok())
+        });
+        if !rich { ctx.copy_text(text); }
         true
     }
     pub fn cut(&mut self, ctx: &egui::Context) {
