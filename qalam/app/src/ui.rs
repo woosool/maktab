@@ -95,7 +95,9 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
             if let Some((msg, until)) = &app.status { if *until > now { ui.add_space(10.0); ui.label(muted(msg.clone())); } }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.spacing_mut().item_spacing.x = 4.0;
-                ui.label(muted(format!("{:.0}%", app.zoom * 100.0)));
+                // A fixed-width box, so the controls to its left don't shift as the digits change.
+                let w = ui.fonts_mut(|f| f.layout_no_wrap("400%".into(), egui::FontId::proportional(12.0), egui::Color32::WHITE).size().x);
+                ui.add_sized([w + 2.0, 16.0], egui::Label::new(muted(format!("{:.0}%", app.zoom * 100.0))));
                 if ribbon::small(ui, "zoomIn", None, false, true, "Zoom in").clicked() { app.set_zoom(app.zoom + 0.1); }
                 let mut pct = app.zoom * 100.0;
                 ui.spacing_mut().slider_width = 110.0;

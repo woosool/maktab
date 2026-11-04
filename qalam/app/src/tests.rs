@@ -1904,3 +1904,12 @@ fn dropping_several_pictures_inserts_them_all() {
     assert_eq!(widths.len(), 3, "{widths:?}");
     assert!(d.text().starts_with("صور "));
 }
+
+#[test]
+fn status_bar_zoom_controls_stay_put_as_the_percentage_changes() {
+    let mut h = harness(None);
+    h.run_steps(3);
+    let slider_x = |h: &mut Harness<'_, WordApp>, zoom: f32| { h.state_mut().set_zoom(zoom); h.run_steps(3); h.get_by_label("Zoom").rect().min.x };
+    let (a, b) = (slider_x(&mut h, 1.0), slider_x(&mut h, 0.5));
+    assert!((a - b).abs() < 0.5, "slider moved from {a} to {b} when 100% became 50%");
+}
