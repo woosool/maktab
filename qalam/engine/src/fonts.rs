@@ -200,6 +200,7 @@ pub fn register_font_file(path: &std::path::Path) -> Vec<String> {
         }
     }
     if found.is_empty() { return vec![]; }
+    if let Some(c) = CJK_CACHE.get() { c.lock().unwrap_or_else(|e| e.into_inner()).clear(); }
     let path_s: &'static str = Box::leak(key.into_boxed_str());
     let mut used = EMBEDDED_USED.lock().unwrap_or_else(|e| e.into_inner());
     let mut families = vec![];
@@ -415,7 +416,35 @@ pub fn fallback(key: FontKey, c: char) -> FontKey {
         let k = resolve_family(family, bold, false);
         if has_glyph(k.face, c) { return k; }
     }
+    if is_cjk(c) { if let Some(face) = cjk_face(c, bold) { return FontKey { face, synthetic_bold: bold && !self::face(face).bold }; } }
     key
+}
+
+/// Han, kana, hangul, bopomofo and CJK punctuation/compatibility forms: none are in the bundled
+/// fonts, so they come from an installed (or user-added) CJK font.
+pub fn is_cjk(c: char) -> bool {
+    matches!(c as u32, 0x1100..=0x11FF | 0x2E80..=0x2FDF | 0x3000..=0x31FF | 0x3200..=0x9FFF | 0xA960..=0xA97F | 0xAC00..=0xD7FF | 0xF900..=0xFAFF | 0xFE30..=0xFE4F | 0xFF00..=0xFFEF | 0x20000..=0x3FFFF)
+}
+
+static CJK_CACHE: OnceLock<Mutex<HashMap<(char, bool), Option<u16>>>> = OnceLock::new();
+
+/// wordcraft #241/#285: an installed or user-added CJK font that has `c` (best-known families
+/// first), remembered per character so fonts are only opened once.
+fn cjk_face(c: char, bold: bool) -> Option<u16> {
+    const PREFERRED: &[&str] = &["PingFang SC", "Hiragino Sans GB", "Hiragino Sans", "Heiti SC", "Songti SC", "Apple SD Gothic Neo", "Microsoft YaHei", "Microsoft JhengHei", "Yu Gothic", "Meiryo", "Malgun Gothic", "SimSun", "MS Gothic", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", "WenQuanYi Micro Hei", "Droid Sans Fallback", "Arial Unicode MS"];
+    const HINTS: &[&str] = &["CJK", "SC", "TC", "JP", "KR", "Hei", "Song", "Kai", "Ming", "Gothic", "Mincho", "Hiragino", "PingFang", "YaHei", "Han", "Unicode"];
+    let cache = CJK_CACHE.get_or_init(Default::default);
+    if let Some(r) = cache.lock().unwrap().get(&(c, bold)) { return *r; }
+    let candidates: Vec<usize> = (faces().len() - SYSTEM.get().map_or(0, |s| s.len())..face_slots())
+        .filter(|&i| i < faces().len() || EMBEDDED.get(i - faces().len()).is_some_and(|s| s.get().is_some()))
+        .filter(|&i| { let f = face(i as u16).family; PREFERRED.contains(&f) || HINTS.iter().any(|h| f.contains(h)) })
+        .collect();
+    let rank = |i: &usize| { let f = face(*i as u16); (PREFERRED.iter().position(|p| *p == f.family).unwrap_or(PREFERRED.len()), f.bold != bold, f.italic) };
+    let mut sorted = candidates;
+    sorted.sort_by_key(rank);
+    let found = sorted.into_iter().find(|&i| has_glyph(i as u16, c)).map(|i| i as u16);
+    cache.lock().unwrap().insert((c, bold), found);
+    found
 }
 
 /// Vertical metrics as fractions of the em.
@@ -543,6 +572,19 @@ fn shape_uncached(key: FontKey, text: &str, rtl: bool, size_px: f32) -> Vec<Shap
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cjk_falls_back_to_an_installed_cjk_font() {
+        // wordcraft #241/#285: Chinese typed in Noto Sans drew as tofu (no bundled CJK face).
+        let Some(p) = ["/System/Library/Fonts/Hiragino Sans GB.ttc", "/System/Library/Fonts/STHeiti Medium.ttc", "C:\\Windows\\Fonts\\msyh.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]
+            .iter().map(std::path::Path::new).find(|p| p.exists()) else { return };
+        assert!(!register_font_file(p).is_empty());
+        let key = resolve("Noto Sans", false, false);
+        for c in ['中', '删', '拒', 'あ', '。'] {
+            let k = fallback(key, c);
+            assert!(has_glyph(k.face, c), "{c} has no glyph in {}", face(k.face).family);
+        }
+        assert_eq!(fallback(key, 'a').face, key.face);
+    }
     #[test]
     fn user_font_files_register_by_family() {
         let dir = std::env::temp_dir().join(format!("qalam-user-fonts-{}", std::process::id()));

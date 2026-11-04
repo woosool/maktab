@@ -1637,3 +1637,66 @@ fn wordcraft_task02_qalam_renders() {
     h.state_mut().tab = crate::ribbon::Tab::View;
     shot(&mut h, 67);
 }
+
+/// Renders Qalam (not Wordcraft) for the visual scenarios of wordcraft issues
+/// in task 04, one `qalam.png` per issue folder under `WORDCRAFT_IMG`.
+#[test]
+#[ignore]
+fn wordcraft_task04_qalam_renders() {
+    use word_engine::model::Wrap;
+    let root = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
+    let shot = |h: &mut Harness<'static, WordApp>, n: u32| {
+        h.run_steps(6);
+        let dir = root.join(n.to_string());
+        std::fs::create_dir_all(&dir).unwrap();
+        h.render().expect("render").save(dir.join("qalam.png")).unwrap();
+    };
+    let typed = |paras: &[&str]| {
+        let mut h = Harness::builder().with_size([1200.0, 760.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+        h.run_steps(2);
+        for (i, t) in paras.iter().enumerate() {
+            h.event(Event::Text((*t).into()));
+            h.run_steps(1);
+            if i + 1 < paras.len() { h.key_press(Key::Enter); }
+        }
+        h
+    };
+    // Paragraph mark in mixed-direction paragraphs (#274).
+    let mut h = typed(&["English paragraph ending in Hebrew שלום", "فقرة عربية تنتهي بكلمة abc", "English ending in Arabic مرحبا"]);
+    h.state_mut().show_marks = true;
+    shot(&mut h, 274);
+    // CJK text (#241 #285: tofu in Wordcraft's Chinese UI; Qalam has no Chinese UI, so check CJK in the document).
+    let mut h = typed(&["简体中文：删除 接受 拒绝", "繁體中文：審閱 拼寫", "日本語のテキスト"]);
+    for n in [241, 285] { shot(&mut h, n); }
+    // After the fix: an installed CJK font draws them (the app loads system fonts at start; here, register one).
+    if word_engine::fonts::register_font_file(std::path::Path::new("/System/Library/Fonts/Hiragino Sans GB.ttc")).len() > 0 {
+        let mut h = typed(&["简体中文：删除 接受 拒绝", "繁體中文：審閱 拼寫", "日本語のテキスト"]);
+        for n in [241, 285] {
+            h.run_steps(6);
+            h.render().expect("render").save(root.join(n.to_string()).join("qalam-after.png")).unwrap();
+        }
+    }
+    // Picture with text wrapping around it does not overlap text (#358).
+    let body = "A área definida como LAGO se trata de um local ao redor do lago da propriedade, que se encontra cheio ao longo de todo o ano devido à um sistema de bombas hidráulicas.";
+    let mut h = typed(&["Mapa 1 - Mapa contendo todas as áreas escolhidas", body, body, body, body]);
+    let mut img = image::RgbaImage::new(240, 160);
+    for (x, y, p) in img.enumerate_pixels_mut() { *p = image::Rgba([(x % 255) as u8, (y % 255) as u8, 200, 255]); }
+    let mut png = std::io::Cursor::new(vec![]);
+    image::DynamicImage::ImageRgba8(img).write_to(&mut png, image::ImageFormat::Png).unwrap();
+    let at = h.state().doc.text().find(body).unwrap();
+    let at = h.state().doc.text()[..at].chars().count();
+    h.state_mut().doc.select(at, at);
+    h.state_mut().doc.insert_image(png.into_inner(), "image/png", 180.0, 120.0);
+    h.run_steps(3);
+    h.state_mut().doc.select(at, at + 1);
+    h.state_mut().set_wrap(Some(Wrap::Square));
+    h.run_steps(3);
+    let end = h.state().doc.len();
+    h.state_mut().doc.select(end, end);
+    shot(&mut h, 358);
+    // Caret visible in dark mode (#299) and dark mode chrome (#312).
+    let mut h = typed(&["Dark mode caret test نص"]);
+    let ctx = h.ctx.clone();
+    h.state_mut().set_dark(&ctx, true);
+    for n in [299, 312] { shot(&mut h, n); }
+}
