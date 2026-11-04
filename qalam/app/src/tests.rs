@@ -2183,3 +2183,65 @@ fn wordcraft_task07_renders() {
         shot(&mut h, "535", "qalam");
     }
 }
+
+/// Qalam screenshots of wordcraft task-09 scenarios (#730 #732 #743 #749 #776 #777):
+/// `WC_IMG=<img dir> cargo test -p word-app wordcraft_task09_screenshots -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn wordcraft_task09_screenshots() {
+    let dir = std::path::PathBuf::from(std::env::var_os("WC_IMG").expect("set WC_IMG"));
+    let shot = |h: &mut Harness<'_, WordApp>, n: &str, name: &str| {
+        std::fs::create_dir_all(dir.join(n)).unwrap();
+        h.render().expect("render").save(dir.join(n).join(name)).unwrap();
+    };
+    let build = |path: Option<std::path::PathBuf>| Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().allow_missing_glyphs().build_eframe(move |cc| WordApp::new(cc, path));
+    for (n, file) in [("743", "bp.docx"), ("749", "resume.docx"), ("777", "spacing_test.docx")] {
+        let p = dir.join(n).join(file);
+        if !p.exists() { continue; }
+        let mut h = build(Some(p));
+        h.run_steps(8);
+        shot(&mut h, n, "qalam.png");
+    }
+    // #730: dark interface, Design tab galleries.
+    let mut h = build(None);
+    h.run_steps(2);
+    let ctx = h.ctx.clone();
+    h.state_mut().set_dark(&ctx, true);
+    h.state_mut().tab = crate::ribbon::Tab::Design;
+    h.run_steps(6);
+    shot(&mut h, "730", "qalam.png");
+    // #732: the Symbol dialog (dark), dragged by its title bar.
+    h.state_mut().open_symbols();
+    h.run_steps(4);
+    shot(&mut h, "732", "qalam.png");
+    h.state_mut().extras.symbol = None;
+    let ctx = h.ctx.clone();
+    h.state_mut().set_dark(&ctx, false);
+    // #776 / #777: Wingdings 14 pt, six empty paragraphs then "Abcd", and a typed "&" / ☺.
+    h.state_mut().tab = crate::ribbon::Tab::Home;
+    h.state_mut().doc.set_run_props(word_engine::RunProps { font: Some("Wingdings".into()), cs_font: Some("Wingdings".into()), ..Default::default() });
+    h.state_mut().doc.set_font_size(14.0);
+    for _ in 0..6 { h.key_press(Key::Enter); }
+    h.event(Event::Text("Abcd &\u{F04A}".into()));
+    h.run_steps(6);
+    shot(&mut h, "776", "qalam.png");
+    shot(&mut h, "777", "qalam-wingdings.png");
+}
+
+#[test]
+fn style_set_previews_stay_white_in_dark_mode() {
+    // wordcraft #730: in the dark interface the Design tab's style set previews drew dark
+    // document colors (Banner's navy, Minimal's gray) on a dark card; they are white pages now.
+    let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+    h.run_steps(2);
+    let ctx = h.ctx.clone();
+    h.state_mut().set_dark(&ctx, true);
+    h.state_mut().tab = crate::ribbon::Tab::Design;
+    h.run_steps(6);
+    let Ok(img) = h.render() else { return };
+    // Blank page area of the Banner and Minimal previews, right of their "Title".
+    for x in [535, 650] {
+        let p = img.get_pixel(x, 68);
+        assert!(p[0] > 240 && p[1] > 240 && p[2] > 240, "preview at x {x} is {p:?}");
+    }
+}
