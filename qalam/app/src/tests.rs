@@ -1974,3 +1974,33 @@ fn ctrl_wheel_and_pinch_zoom_the_document() {
     h.run_steps(2);
     assert!(h.state().zoom < after, "Ctrl + wheel down zooms out: {after} -> {}", h.state().zoom);
 }
+
+/// Renders Qalam reproductions of wordcraft issue scenarios (triage task 01) to
+/// `$WORDCRAFT_IMG/<issue>/qalam.png`:
+/// `WORDCRAFT_IMG=<dir> cargo test -p word-app wordcraft_task01_screenshots -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn wordcraft_task01_screenshots() {
+    let dir = std::path::PathBuf::from(std::env::var_os("WORDCRAFT_IMG").expect("set WORDCRAFT_IMG"));
+    type Setup = fn(&mut Harness<'static, WordApp>);
+    fn typ(h: &mut Harness<'static, WordApp>, t: &str) { h.event(Event::Text(t.into())); h.run_steps(1); }
+    let cases: [(&str, Setup); 8] = [
+        ("4161", |h| { typ(h, "thank 123 שלום"); h.state_mut().doc.set_paragraph_direction(true); h.key_press(Key::Enter); typ(h, "شكرا 123 hello عالم"); h.state_mut().doc.set_paragraph_direction(true); }),
+        ("4174", |h| { typ(h, "مرحبا بالعالم שלום עולם"); h.state_mut().show_outline = true; h.state_mut().extras.nav.query = "مرحبا بالعالم".into(); h.state_mut().extras.nav.tab = crate::nav::NavTab::Results; }),
+        ("4197", |h| { typ(h, "عنوان المستند"); h.state_mut().doc.set_paragraph_style("Title"); h.key_press(Key::Enter); typ(h, "Document Title"); h.state_mut().doc.set_paragraph_style("Title"); }),
+        ("4198", |h| { h.state_mut().doc.insert_table(3, 2); typ(h, "الاسم"); h.key_press(Key::Tab); typ(h, "Name"); h.run_steps(1); h.state_mut().doc.apply_table_style(word_engine::tables::TableStyle::HeaderShaded, word_engine::Color(68, 114, 196)); }),
+        ("4765", |h| { typ(h, "Tiếng Việt: Ể Ứ Ự ể ứ ự — E\u{302}\u{309} U\u{31b}\u{301}"); }),
+        ("4944", |h| { typ(h, "نص عربي في نمط عادي"); h.state_mut().tab = crate::ribbon::Tab::Home; }),
+        ("5123", |h| { typ(h, "هذه فقرة عربية من اليمين إلى اليسار مع رقم 2024 وكلمة English في الوسط."); h.key_press(Key::Enter); typ(h, "فقرة ثانية."); }),
+        ("5143", |h| { h.state_mut().insert_equation("س=ص+١"); }),
+    ];
+    for (n, setup) in cases {
+        let mut h = Harness::builder().with_size([1440.0, 860.0]).with_step_dt(1.0 / 60.0).wgpu().build_eframe(|cc| WordApp::new(cc, None));
+        h.run_steps(2);
+        setup(&mut h);
+        h.run_steps(8);
+        let d = dir.join(n);
+        std::fs::create_dir_all(&d).unwrap();
+        h.render().expect("render").save(d.join("qalam.png")).unwrap();
+    }
+}
