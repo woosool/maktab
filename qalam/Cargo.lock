@@ -6442,6 +6442,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "sys-locale",
  "unicode-bidi",
  "ureq",
  "winresource",

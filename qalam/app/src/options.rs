@@ -44,8 +44,30 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { lang: Default::default(), dark: false, units: Default::default(), ruler: true, nav_pane: false, zoom: 1.0, autosave_minutes: 10, backup: false, default_folder: None, remember_window: true, window: None, hidden_tabs: HashSet::new(), hidden_groups: HashSet::new(), custom_tab: vec![], custom_tab_name: "My Tab".into(), hidden_context: HashSet::new(), recent: vec![], auto_update: true, skipped_version: None, last_update_check: 0 }
+        Settings { lang: Default::default(), dark: false, units: default_units(system_region().as_deref()), ruler: true, nav_pane: false, zoom: 1.0, autosave_minutes: 10, backup: false, default_folder: None, remember_window: true, window: None, hidden_tabs: HashSet::new(), hidden_groups: HashSet::new(), custom_tab: vec![], custom_tab_name: "My Tab".into(), hidden_context: HashSet::new(), recent: vec![], auto_update: true, skipped_version: None, last_update_check: 0 }
     }
+}
+
+/// The system's region ("SA" from "ar-SA", "PL" from "pl_PL.UTF-8"). Tests see none, so they
+/// do not depend on the machine they run on.
+pub fn system_region() -> Option<String> {
+    if cfg!(test) { return None; }
+    sys_locale::get_locale().and_then(|l| region_of(&l))
+}
+
+pub(crate) fn region_of(locale: &str) -> Option<String> {
+    let base = locale.split(['.', '@']).next()?;
+    base.split(['-', '_']).skip(1).find(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_alphabetic())).map(|p| p.to_ascii_uppercase())
+}
+
+/// Unicode CLDR paperSize: Letter in these territories, A4 everywhere else. No known region keeps Letter.
+pub fn uses_letter(region: Option<&str>) -> bool {
+    region.is_none_or(|r| ["US", "CA", "MX", "BZ", "CL", "CO", "CR", "GT", "NI", "PA", "PH", "PR", "SV", "VE"].contains(&r))
+}
+
+/// Unicode CLDR measurementSystem: inches in the US, Liberia and Myanmar, centimetres elsewhere.
+pub fn default_units(region: Option<&str>) -> crate::view::Units {
+    if region.is_none_or(|r| ["US", "LR", "MM"].contains(&r)) { crate::view::Units::Inches } else { crate::view::Units::Centimeters }
 }
 
 fn path() -> PathBuf { crate::config_dir().join("settings.json") }
@@ -57,7 +79,7 @@ impl Settings {
         let d = Settings::default();
         let set = |k: &str| -> HashSet<String> { v[k].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).collect() };
         let list = |k: &str| -> Vec<String> { v[k].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).collect() };
-        let units = crate::view::Units::ALL.iter().find(|u| Some(u.1) == v["units"].as_str()).map(|u| u.0).unwrap_or_default();
+        let units = crate::view::Units::ALL.iter().find(|u| Some(u.1) == v["units"].as_str()).map(|u| u.0).unwrap_or(d.units);
         let window = v["window"].as_object().and_then(|w| {
             let size = [w.get("w")?.as_f64()? as f32, w.get("h")?.as_f64()? as f32];
             let pos = w.get("x").and_then(|x| x.as_f64()).zip(w.get("y").and_then(|y| y.as_f64())).map(|(x, y)| [x as f32, y as f32]);

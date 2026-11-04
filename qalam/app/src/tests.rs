@@ -1853,3 +1853,14 @@ fn menu_key_opens_context_menu() {
         assert!(h.query_by_label("Synonyms").is_none());
     }
 }
+
+/// Wordcraft #838: new documents take A4 and centimetres from the system region, not the language.
+#[test]
+fn paper_and_units_follow_the_region() {
+    use crate::options::{default_units, uses_letter};
+    use crate::view::Units;
+    for (locale, letter, units) in [("en-US", true, Units::Inches), ("ar-SA", false, Units::Centimeters), ("fa_IR.UTF-8", false, Units::Centimeters), ("pl-PL", false, Units::Centimeters), ("en-GB", false, Units::Centimeters), ("fr-CA", true, Units::Centimeters), ("en", true, Units::Inches)] {
+        let region = crate::options::region_of(locale);
+        assert_eq!((uses_letter(region.as_deref()), default_units(region.as_deref())), (letter, units), "{locale}");
+    }
+}

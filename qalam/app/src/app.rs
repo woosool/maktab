@@ -283,6 +283,8 @@ impl WordApp {
 
     fn welcome() -> Document {
         let mut d = Document::new(vec![Paragraph::default()]);
+        // A4 outside the Letter regions (the system region, not the interface language).
+        if !crate::options::uses_letter(crate::options::system_region().as_deref()) { (d.page.width, d.page.height) = (11906, 16838); }
         // Set as Default (Design tab) applies to new documents.
         if let Some(defaults) = crate::design::load_defaults() { crate::design::apply_defaults(&mut d, &defaults); }
         d.dirty = false;
