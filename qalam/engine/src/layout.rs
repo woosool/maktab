@@ -401,7 +401,13 @@ impl<'a> Ctx<'a> {
                 fmts.push(f.clone());
                 let fi = fmts.len() - 1;
                 for c in text.chars() {
-                    let c = match c { '\u{F0B7}' | '\u{F0A7}' | '\u{F06C}' => '\u{2022}', '\u{F0D8}' => '\u{27A2}', '\u{F0FC}' => '\u{2713}', 'o' if text.len() == 1 => '\u{25E6}', c => c };
+                    let c = match c {
+                        '\u{F0B7}' | '\u{F0A7}' | '\u{F06C}' => '\u{2022}', '\u{F0D8}' => '\u{27A2}', '\u{F0FC}' => '\u{2713}', 'o' if text.len() == 1 => '\u{25E6}',
+                        // Any other symbol-font code would be drawn from whatever font has that
+                        // private-use code (often an icon font): the level's default bullet instead.
+                        '\u{F000}'..='\u{F0FF}' => ['\u{2022}', '\u{25E6}', '\u{25AA}'][ilvl as usize % 3],
+                        c => c,
+                    };
                     atoms.push(Atom { ch: c, pos: None, width: fonts::advance(f.key, c, f.size), fmt: fi, kind: Kind::Char, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None });
                 }
                 atoms.push(Atom { ch: '\t', pos: None, width: 0.0, fmt: fi, kind: Kind::Tab, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None });
@@ -1631,9 +1637,10 @@ impl<'a> Placer<'a> {
             // Missing grids share the writing width.
             grid = vec![writing / max_cols.max(1) as f32; max_cols];
         }
-        // Nested and autofit tables fit the space they're in.
+        // Nested and autofit tables fit the space they're in, unless the table has a width of its
+        // own (w:tblW in twips): like Word, that is kept and may run past the margin.
         let sum: f32 = grid.iter().sum();
-        if (table.parent.is_some() || !table.fixed) && sum > writing + 0.5 { for g in grid.iter_mut() { *g *= writing / sum; } }
+        if (table.parent.is_some() || !table.fixed) && !has_own_width(table) && sum > writing + 0.5 { for g in grid.iter_mut() { *g *= writing / sum; } }
         let spans = cell_spans(table, paragraphs, doc);
         if !table.fixed { self.autofit_grid(ti, paragraphs, &spans, &mut grid, writing); }
         let table_w: f32 = grid.iter().sum();
@@ -1646,9 +1653,13 @@ impl<'a> Placer<'a> {
             borders: table.borders || table.style.as_deref().is_some_and(|s| doc.styles.table_style_borders(s)),
         };
         let header_rows = table.rows.iter().take_while(|r| r.header).count();
+        let start = (self.lines.len(), self.page, self.y, self.cells.len());
         for r in 0..table.rows.len() {
-            let mark = (self.lines.len(), self.page, self.y, self.cells.len());
+            let mut mark = (self.lines.len(), self.page, self.y, self.cells.len());
             if !self.place_row(ti, r, paragraphs, &t, true) {
+                // Repeated header rows are never left alone at the foot of a page: when the
+                // first body row moves on, they move with it.
+                if r == header_rows && header_rows > 0 && start.1 == mark.1 && start.2 > self.body_top + 0.5 { mark = start; }
                 // The row moves whole to a fresh page, after repeated header rows.
                 self.lines.truncate(mark.0);
                 self.cells.truncate(mark.3);
@@ -1810,6 +1821,10 @@ impl<'a> Placer<'a> {
         // A row that continues on the next page moves there whole when it must not split
         // (cantSplit) or when no cell could place its first line on this page; otherwise it
         // splits across the page boundary, as rows do by default.
+        // A row's minimum (or exact) height is reserved space: when it overflows what is left
+        // of the page, the row starts on the next one (and splits from there if taller than a page).
+        let min_h = twips(row.min_height);
+        if may_move && row.min_height > 0 && row_top > self.body_top + 0.5 && row_top + min_h > self.bottom() + 0.01 && min_h <= self.body_bottom - self.body_top { return false; }
         if may_move && end_page > row_top_page && row_top > self.body_top + 0.5 {
             let height: f32 = results.iter().map(|r| r.5.iter().map(|&i| self.lines[i].height).sum::<f32>()).fold(0.0, f32::max);
             let nothing_here = results.iter().all(|r| r.5.first().is_none_or(|&i| self.lines[i].page > row_top_page));
@@ -2227,6 +2242,12 @@ impl Layout {
     }
 }
 
+/// Whether a table read from a file has its own preferred width in twips (`w:tblW w:type="dxa"`).
+fn has_own_width(table: &crate::model::Table) -> bool {
+    let Some(props) = table.raw_props.as_deref().and_then(|r| crate::xml::parse(r).ok()) else { return false };
+    props.elements().find(|e| e.name == "w:tblW").is_some_and(|w| w.attr("w:type") == Some("dxa") && w.attr("w:w").and_then(|v| v.parse::<i32>().ok()).unwrap_or(0) > 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2388,6 +2409,52 @@ mod tests {
         assert!(t.elapsed().as_secs_f32() < 5.0, "{:?}", t.elapsed());
         assert!(l.pages.len() > 30);
         assert_eq!(l.lines.iter().filter(|x| x.cell.is_some()).count(), 9000);
+    }
+
+    /// Twenty lines of Arabic text, then a two-row one-column table; `edit` sets its rows up.
+    fn table_after_text(edit: impl Fn(&mut Document)) -> (Document, Layout) {
+        let mut d = doc(&[vec!["سطر من النص"; 20], vec!["بعد"]].concat().join("\n"));
+        d.select(d.paragraph_start(20), d.paragraph_start(20));
+        d.insert_table(2, 1);
+        edit(&mut d);
+        let l = layout_document(&d);
+        (d, l)
+    }
+
+    #[test]
+    fn rows_with_a_minimum_height_start_on_the_next_page() {
+        // 9000 twips (450 pt) doesn't fit under twenty lines, but fits a page.
+        let (_, l) = table_after_text(|d| d.tables[0].rows[0].min_height = 9000);
+        let first: Vec<usize> = l.cells.iter().filter(|c| c.row == 0).map(|c| c.page).collect();
+        assert_eq!(first, vec![1], "the row starts whole on page 2");
+        // Taller than a page, it still starts where it is.
+        let (_, l) = table_after_text(|d| d.tables[0].rows[0].min_height = 20000);
+        assert_eq!(l.cells.iter().filter(|c| c.row == 0).map(|c| c.page).min(), Some(0));
+    }
+
+    #[test]
+    fn repeated_header_row_moves_with_the_first_row() {
+        let (_, l) = table_after_text(|d| { d.tables[0].rows[0].header = true; d.tables[0].rows[1].min_height = 9000; });
+        let header: Vec<usize> = l.cells.iter().filter(|c| c.row == 0).map(|c| c.page).collect();
+        assert_eq!(header, vec![1], "no header row alone at the foot of page 1: {header:?}");
+        assert_eq!(l.cells.iter().filter(|c| c.row == 1).map(|c| c.page).collect::<Vec<_>>(), vec![1]);
+    }
+
+    #[test]
+    fn a_table_with_its_own_width_keeps_it_past_the_margin() {
+        let wide = |own: bool| {
+            let (d, l) = table_after_text(|d| {
+                d.tables[0].grid = vec![13608];
+                if own { d.tables[0].raw_props = Some(r#"<w:tblPr><w:tblW w:w="13608" w:type="dxa"/></w:tblPr>"#.into()); }
+            });
+            let c = l.cells.iter().find(|c| c.row == 0).unwrap();
+            (c.x1 - c.x0, d)
+        };
+        let (kept, d) = wide(true);
+        assert!((kept - twips(13608)).abs() < 0.5, "{kept}");
+        let geo = d.page.geometry();
+        let (squeezed, _) = wide(false);
+        assert!(squeezed <= geo.width - geo.left - geo.right + 0.5, "an automatic-width table still fits the margins: {squeezed}");
     }
 
     #[test]
@@ -2578,6 +2645,18 @@ mod tests {
         let mut marker: Vec<(f32, char)> = page.items.iter().filter_map(|i| match i { DrawItem::Glyphs { glyphs, baseline, .. } if *baseline < l.lines[0].baseline + 1.0 => Some(glyphs.iter().filter(|g| g.ch.is_ascii_graphic()).map(|g| (g.x, g.ch)).collect::<Vec<_>>()), _ => None }).flatten().collect();
         marker.sort_by(|a, b| a.0.total_cmp(&b.0));
         assert_eq!(marker.iter().map(|m| m.1).collect::<String>(), "Step1:");
+    }
+
+    #[test]
+    fn unknown_symbol_font_bullets_draw_the_default_bullet() {
+        // A private-use code no bundled font draws (here Wingdings 0x81) is not left to font
+        // fallback, which can find an icon at that code: the level's default bullet is drawn.
+        let mut d = doc("بند");
+        d.select_all();
+        d.apply_custom_list(&crate::editing::CustomList::bullet("Odd", '\u{F081}', Some("Wingdings".into())));
+        let l = layout_document(&d);
+        let chars: String = l.pages[0].items.iter().filter_map(|i| match i { DrawItem::Glyphs { glyphs, .. } => Some(glyphs.iter().map(|g| g.ch).collect::<String>()), _ => None }).collect();
+        assert!(chars.contains('\u{2022}') && !chars.contains('\u{F081}'), "{chars:?}");
     }
 
     #[test]
