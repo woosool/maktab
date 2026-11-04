@@ -194,7 +194,7 @@ fn equation_dialog(app: &mut WordApp, ctx: &egui::Context) {
         crate::theme::hrow(ui, |ui| {
             crate::theme::check(ui, &mut d.display, crate::i18n::tr("Display (own line, centered)"));
             ui.label(crate::i18n::tr("Size"));
-            ui.add(egui::DragValue::new(&mut d.size).range(6.0..=72.0).speed(0.5).suffix(" pt"));
+            ui.add(egui::DragValue::new(&mut d.size).range(6.0..=72.0).speed(0.5).suffix(crate::i18n::tr(" pt")));
         });
         // Live preview.
         let mut eq = Equation::new(&d.linear);

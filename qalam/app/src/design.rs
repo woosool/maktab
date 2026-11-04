@@ -142,7 +142,7 @@ fn borders_dialog(app: &mut WordApp, ctx: &egui::Context) {
                     crate::theme::radio_value(ui, &mut d.style, s, crate::i18n::tr(&n));
                 }
                 crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Color:")); color_button(ui, &mut d.color); });
-                crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Width:")); ui.add(egui::DragValue::new(&mut d.width).range(0.25..=6.0).speed(0.05).suffix(" pt")); });
+                crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Width:")); ui.add(egui::DragValue::new(&mut d.width).range(0.25..=6.0).speed(0.05).suffix(crate::i18n::tr(" pt"))); });
             });
             ui.separator();
             crate::theme::vcol(ui, |ui| {
@@ -165,7 +165,7 @@ fn borders_dialog(app: &mut WordApp, ctx: &egui::Context) {
         });
         ui.separator();
         crate::theme::hrow(ui, |ui| {
-            ui.label(crate::i18n::tr("Margin:")); ui.add(egui::DragValue::new(&mut d.space).range(0.0..=31.0).suffix(" pt"));
+            ui.label(crate::i18n::tr("Margin:")); ui.add(egui::DragValue::new(&mut d.space).range(0.0..=31.0).suffix(crate::i18n::tr(" pt")));
             ui.label(crate::i18n::tr("Measure from:"));
             crate::theme::radio_value(ui, &mut d.from_text, false, crate::i18n::tr("Edge of page"));
             crate::theme::radio_value(ui, &mut d.from_text, true, crate::i18n::tr("Text"));

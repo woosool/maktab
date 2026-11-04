@@ -101,6 +101,17 @@ fn cover_page_date_is_the_local_day() {
 }
 
 #[test]
+fn length_units_are_translated() {
+    // Length fields show their unit in the interface language (سم, not cm).
+    crate::i18n::set(crate::i18n::Lang::Ar);
+    let shown: Vec<String> = crate::view::Units::ALL.iter().map(|u| crate::i18n::tr(u.0.suffix())).collect();
+    crate::i18n::set(crate::i18n::Lang::En);
+    for (u, s) in crate::view::Units::ALL.iter().zip(&shown) { assert!(s.chars().any(|c| !c.is_ascii()), "{} shows as {s:?}", u.1); }
+    let src = [include_str!("ribbon.rs"), include_str!("ui.rs"), include_str!("insert.rs"), include_str!("design.rs"), include_str!("symbols.rs")].concat();
+    assert!(!src.contains(&[".suffix(", "\" pt\")"].concat()) && !src.contains(&[".suffix(", "u.suffix())"].concat()), "unit suffixes go through tr");
+}
+
+#[test]
 fn window_title_sent_only_when_it_changes() {
     // sending the title every frame requested a repaint every frame.
     let mut h = harness(None);

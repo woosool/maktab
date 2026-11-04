@@ -675,7 +675,7 @@ pub fn shape_controls(ui: &mut Ui, s: &mut Shape, pairs: usize) -> bool {
             let mut on = s.outline.is_some();
             if crate::theme::check(ui, &mut on, "").changed() { s.outline = on.then_some(Color::BLACK); changed = true; }
             if let Some(c) = &mut s.outline { changed |= crate::ribbon::color_button(ui, c); }
-            changed |= ui.add(DragValue::new(&mut s.outline_width).range(0.25..=12.0).speed(0.05).suffix(" pt")).changed();
+            changed |= ui.add(DragValue::new(&mut s.outline_width).range(0.25..=12.0).speed(0.05).suffix(crate::i18n::tr(" pt"))).changed();
         });
         row(ui);
         ui.label(crate::i18n::tr("Text color"));

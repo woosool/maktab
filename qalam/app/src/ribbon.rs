@@ -1143,14 +1143,14 @@ fn layout(app: &mut WordApp, ui: &mut Ui) {
                         if indent {
                             let u = crate::view::units();
                             let mut v = u.from_twips(if first { pf.indent_left } else { pf.indent_right });
-                            if ui.add_sized(w, egui::DragValue::new(&mut v).speed(u.speed()).max_decimals(2).suffix(u.suffix())).changed() {
+                            if ui.add_sized(w, egui::DragValue::new(&mut v).speed(u.speed()).max_decimals(2).suffix(crate::i18n::tr(u.suffix()))).changed() {
                                 let t = Some(u.to_twips(v).clamp(-31680, 31680));
                                 changed = Some(if first { word_engine::ParaProps { indent_left: t, ..Default::default() } } else { word_engine::ParaProps { indent_right: t, ..Default::default() } });
                             }
                             ui.add_space(4.0);
                         } else {
                             let mut v = if first { pf.space_before } else { pf.space_after };
-                            if ui.add_sized(w, egui::DragValue::new(&mut v).speed(0.5).range(0.0..=600.0).suffix(" pt")).changed() {
+                            if ui.add_sized(w, egui::DragValue::new(&mut v).speed(0.5).range(0.0..=600.0).suffix(crate::i18n::tr(" pt"))).changed() {
                                 changed = Some(if first { word_engine::ParaProps { space_before: Some(v), ..Default::default() } } else { word_engine::ParaProps { space_after: Some(v), ..Default::default() } });
                             }
                         }

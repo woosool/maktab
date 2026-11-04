@@ -249,8 +249,8 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
                 ui.label(crate::i18n::tr("Indent left")); ui.add(DragValue::new(&mut d.left).range(-22.0..=22.0).speed(0.01).max_decimals(2).suffix("\"")); ui.end_row();
                 ui.label(crate::i18n::tr("Indent right")); ui.add(DragValue::new(&mut d.right).range(-22.0..=22.0).speed(0.01).max_decimals(2).suffix("\"")); ui.end_row();
                 ui.label(crate::i18n::tr("First line (− hanging)")); ui.add(DragValue::new(&mut d.first).range(-22.0..=22.0).speed(0.01).max_decimals(2).suffix("\"")); ui.end_row();
-                ui.label(crate::i18n::tr("Space before")); ui.add(DragValue::new(&mut d.before).range(0.0..=600.0).speed(0.5).suffix(" pt")); ui.end_row();
-                ui.label(crate::i18n::tr("Space after")); ui.add(DragValue::new(&mut d.after).range(0.0..=600.0).speed(0.5).suffix(" pt")); ui.end_row();
+                ui.label(crate::i18n::tr("Space before")); ui.add(DragValue::new(&mut d.before).range(0.0..=600.0).speed(0.5).suffix(crate::i18n::tr(" pt"))); ui.end_row();
+                ui.label(crate::i18n::tr("Space after")); ui.add(DragValue::new(&mut d.after).range(0.0..=600.0).speed(0.5).suffix(crate::i18n::tr(" pt"))); ui.end_row();
                 ui.label(crate::i18n::tr("Line spacing"));
                 crate::theme::hrow(ui, |ui| {
                     crate::theme::Combo::from_id_salt("rule").selected_text(crate::i18n::tr(&(match d.rule { LineRule::Auto => "Multiple", LineRule::Exact => "Exactly", LineRule::AtLeast => "At least" }))).show_ui(ui, |ui| {
@@ -259,7 +259,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
                         }
                     });
                     if d.rule == LineRule::Auto { ui.add(DragValue::new(&mut d.spacing).range(0.06..=5.0).speed(0.01).max_decimals(2)); }
-                    else { ui.add(DragValue::new(&mut d.spacing).range(0.7..=600.0).speed(0.25).suffix(" pt")); }
+                    else { ui.add(DragValue::new(&mut d.spacing).range(0.7..=600.0).speed(0.25).suffix(crate::i18n::tr(" pt"))); }
                 });
                 ui.end_row();
             });
@@ -395,7 +395,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
                     }
                 });
                 ui.end_row();
-                ui.label(crate::i18n::tr("Size")); ui.add(DragValue::new(&mut d.size).range(1.0..=1638.0).speed(0.5).max_decimals(1).suffix(" pt")); ui.end_row();
+                ui.label(crate::i18n::tr("Size")); ui.add(DragValue::new(&mut d.size).range(1.0..=1638.0).speed(0.5).max_decimals(1).suffix(crate::i18n::tr(" pt"))); ui.end_row();
                 ui.label(crate::i18n::tr("Font color"));
                 crate::theme::hrow(ui, |ui| {
                     let mut c = d.color.unwrap_or(word_engine::Color::BLACK);
@@ -403,7 +403,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
                     if ui.selectable_label(d.color.is_none(), crate::i18n::tr("Automatic")).clicked() { d.color = None; }
                 });
                 ui.end_row();
-                ui.label(crate::i18n::tr("Character spacing")); ui.add(DragValue::new(&mut d.spacing).range(-20.0..=100.0).speed(0.1).max_decimals(1).suffix(" pt")); ui.end_row();
+                ui.label(crate::i18n::tr("Character spacing")); ui.add(DragValue::new(&mut d.spacing).range(-20.0..=100.0).speed(0.1).max_decimals(1).suffix(crate::i18n::tr(" pt"))); ui.end_row();
             });
             ui.separator();
             crate::theme::section(ui, "Effects");
