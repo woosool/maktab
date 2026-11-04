@@ -513,7 +513,7 @@ fn keyboard_combo(app: &mut WordApp, ui: &mut Ui, salt: &str, current: &str, ite
         st.open = true;
         st.scroll = true;
     }
-    let r = ui.add(egui::TextEdit::singleline(&mut st.text).id(edit_id).desired_width(width).font(FontId::proportional(12.5)));
+    let r = ui.add(qalam_kit::widgets::edit_line(&mut st.text).id(edit_id).desired_width(width).font(FontId::proportional(12.5)));
     let name = crate::i18n::tr(match salt { "rb-font" => "Font", "rb-size" => "Font Size", _ => salt });
     r.widget_info(|| { let mut w = egui::WidgetInfo::labeled(egui::WidgetType::TextInput, true, &name); w.current_text_value = Some(st.text.clone()); w });
     if r.gained_focus() { st.open = true; st.typed = false; st.highlight = shown.iter().position(|s| s.eq_ignore_ascii_case(current)).unwrap_or(0); st.scroll = true; }
@@ -987,7 +987,7 @@ fn chart_design(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Chart Layouts", |ui| {
         rows(ui, |ui| {
             changed |= ui.checkbox(&mut chart.legend, crate::i18n::tr("Legend")).changed();
-            ui.horizontal(|ui| { ui.label(crate::i18n::tr("Title")); changed |= ui.add(egui::TextEdit::singleline(&mut chart.title).desired_width(140.0)).changed(); });
+            ui.horizontal(|ui| { ui.label(crate::i18n::tr("Title")); changed |= ui.add(qalam_kit::widgets::edit_line(&mut chart.title).desired_width(140.0)).changed(); });
         });
     });
     if changed { chart.raw = None; app.doc.set_object(pos, Object::Chart(chart)); app.doc.select(pos, pos + 1); }
@@ -1766,7 +1766,7 @@ fn table(app: &mut WordApp, ui: &mut Ui) {
 /// "Tell me what you want to do": type to find a command; Enter runs the first match.
 fn tell_me(app: &mut WordApp, ui: &mut Ui, ctx: &egui::Context) {
     let id = egui::Id::unique("tell-me");
-    let r = ui.add(egui::TextEdit::singleline(&mut app.extras.tell_me).id(id).hint_text(crate::i18n::tr("🔍  Tell me what you want to do")).desired_width(260.0).margin(egui::Margin::symmetric(10, 5)));
+    let r = ui.add(qalam_kit::widgets::edit_line(&mut app.extras.tell_me).id(id).hint_text(crate::i18n::tr("🔍  Tell me what you want to do")).desired_width(260.0).margin(egui::Margin::symmetric(10, 5)));
     if r.gained_focus() { app.canvas_focus = false; }
     let found = crate::commands::matches(&app.extras.tell_me);
     let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));

@@ -303,8 +303,8 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
         crate::theme::dialog(ctx, "Properties").open(&mut open).default_width(460.0).show(ctx, |ui| {
             app.canvas_focus = false;
             crate::theme::grid(ui, egui::Grid::new("props").num_columns(2).spacing(egui::vec2(12.0, 8.0)), |ui| {
-                for (label, v) in [("Title", &mut d.title), ("Subject", &mut d.subject), ("Author", &mut d.author), ("Keywords", &mut d.keywords)] { ui.label(crate::i18n::tr(label)); ui.add(egui::TextEdit::singleline(v).desired_width(300.0)); ui.end_row(); }
-                ui.label(crate::i18n::tr("Comments")); ui.add(egui::TextEdit::multiline(&mut d.description).desired_rows(3).desired_width(300.0)); ui.end_row();
+                for (label, v) in [("Title", &mut d.title), ("Subject", &mut d.subject), ("Author", &mut d.author), ("Keywords", &mut d.keywords)] { ui.label(crate::i18n::tr(label)); ui.add(qalam_kit::widgets::edit_line(v).desired_width(300.0)); ui.end_row(); }
+                ui.label(crate::i18n::tr("Comments")); ui.add(qalam_kit::widgets::edit_lines(&mut d.description).desired_rows(3).desired_width(300.0)); ui.end_row();
             });
             crate::theme::section(ui, "Statistics");
             crate::theme::grid(ui, egui::Grid::new("stats").num_columns(2), |ui| {

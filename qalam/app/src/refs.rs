@@ -310,7 +310,7 @@ fn source_dialog(app: &mut WordApp, ctx: &egui::Context) {
             crate::theme::Combo::from_id_salt("src-kind").selected_text(crate::i18n::tr(&(SourceKind::ALL.iter().find(|k| k.0 == s.kind).map(|k| k.1).unwrap_or("Book")))).show_ui(ui, |ui| { for (k, n) in SourceKind::ALL { ui.selectable_value(&mut s.kind, k, crate::i18n::tr(&n)); } });
         });
         crate::theme::grid(ui, egui::Grid::new("src").num_columns(2), |ui| {
-            ui.label(crate::i18n::tr("Author:")); ui.add(egui::TextEdit::singleline(&mut s.authors).hint_text(crate::i18n::tr("Last, First; Last, First"))); ui.end_row();
+            ui.label(crate::i18n::tr("Author:")); ui.add(qalam_kit::widgets::edit_line(&mut s.authors).hint_text(crate::i18n::tr("Last, First; Last, First"))); ui.end_row();
             ui.label(crate::i18n::tr("Title:")); ui.text_edit_singleline(&mut s.title); ui.end_row();
             ui.label(crate::i18n::tr("Year:")); ui.text_edit_singleline(&mut s.year); ui.end_row();
             match s.kind {
@@ -326,7 +326,7 @@ fn source_dialog(app: &mut WordApp, ctx: &egui::Context) {
                     ui.label(crate::i18n::tr("Publisher:")); ui.text_edit_singleline(&mut s.publisher); ui.end_row();
                 }
             }
-            ui.label(crate::i18n::tr("Tag name:")); ui.add(egui::TextEdit::singleline(&mut s.tag).hint_text(crate::i18n::tr("automatic"))); ui.end_row();
+            ui.label(crate::i18n::tr("Tag name:")); ui.add(qalam_kit::widgets::edit_line(&mut s.tag).hint_text(crate::i18n::tr("automatic"))); ui.end_row();
         });
     }, "OK");
     if ok {

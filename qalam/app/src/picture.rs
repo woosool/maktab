@@ -313,7 +313,7 @@ fn alt_dialog(app: &mut WordApp, ctx: &egui::Context) {
     let (mut open, mut done) = (true, false);
     crate::theme::dialog(ctx, "Alt Text").open(&mut open).collapsible(false).resizable(false).show(ctx, |ui| {
         ui.label(crate::i18n::tr("How would you describe this picture to someone who is blind or has low vision?"));
-        ui.add(egui::TextEdit::multiline(text).desired_rows(4).desired_width(320.0));
+        ui.add(qalam_kit::widgets::edit_lines(text).desired_rows(4).desired_width(320.0));
         crate::theme::footer(ui, |ui| {
             if crate::theme::primary(ui, "OK").clicked() { done = true; }
             if crate::theme::secondary(ui, "Mark as decorative").clicked() { text.clear(); done = true; }

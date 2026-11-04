@@ -197,9 +197,9 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
         dialog(ctx, "Envelopes").open(&mut open).default_width(460.0).show(ctx, |ui| {
             app.canvas_focus = false;
             section(ui, "Delivery address");
-            ui.add(egui::TextEdit::multiline(&mut d.delivery).desired_rows(4).desired_width(f32::INFINITY).hint_text(crate::i18n::tr("Name\nStreet\nCity, State ZIP")));
+            ui.add(qalam_kit::widgets::edit_lines(&mut d.delivery).desired_rows(4).desired_width(f32::INFINITY).hint_text(crate::i18n::tr("Name\nStreet\nCity, State ZIP")));
             section(ui, "Return address");
-            ui.add(egui::TextEdit::multiline(&mut d.ret).desired_rows(3).desired_width(f32::INFINITY));
+            ui.add(qalam_kit::widgets::edit_lines(&mut d.ret).desired_rows(3).desired_width(f32::INFINITY));
             crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Envelope size:")); crate::theme::Combo::from_id_salt("env-size").width(240.0).selected_text(crate::i18n::tr(&(ENVELOPES[d.size].0))).show_ui(ui, |ui| { for (k, e) in ENVELOPES.iter().enumerate() { ui.selectable_value(&mut d.size, k, crate::i18n::tr(&(e.0))); } }); });
             ui.label(RichText::new(crate::i18n::tr("Leave the delivery address empty to merge addresses into it.")).small().weak());
             footer(ui, |ui| { if primary(ui, "New Document").clicked() { ok = true; } if secondary(ui, "Cancel").clicked() { cancel = true; } });
@@ -231,7 +231,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
             crate::theme::check(ui, &mut d.merge, crate::i18n::tr("Merge recipients into the labels (Mail Merge)"));
             ui.add_enabled_ui(!d.merge, |ui| {
                 section(ui, "Address");
-                ui.add(egui::TextEdit::multiline(&mut d.text).desired_rows(4).desired_width(f32::INFINITY));
+                ui.add(qalam_kit::widgets::edit_lines(&mut d.text).desired_rows(4).desired_width(f32::INFINITY));
             });
             crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Label:")); crate::theme::Combo::from_id_salt("label-spec").width(300.0).selected_text(crate::i18n::tr(&(LABELS[d.spec].0))).show_ui(ui, |ui| { for (k, l) in LABELS.iter().enumerate() { ui.selectable_value(&mut d.spec, k, crate::i18n::tr(&l.0)); } }); });
             let l = LABELS[d.spec];
@@ -406,7 +406,7 @@ fn recipients_dialog(app: &mut WordApp, ctx: &egui::Context) {
         crate::theme::hrow(ui, |ui| {
             ui.label(RichText::new(crate::i18n::tr(&src.name)).strong());
             ui.label(RichText::new(crate::i18n::trf("{} recipients, {} selected", &[&src.rows.len(), &(src.rows.len() - excluded.len())])).weak());
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| { ui.add(egui::TextEdit::singleline(&mut d.filter).hint_text(crate::i18n::tr("Filter")).desired_width(160.0)); });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| { ui.add(qalam_kit::widgets::edit_line(&mut d.filter).hint_text(crate::i18n::tr("Filter")).desired_width(160.0)); });
         });
         let mut order: Vec<usize> = (0..src.rows.len()).filter(|&r| d.filter.trim().is_empty() || src.rows[r].iter().any(|c| c.to_lowercase().contains(&d.filter.to_lowercase()))).collect();
         if let Some((c, asc)) = d.sort { order.sort_by(|a, b| { let o = src.rows[*a].get(c).cmp(&src.rows[*b].get(c)); if asc { o } else { o.reverse() } }); }
@@ -424,7 +424,7 @@ fn recipients_dialog(app: &mut WordApp, ctx: &egui::Context) {
                 for &r in &order {
                     let mut on = !excluded.contains(&r);
                     if crate::theme::check(ui, &mut on, "").changed() { if on { excluded.remove(&r); } else { excluded.insert(r); } }
-                    for c in 0..src.headers.len() { ui.add(egui::TextEdit::singleline(&mut src.rows[r][c]).desired_width(110.0)); }
+                    for c in 0..src.headers.len() { ui.add(qalam_kit::widgets::edit_line(&mut src.rows[r][c]).desired_width(110.0)); }
                     if ui.small_button("✕").on_hover_text(crate::i18n::tr("Delete entry")).clicked() { remove = Some(r); }
                     ui.end_row();
                 }

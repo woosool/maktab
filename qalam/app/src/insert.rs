@@ -199,7 +199,7 @@ fn online_pictures(app: &mut WordApp, ui: &mut Ui) {
     egui::Panel::right("online-pictures").resizable(true).default_size(330.0).show(ui, |ui| {
         close = pane_header(ui, "Online Pictures");
         let st = app.insert.online.as_mut().unwrap();
-        let r = ui.add(egui::TextEdit::singleline(&mut st.query).hint_text(crate::i18n::tr("Search images")).desired_width(f32::INFINITY));
+        let r = ui.add(qalam_kit::widgets::edit_line(&mut st.query).hint_text(crate::i18n::tr("Search images")).desired_width(f32::INFINITY));
         if r.has_focus() { app.canvas_focus = false; }
         let go = ui.button(crate::i18n::tr("Search")).clicked() || r.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
         if go && !st.query.trim().is_empty() {
@@ -292,7 +292,7 @@ fn wikipedia(app: &mut WordApp, ui: &mut Ui) {
             crate::theme::Combo::from_id_salt("wiki-lang").width(60.0).selected_text(crate::i18n::tr(&st.lang.clone())).show_ui(ui, |ui| {
                 for (l, n) in [("en", "English"), ("ar", "العربية"), ("fr", "Français"), ("es", "Español"), ("de", "Deutsch"), ("he", "עברית")] { ui.selectable_value(&mut st.lang, l.to_string(), crate::i18n::tr(&n)); }
             });
-            let r = ui.add(egui::TextEdit::singleline(&mut st.query).hint_text(crate::i18n::tr("Search Wikipedia")).desired_width(f32::INFINITY));
+            let r = ui.add(qalam_kit::widgets::edit_line(&mut st.query).hint_text(crate::i18n::tr("Search Wikipedia")).desired_width(f32::INFINITY));
             if r.has_focus() { app.canvas_focus = false; }
             if (ui.input(|i| i.key_pressed(Key::Enter)) && r.lost_focus()) && !st.query.trim().is_empty() {
                 let (q, lang) = (encode(st.query.trim()), st.lang.clone());
@@ -371,7 +371,7 @@ fn dictionary(app: &mut WordApp, ui: &mut Ui) {
     egui::Panel::right("dictionary").resizable(true).default_size(300.0).show(ui, |ui| {
         close = pane_header(ui, "Dictionary");
         let st = app.insert.dict.as_mut().unwrap();
-        let r = ui.add(egui::TextEdit::singleline(&mut st.word).hint_text(crate::i18n::tr("Look up a word")).desired_width(f32::INFINITY));
+        let r = ui.add(qalam_kit::widgets::edit_line(&mut st.word).hint_text(crate::i18n::tr("Look up a word")).desired_width(f32::INFINITY));
         if r.has_focus() { app.canvas_focus = false; }
         if (ui.button(crate::i18n::tr("Look up")).clicked() || r.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter))) && !st.word.trim().is_empty() {
             let w = encode(&st.word.trim().to_lowercase());
@@ -566,10 +566,10 @@ fn chart_dialog(app: &mut WordApp, ctx: &egui::Context) {
         egui::ScrollArea::both().max_height(190.0).show(ui, |ui| {
             crate::theme::grid(ui, egui::Grid::new("chart-data").striped(true), |ui| {
                 ui.label("");
-                for s in c.series.iter_mut() { ui.add(egui::TextEdit::singleline(&mut s.name).desired_width(80.0)); }
+                for s in c.series.iter_mut() { ui.add(qalam_kit::widgets::edit_line(&mut s.name).desired_width(80.0)); }
                 ui.end_row();
                 for row in 0..c.categories.len() {
-                    ui.add(egui::TextEdit::singleline(&mut c.categories[row]).desired_width(90.0));
+                    ui.add(qalam_kit::widgets::edit_line(&mut c.categories[row]).desired_width(90.0));
                     for s in c.series.iter_mut() {
                         while s.values.len() < row + 1 { s.values.push(0.0); }
                         ui.add(DragValue::new(&mut s.values[row]).speed(0.1).max_decimals(2));
@@ -636,7 +636,7 @@ fn shape_dialog(app: &mut WordApp, ctx: &egui::Context) {
         app.canvas_focus = false;
         shape_controls(ui, &mut d.shape, 1);
         ui.label(crate::i18n::tr("Text"));
-        ui.add(egui::TextEdit::multiline(&mut d.shape.text).desired_rows(2).desired_width(260.0));
+        ui.add(qalam_kit::widgets::edit_lines(&mut d.shape.text).desired_rows(2).desired_width(260.0));
         crate::theme::footer(ui, |ui| if crate::theme::primary(ui, "Apply").clicked() { apply = true; });
     });
     if apply {
@@ -702,7 +702,7 @@ fn bookmark_dialog(app: &mut WordApp, ctx: &egui::Context) {
     crate::theme::dialog(ctx, "Bookmark").open(&mut open).collapsible(false).resizable(false).show(ctx, |ui| {
         app.canvas_focus = false;
         ui.label(crate::i18n::tr("Bookmark name"));
-        ui.add(egui::TextEdit::singleline(&mut d.name).desired_width(260.0));
+        ui.add(qalam_kit::widgets::edit_line(&mut d.name).desired_width(260.0));
         let valid = word_engine::Document::valid_bookmark_name(&d.name);
         if !d.name.is_empty() && !valid { ui.colored_label(Color32::from_rgb(190, 40, 40), "Start with a letter; use letters, numbers and underscores."); }
         let marks: Vec<(String, usize, usize)> = app.doc.bookmarks().into_iter().filter(|b| d.hidden || !b.0.starts_with('_')).collect();

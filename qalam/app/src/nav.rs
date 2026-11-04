@@ -43,7 +43,7 @@ pub fn pane(app: &mut WordApp, ui: &mut Ui) {
             });
             ui.add_space(6.0);
             let nav = &mut app.extras.nav;
-            let r = ui.add(egui::TextEdit::singleline(&mut nav.query).hint_text(crate::i18n::tr("Search document")).desired_width(f32::INFINITY));
+            let r = ui.add(qalam_kit::widgets::edit_line(&mut nav.query).hint_text(crate::i18n::tr("Search document")).desired_width(f32::INFINITY));
             if r.has_focus() { app.canvas_focus = false; }
             if r.changed() { nav.tab = if nav.query.trim().is_empty() { NavTab::Headings } else { NavTab::Results }; }
             ui.add_space(6.0);

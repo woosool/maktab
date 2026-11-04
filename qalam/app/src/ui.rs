@@ -119,7 +119,7 @@ pub fn find_panel(app: &mut WordApp, ui: &mut Ui) {
     egui::Panel::left("find").resizable(true).default_size(260.0).show(ui, |ui| {
         ui.add_space(6.0);
         crate::theme::hrow(ui, |ui| { ui.heading(crate::i18n::tr("Find")); ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| if ribbon::close_button(ui, "Close").clicked() { app.find.open = false; app.canvas_focus = true; }); });
-        let r = ui.add(egui::TextEdit::singleline(&mut app.find.query).hint_text(crate::i18n::tr("Search document")).desired_width(f32::INFINITY));
+        let r = ui.add(qalam_kit::widgets::edit_line(&mut app.find.query).hint_text(crate::i18n::tr("Search document")).desired_width(f32::INFINITY));
         if app.find.focus { r.request_focus(); app.find.focus = false; }
         if r.has_focus() { app.canvas_focus = false; }
         if r.changed() { app.find.revision = u64::MAX; }
@@ -139,7 +139,7 @@ pub fn find_panel(app: &mut WordApp, ui: &mut Ui) {
         });
         ui.separator();
         ui.label(crate::i18n::tr("Replace with"));
-        let r2 = ui.add(egui::TextEdit::singleline(&mut app.find.replace).desired_width(f32::INFINITY));
+        let r2 = ui.add(qalam_kit::widgets::edit_line(&mut app.find.replace).desired_width(f32::INFINITY));
         if r2.has_focus() { app.canvas_focus = false; }
         crate::theme::hrow(ui, |ui| {
             if ui.button(crate::i18n::tr("Replace")).clicked() { app.replace_current(); }
@@ -300,7 +300,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
         let title = match d.kind { K::Number => "Define New Number Format", K::Bullet => "Define New Bullet", K::Multilevel => "Define New Multilevel List" };
         crate::theme::dialog(ctx, title).open(&mut open).resizable(false).collapsible(false).show(ctx, |ui| {
             app.canvas_focus = false;
-            crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Name")); ui.add(egui::TextEdit::singleline(&mut d.list.name).desired_width(220.0)); });
+            crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Name")); ui.add(qalam_kit::widgets::edit_line(&mut d.list.name).desired_width(220.0)); });
             if d.kind == K::Multilevel {
                 crate::theme::hrow(ui, |ui| {
                     ui.label(crate::i18n::tr("Level"));
@@ -313,7 +313,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
                 if d.kind == K::Bullet {
                     ui.label(crate::i18n::tr("Bullet character"));
                     let mut s = level.text.clone();
-                    if ui.add(egui::TextEdit::singleline(&mut s).desired_width(60.0)).changed() { if let Some(c) = s.chars().last() { level.text = c.to_string(); } }
+                    if ui.add(qalam_kit::widgets::edit_line(&mut s).desired_width(60.0)).changed() { if let Some(c) = s.chars().last() { level.text = c.to_string(); } }
                     ui.end_row();
                     ui.label(crate::i18n::tr("Symbols"));
                     ui.horizontal_wrapped(|ui| {
@@ -330,7 +330,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
                     });
                     ui.end_row();
                     ui.label(crate::i18n::tr("Number format"));
-                    ui.add(egui::TextEdit::singleline(&mut level.text).desired_width(220.0)).on_hover_text(crate::i18n::tr("Write the text around the number: %1 is this list's first level, %2 the second, … e.g. \"Step %1:\", \"Article %1 –\", \"%1.%2\""));
+                    ui.add(qalam_kit::widgets::edit_line(&mut level.text).desired_width(220.0)).on_hover_text(crate::i18n::tr("Write the text around the number: %1 is this list's first level, %2 the second, … e.g. \"Step %1:\", \"Article %1 –\", \"%1.%2\""));
                     ui.end_row();
                     ui.label(""); ui.weak(crate::i18n::trf("Use %{} for this level's number", &[&(lv + 1)])); ui.end_row();
                     ui.label(crate::i18n::tr("Start at")); ui.add(DragValue::new(&mut level.start).range(0..=32767)); ui.end_row();
@@ -658,7 +658,7 @@ pub fn comments_panel(app: &mut WordApp, ui: &mut Ui) {
                         match &mut app.comment_edit {
                             Some((id, draft, is_new)) if *id == c.id => {
                                 let is_new = *is_new;
-                                let te = ui.add(egui::TextEdit::multiline(draft).desired_rows(2).desired_width(f32::INFINITY).hint_text(crate::i18n::tr("Comment")));
+                                let te = ui.add(qalam_kit::widgets::edit_lines(draft).desired_rows(2).desired_width(f32::INFINITY).hint_text(crate::i18n::tr("Comment")));
                                 te.request_focus();
                                 app.canvas_focus = false;
                                 crate::theme::hrow(ui, |ui| {
@@ -674,7 +674,7 @@ pub fn comments_panel(app: &mut WordApp, ui: &mut Ui) {
                             }
                             _ => {
                                 let text = if done { RichText::new(&c.text).weak() } else { RichText::new(&c.text) };
-                                ui.label(text);
+                                qalam_kit::widgets::text_label(ui, text);
                             }
                         }
                         ui.add_space(4.0);
@@ -682,7 +682,7 @@ pub fn comments_panel(app: &mut WordApp, ui: &mut Ui) {
                     if app.comment_edit.is_none() {
                         match &mut app.reply {
                             Some((id, draft)) if *id == root => {
-                                let te = ui.add(egui::TextEdit::multiline(draft).desired_rows(1).desired_width(f32::INFINITY).hint_text(crate::i18n::tr("Reply")));
+                                let te = ui.add(qalam_kit::widgets::edit_lines(draft).desired_rows(1).desired_width(f32::INFINITY).hint_text(crate::i18n::tr("Reply")));
                                 te.request_focus();
                                 app.canvas_focus = false;
                                 crate::theme::hrow(ui, |ui| {
@@ -698,7 +698,7 @@ pub fn comments_panel(app: &mut WordApp, ui: &mut Ui) {
                                     let root2 = root.clone();
                                     if !done && ui.small_button(crate::i18n::tr("Reply")).clicked() { action = Some(Box::new(move |app| app.reply = Some((root2, String::new())))); }
                                     let root2 = root.clone();
-                                    if ui.small_button(if done { "Reopen" } else { "Resolve" }).clicked() { action = Some(Box::new(move |app| app.doc.set_comment_done(&root2, !done))); }
+                                    if ui.small_button(crate::i18n::tr(if done { "Reopen" } else { "Resolve" })).clicked() { action = Some(Box::new(move |app| app.doc.set_comment_done(&root2, !done))); }
                                     let (root2, text) = (root.clone(), thread[0].text.clone());
                                     if ui.small_button(crate::i18n::tr("Edit")).clicked() { action = Some(Box::new(move |app| app.comment_edit = Some((root2, text, false)))); }
                                     let root2 = root.clone();
@@ -754,7 +754,7 @@ pub fn notes_panel(app: &mut WordApp, ui: &mut Ui) {
                         let editing = app.note_edit.as_ref().is_some_and(|(nk, nid, _)| nk == k && nid == id);
                         if editing {
                             let (_, _, draft) = app.note_edit.as_mut().unwrap();
-                            let r = ui.add(egui::TextEdit::multiline(draft).desired_rows(2).desired_width(f32::INFINITY));
+                            let r = ui.add(qalam_kit::widgets::edit_lines(draft).desired_rows(2).desired_width(f32::INFINITY));
                             if !r.has_focus() && !r.lost_focus() { r.request_focus(); }
                             app.canvas_focus = false;
                             if r.lost_focus() || ui.input(|i| i.key_pressed(Key::Escape)) { commit = Some((*k, id.clone(), draft.clone())); }

@@ -187,7 +187,7 @@ pub fn dialogs(app: &mut WordApp, ctx: &egui::Context) {
                 crate::theme::Combo::from_id_salt("rec-store").width(220.0).selected_text(crate::i18n::tr(&d.store.label())).show_ui(ui, |ui| { for s in [Store::Global, Store::Document] { ui.selectable_value(&mut d.store, s, crate::i18n::tr(&(s.label()))); } });
                 ui.end_row();
                 ui.label(crate::i18n::tr("Keyboard shortcut:")); shortcut_combo(ui, "rec-key", &mut d.shortcut); ui.end_row();
-                ui.label(crate::i18n::tr("Description:")); ui.add(egui::TextEdit::multiline(&mut d.description).desired_rows(2)); ui.end_row();
+                ui.label(crate::i18n::tr("Description:")); ui.add(qalam_kit::widgets::edit_lines(&mut d.description).desired_rows(2)); ui.end_row();
             });
             if !m::valid_name(&d.name) { ui.colored_label(Color32::from_rgb(190, 40, 40), "Use letters, digits and _ (no spaces), starting with a letter."); }
             ui.label(RichText::new(crate::i18n::tr("Typing, formatting, styles and caret keys are recorded; mouse selection isn't.")).small().weak());
@@ -261,12 +261,12 @@ fn editor(app: &mut WordApp, ctx: &egui::Context) {
     dialog(ctx, "Macro Editor").open(&mut open).default_width(860.0).show(ctx, |ui| {
         app.canvas_focus = false;
         crate::theme::hrow(ui, |ui| {
-            ui.label(crate::i18n::tr("Name:")); ui.add(egui::TextEdit::singleline(&mut ed.name).desired_width(160.0));
+            ui.label(crate::i18n::tr("Name:")); ui.add(qalam_kit::widgets::edit_line(&mut ed.name).desired_width(160.0));
             ui.label(crate::i18n::tr("Store in:"));
             crate::theme::Combo::from_id_salt("ed-store").width(190.0).selected_text(crate::i18n::tr(&ed.store.label())).show_ui(ui, |ui| { for s in [Store::Global, Store::Document] { ui.selectable_value(&mut ed.store, s, crate::i18n::tr(&(s.label()))); } });
             ui.label(crate::i18n::tr("Shortcut:")); shortcut_combo(ui, "ed-key", &mut ed.shortcut);
         });
-        crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Description:")); ui.add(egui::TextEdit::singleline(&mut ed.description).desired_width(f32::INFINITY)); });
+        crate::theme::hrow(ui, |ui| { ui.label(crate::i18n::tr("Description:")); ui.add(qalam_kit::widgets::edit_line(&mut ed.description).desired_width(f32::INFINITY)); });
         crate::theme::hcols(ui, |ui| {
             crate::theme::vcol(ui, |ui| {
                 ui.set_width(520.0);

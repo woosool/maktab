@@ -510,3 +510,38 @@ pub fn rtl_text(ui: &mut Ui, text: &str, width: f32, font: egui::FontId, color: 
         }
     });
 }
+
+/// Where text lines up in its box: right for right-to-left text (or an empty box in an
+/// Arabic interface), left otherwise.
+pub fn text_align(s: &str) -> egui::Align {
+    if is_rtl_text(s) || (s.trim().is_empty() && crate::i18n::rtl()) { egui::Align::RIGHT } else { egui::Align::LEFT }
+}
+
+/// A one-line text box that lines its text up on the side it is written from.
+pub fn edit_line(s: &mut String) -> egui::TextEdit<'_> {
+    let a = text_align(s);
+    egui::TextEdit::singleline(s).horizontal_align(a)
+}
+
+/// A multi-line text box that lines its text up on the side it is written from.
+pub fn edit_lines(s: &mut String) -> egui::TextEdit<'_> {
+    let a = text_align(s);
+    egui::TextEdit::multiline(s).horizontal_align(a)
+}
+
+/// A label for text someone wrote (a comment, a note): right-to-left text sits on the right.
+pub fn text_label(ui: &mut Ui, text: impl Into<RichText>) -> Response {
+    let text = text.into();
+    let layout = egui::Layout::top_down(text_align(text.text()));
+    ui.with_layout(layout, |ui| ui.add(egui::Label::new(text).wrap())).inner
+}
+
+#[cfg(test)]
+mod align_tests {
+    #[test]
+    fn arabic_text_lines_up_on_the_right() {
+        assert_eq!(super::text_align("هل انت بخير"), egui::Align::RIGHT);
+        assert_eq!(super::text_align("Hello عربي world"), egui::Align::LEFT);
+        assert_eq!(super::text_align("Hello"), egui::Align::LEFT);
+    }
+}

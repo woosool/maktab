@@ -305,7 +305,7 @@ fn signature_dialog(app: &mut WordApp, ctx: &egui::Context) {
             ui.label(crate::i18n::tr("Suggested signer:")); ui.text_edit_singleline(&mut d.signer); ui.end_row();
             ui.label(crate::i18n::tr("Suggested signer's title:")); ui.text_edit_singleline(&mut d.title); ui.end_row();
             ui.label(crate::i18n::tr("Suggested signer's e-mail:")); ui.text_edit_singleline(&mut d.email); ui.end_row();
-            ui.label(crate::i18n::tr("Instructions to the signer:")); ui.add(egui::TextEdit::multiline(&mut d.instructions).desired_rows(2)); ui.end_row();
+            ui.label(crate::i18n::tr("Instructions to the signer:")); ui.add(qalam_kit::widgets::edit_lines(&mut d.instructions).desired_rows(2)); ui.end_row();
         });
         crate::theme::check(ui, &mut d.show_date, crate::i18n::tr("Show sign date in signature line"));
         crate::theme::footer(ui, |ui| { if crate::theme::primary(ui, "OK").clicked() { ok = true; } if crate::theme::secondary(ui, "Cancel").clicked() { cancel.set(true); } });
@@ -367,7 +367,7 @@ fn icons_dialog(app: &mut WordApp, ctx: &egui::Context) {
     let (mut open, mut ok, cancel) = (true, false, std::cell::Cell::new(false));
     crate::theme::dialog(ctx, "Insert Icons").open(&mut open).collapsible(false).resizable(false).default_width(560.0).show(ctx, |ui| {
         app.canvas_focus = false;
-        ui.add(egui::TextEdit::singleline(&mut d.query).hint_text(crate::i18n::tr("Search icons")).desired_width(f32::INFINITY));
+        ui.add(qalam_kit::widgets::edit_line(&mut d.query).hint_text(crate::i18n::tr("Search icons")).desired_width(f32::INFINITY));
         let q = d.query.to_lowercase();
         egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
             crate::theme::grid(ui, egui::Grid::new("icons").spacing(vec2(4.0, 4.0)), |ui| {

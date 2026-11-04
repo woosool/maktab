@@ -294,7 +294,7 @@ fn thesaurus_pane(app: &mut WordApp, ui: &mut Ui) {
         close = pane_header(ui, "Thesaurus");
         let Some(t) = &mut app.extras.review.thesaurus else { return };
         crate::theme::hrow(ui, |ui| {
-            let r = ui.add(egui::TextEdit::singleline(&mut t.query).desired_width(170.0));
+            let r = ui.add(qalam_kit::widgets::edit_line(&mut t.query).desired_width(170.0));
             if r.has_focus() { app.canvas_focus = false; }
             if ui.button(crate::i18n::tr("Search")).clicked() || r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) { search = true; }
         });
