@@ -624,9 +624,11 @@ impl Document {
             if p.cell.is_some_and(|c| header_cells.contains(&c)) {
                 for r in &mut p.runs {
                     r.props.bold = header.then_some(true);
+                    r.props.bold_cs = header.then_some(true);
                     r.props.color = header.then_some(Some(Color::WHITE));
                 }
                 p.mark.bold = header.then_some(true);
+                p.mark.bold_cs = header.then_some(true);
                 p.mark.color = header.then_some(Some(Color::WHITE));
             }
         }
@@ -792,6 +794,20 @@ mod tests {
         let para = d.locate(at).0;
         assert_eq!(d.paragraphs[para].cell, Some(a), "boxes {boxes:?}");
     }
+    }
+
+    #[test]
+    fn header_table_style_bolds_arabic_too() {
+        // wordcraft #4198: the header row must set w:bCs beside w:b, or Arabic headers are plain in Word.
+        let mut d = grid(2, 2);
+        d.apply_table_style(TableStyle::HeaderShaded, Color::BLACK);
+        let (_, cell) = d.tables[0].cell_at_grid(0, 0).unwrap();
+        let id = cell.id;
+        let p = d.paragraphs.iter().find(|p| p.cell == Some(id)).unwrap();
+        assert!(p.runs.iter().all(|r| r.props.bold == Some(true) && r.props.bold_cs == Some(true)));
+        assert_eq!(p.mark.bold_cs, Some(true));
+    }
+
     #[test]
     fn block_merge_and_split() {
         let mut d = grid(3, 3);

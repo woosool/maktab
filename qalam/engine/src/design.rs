@@ -59,7 +59,7 @@ impl Document {
                 vec![p]
             }
             StoryDesign::Banded => {
-                let white = RunProps { color: Some(Some(Color::WHITE)), bold: Some(true), ..Default::default() };
+                let white = RunProps { color: Some(Some(Color::WHITE)), bold: Some(true), bold_cs: Some(true), ..Default::default() };
                 let runs = if header { vec![Run { text: title.to_uppercase(), props: white.clone(), ..Default::default() }] } else { vec![Run { text: "Page ".into(), props: white.clone(), ..Default::default() }, field_run(Field::Page, &white), Run { text: " of ".into(), props: white.clone(), ..Default::default() }, field_run(Field::NumPages, &white)] };
                 let mut p = Paragraph { runs, ..Default::default() };
                 p.props.shading = Some(Some(accent));
