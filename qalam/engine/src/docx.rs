@@ -465,6 +465,9 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                                 flush(&mut text, runs);
                                 runs.push(Run::marker(Marker::FieldBegin(f.0.trim().to_string(), f.2)));
                                 f.0 = "#block".into();
+                            } else if matches!(f.0.split_whitespace().next().unwrap_or("").to_uppercase().as_str(), "ASK" | "SET") {
+                                // ASK and SET only set a bookmark: Word shows nothing for them.
+                                f.0 = "#done".into();
                             }
                         }
                     }
@@ -2685,6 +2688,13 @@ mod tests {
         let w = |i: usize| d.para_format(&d.paragraphs[i]).borders.bottom.unwrap().width;
         assert!((w(0) - 0.125).abs() < 1e-4, "omitted w:sz: {}", w(0));
         assert!((w(1) - 0.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn ask_and_set_fields_show_nothing() {
+        let f = |i: &str, r: &str| format!(r#"<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText>{i}</w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>{r}</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>"#);
+        let doc = format!(r#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>مرحبا </w:t></w:r>{}{}<w:r><w:t>عالم</w:t></w:r></w:p></w:body></w:document>"#, f(" ASK name \"الاسم؟\" ", "سلمى"), f(" SET city \"تونس\" ", "تونس"));
+        assert_eq!(read(&raw_docx(&doc)).unwrap().text(), "مرحبا عالم");
     }
 
     fn raw_docx(doc: &str) -> Vec<u8> {
