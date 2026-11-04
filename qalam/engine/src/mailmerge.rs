@@ -372,6 +372,19 @@ impl Document {
             }
             p.runs.retain(|r| !r.text.is_empty() || r.marker.is_some() || r.field.is_some());
         }
+        // Header and footer fields show the copy's first recipient (wordcraft #430).
+        let row = order.get(start).copied();
+        for story in [&mut self.header, &mut self.footer].into_iter().flatten() {
+            for p in &mut story.paragraphs {
+                for r in &mut p.runs {
+                    let Some(f) = r.field.clone().filter(is_merge_field) else { continue };
+                    r.field = None;
+                    r.text = mm.text_for(&f, row, seq).replace('\n', &crate::chars::LINE_BREAK.to_string());
+                }
+                p.runs.retain(|r| !r.text.is_empty() || r.marker.is_some() || r.field.is_some());
+            }
+            self.stories_changed = true;
+        }
         Some(cur - start + 1)
     }
 
@@ -503,6 +516,7 @@ impl Document {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::Story;
 
     fn list() -> DataSource { DataSource::parse_delimited("people.csv", "First Name,Last Name,City,Amount\nAda,Lovelace,London,10\n\"Grace\",\"Hopper, Jr\",Arlington,5\nAlan,Turing,Manchester,0\n").unwrap() }
 
@@ -532,6 +546,22 @@ mod tests {
         let text = m.text();
         assert!(text.contains("Dear Ada Lovelace, from London (gold)") && text.contains("Dear Grace Hopper, Jr, from Arlington") && !text.contains("Turing"), "{text}");
         assert_eq!(m.paragraphs.iter().filter(|p| p.props.page_break_before == Some(true)).count(), 1);
+    }
+
+    #[test]
+    fn merge_resolves_header_and_footer_fields() {
+        // wordcraft #430: a recipient field in the header stayed «Name» after Finish & Merge.
+        let mut d = Document::new(vec![Paragraph::new("نص")]);
+        d.set_merge_source(Some(DataSource::parse_delimited("p.csv", "Name\nأحمد\nBeta\n").unwrap()), None);
+        let story = |f: Field| Story { paragraphs: vec![Paragraph { runs: vec![Run { text: " ".into(), field: Some(f), ..Default::default() }], ..Default::default() }] };
+        d.header = Some(story(Field::Merge("Name".into())));
+        d.footer = Some(story(Field::MergeRec));
+        d.stories_changed = true;
+        let m = d.merged_document(0, 0).unwrap();
+        let text = |s: &Option<Story>| s.as_ref().unwrap().paragraphs.iter().map(|p| p.text()).collect::<String>();
+        assert_eq!(text(&m.header), "أحمد");
+        assert_eq!(text(&m.footer), "1");
+        assert!(m.header.iter().chain(m.footer.iter()).flat_map(|s| s.paragraphs.iter()).flat_map(|p| p.runs.iter()).all(|r| r.field.is_none()));
     }
 
     #[test]
