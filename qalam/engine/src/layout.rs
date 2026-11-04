@@ -1413,11 +1413,13 @@ impl<'a> Placer<'a> {
             let (mut deco0, mut deco1) = (f32::MAX, f32::MIN);
             let mut w = v;
             let mut field_pieces: Vec<(FontKey, Vec<Glyph>)> = vec![];
+            let mut spans: Vec<(usize, usize, usize)> = vec![];
             while w < l.order.len() {
                 let j = l.order[w];
                 let at = &l.atoms[j];
                 if at.fmt != a.fmt || at.image.is_some() || key_of(at) != face { break; }
                 let gx = left + l.x[j];
+                let before = glyphs.len();
                 let text_glyphs = |text: &str, glyphs: &mut Vec<Glyph>| {
                     let mut fx = gx;
                     for c in text.chars() { glyphs.push(Glyph { ch: c, gid: fonts::glyph_id(face.face, c), x: fx, dy: 0.0 }); fx += fonts::advance(face, c, f.size); }
@@ -1455,7 +1457,14 @@ impl<'a> Placer<'a> {
                 end_x = end_x.max(gx + at.width);
                 // Trailing spaces are not underlined (ulTrailSpace off).
                 if j < l.trail { deco0 = deco0.min(gx); deco1 = deco1.max(gx + at.width); }
+                spans.push((j, before, glyphs.len()));
                 w += 1;
+            }
+            // Glyphs are kept in reading order (each has its own x), so text copied out of a PDF
+            // reads right to left text in the order it was written.
+            if spans.windows(2).any(|p| p[1].0 < p[0].0) {
+                spans.sort_by_key(|s| s.0);
+                glyphs = spans.iter().flat_map(|&(_, a, b)| glyphs[a..b].to_vec()).collect();
             }
             if let Some(link) = f.link.clone().filter(|_| end_x > start_x) {
                 pb.links.push((start_x, top, end_x - start_x, l.height, link));
@@ -2382,7 +2391,7 @@ mod tests {
         let n = l.page_count();
         assert!(n > 2);
         let text = |k: usize| -> String { l.pages[k].items.iter().filter_map(|i| match i { DrawItem::Glyphs { glyphs, .. } => Some(glyphs.iter().map(|g| g.ch).collect::<String>()), _ => None }).collect() };
-        assert!(text(0).contains("رطس1line"), "first page: {}", text(0));
+        assert!(text(0).contains("سطر1"), "first page: {}", text(0));
         assert!(text(n - 1).contains(&n.to_string()), "last page shows its number: {}", text(n - 1));
     }
 

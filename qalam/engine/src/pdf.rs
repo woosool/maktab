@@ -180,6 +180,14 @@ pub fn export_pages(doc: &Document, layout: &Layout, title: &str, pages: &[usize
                 let tf = faces.entry(text_face).or_insert_with(|| parse_face(text_face as usize));
                 let map = used.entry(text_face).or_default();
                 let mode = if variable || font.synthetic_bold || complex || effects.shadow || effects.outline { 3 } else { 0 };
+                // Right-to-left text also carries its characters in reading order (ActualText),
+                // which viewers copy instead of guessing an order from glyph positions.
+                let logical: String = glyphs.iter().map(|g| g.ch).filter(|&ch| ch != crate::layout::CONTINUATION).collect();
+                let rtl_text = logical.chars().any(|ch| matches!(unicode_bidi::bidi_class(ch), unicode_bidi::BidiClass::R | unicode_bidi::BidiClass::AL));
+                if rtl_text {
+                    let hex: String = logical.encode_utf16().map(|u| format!("{u:04X}")).collect();
+                    let _ = write!(c, "/Span << /ActualText <FEFF{hex}> >> BDC ");
+                }
                 let _ = write!(c, "BT {mode} Tr /F{text_face} {size} Tf ");
                 for g in glyphs {
                     // An invisible layer needs only one glyph per character.
@@ -190,6 +198,7 @@ pub fn export_pages(doc: &Document, layout: &Layout, title: &str, pages: &[usize
                     let _ = write!(c, "1 0 0 -1 {} {} Tm <{gid:04X}> Tj ", g.x, baseline - g.dy);
                 }
                 c.push_str("ET\n");
+                if rtl_text { c.push_str("EMC\n"); }
                 if effects.rotate.is_some() { c.push_str("Q\n"); }
             }
         };
@@ -309,4 +318,31 @@ fn rotation_cm(deg: f32, cx: f32, cy: f32) -> String {
     if deg.rem_euclid(360.0) == 0.0 { return String::new(); }
     let (sin, cos) = deg.to_radians().sin_cos();
     format!("{cos} {sin} {} {cos} {} {} cm ", -sin, cx - cx * cos + cy * sin, cy - cx * sin - cy * cos)
+}
+
+#[cfg(test)]
+mod rtl_tests {
+    use crate::model::{Document, Paragraph};
+
+    #[test]
+    fn arabic_text_is_written_in_reading_order() {
+        let text = "مرحبا بالعالم 2026";
+        let d = Document::new(vec![Paragraph::new(text)]);
+        let layout = crate::layout_document(&d);
+        // Each word's glyphs run in reading order (the first letter first), whatever their x.
+        let words: Vec<String> = layout.pages[0].items.iter().filter_map(|i| match i { crate::layout::DrawItem::Glyphs { glyphs, .. } => Some(glyphs.iter().map(|g| g.ch).filter(|&c| c != crate::layout::CONTINUATION).collect::<String>()), _ => None }).collect();
+        assert!(words.iter().any(|w| w == "مرحبا") && words.iter().any(|w| w == "بالعالم"), "{words:?}");
+        // The PDF carries the words as ActualText, in reading order.
+        let bytes = super::export(&d, &layout, "T");
+        let mut contents = String::new();
+        let mut rest = &bytes[..];
+        while let Some(i) = rest.windows(10).position(|w| w == b">>\nstream\n") {
+            let body = &rest[i + 10..];
+            let Some(end) = body.windows(10).position(|w| w == b"\nendstream") else { break };
+            if let Ok(v) = miniz_oxide::inflate::decompress_to_vec_zlib(&body[..end]) { contents.push_str(&String::from_utf8_lossy(&v)); }
+            rest = &body[end..];
+        }
+        let hex: String = "مرحبا".encode_utf16().map(|u| format!("{u:04X}")).collect();
+        assert!(contents.contains(&format!("/ActualText <FEFF{hex}")), "the first word starts an ActualText span");
+    }
 }
