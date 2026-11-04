@@ -92,6 +92,16 @@ struct Reader<'a> {
     theme_major_cs: Option<String>,
 }
 
+/// The colour a `w:shd` paints: `solid` is the pattern colour, `pctN` blends N% of the pattern colour (auto = black) over the fill (auto = white), anything else is the fill; None = no shading.
+fn shd_color(s: &Element) -> Option<Color> {
+    let hex = |n: &str| s.attr(n).filter(|f| *f != "auto").and_then(Color::from_hex);
+    let fill = hex("w:fill");
+    let pct = match s.attr("w:val") { Some("solid") => 100.0, Some(v) => v.strip_prefix("pct").and_then(|n| n.parse::<f32>().ok()).unwrap_or(0.0), None => 0.0 }.clamp(0.0, 100.0) / 100.0;
+    if pct == 0.0 { return fill; }
+    let (f, c) = (fill.unwrap_or(Color(255, 255, 255)), hex("w:color").unwrap_or(Color(0, 0, 0)));
+    let mix = |a: u8, b: u8| (a as f32 * (1.0 - pct) + b as f32 * pct).round() as u8;
+    Some(Color(mix(f.0, c.0), mix(f.1, c.1), mix(f.2, c.2)))
+}
 fn twip_attr(e: &Element, name: &str) -> Option<i32> { e.attr(name).and_then(|v| v.trim().parse::<f64>().ok()).map(|v| v.round() as i32) }
 
 impl<'a> Reader<'a> {
@@ -120,7 +130,7 @@ impl<'a> Reader<'a> {
                 "w:color" => p.color = Some(match val { Some("auto") | None => None, Some(v) => Color::from_hex(v) }),
                 "w:sz" => p.size = val.and_then(|v| v.parse::<f32>().ok()).map(|v| v / 2.0),
                 "w:highlight" => p.highlight = Some(val.filter(|v| *v != "none").map(String::from)),
-                "w:shd" => p.shading = Some(c.attr("w:fill").filter(|f| *f != "auto").and_then(Color::from_hex)),
+                "w:shd" => p.shading = Some(shd_color(c)),
                 "w:vertAlign" => p.vert_align = Some(match val { Some("superscript") => VertAlign::Superscript, Some("subscript") => VertAlign::Subscript, _ => VertAlign::Baseline }),
                 "w:caps" => p.caps = Some(if on { Caps::AllCaps } else { Caps::Normal }),
                 "w:smallCaps" => p.caps = Some(if on { Caps::SmallCaps } else { Caps::Normal }),
@@ -195,7 +205,7 @@ impl<'a> Reader<'a> {
                     kind: match t.attr("w:val") { Some("center") => TabKind::Center, Some("right" | "end") => TabKind::Right, Some("decimal") => TabKind::Decimal, Some("clear") => TabKind::Clear, _ => TabKind::Left },
                     leader: match t.attr("w:leader") { Some("dot") => Leader::Dot, Some("hyphen") => Leader::Hyphen, Some("underscore" | "heavy") => Leader::Underscore, Some("middleDot") => Leader::MiddleDot, _ => Leader::None },
                 })).collect()),
-                "w:shd" => p.shading = Some(c.attr("w:fill").filter(|f| *f != "auto").and_then(Color::from_hex)),
+                "w:shd" => p.shading = Some(shd_color(c)),
                 "w:pBdr" => {
                     let side = |n: &str| c.child(n).filter(|b| !matches!(b.attr("w:val"), Some("nil" | "none"))).map(|b| Border {
                         width: b.attr("w:sz").and_then(|v| v.parse::<f32>().ok()).map(|v| v / 8.0).unwrap_or(OMITTED_BORDER_WIDTH),
@@ -338,7 +348,7 @@ impl<'a, 'b> BodyReader<'a, 'b> {
                 let mut cell = Cell::new(tcpr.and_then(|p| p.child("w:tcW")).filter(|w| w.attr("w:type").is_none_or(|t| t == "dxa")).and_then(|w| twip_attr(w, "w:w")).unwrap_or(0));
                 cell.span = tcpr.and_then(|p| p.val("w:gridSpan")).and_then(|v| v.parse().ok()).unwrap_or(1).max(1);
                 cell.v_merge = match tcpr.and_then(|p| p.child("w:vMerge")) { None => VMerge::None, Some(v) if v.attr("w:val") == Some("restart") => VMerge::Restart, Some(_) => VMerge::Continue };
-                cell.shading = tcpr.and_then(|p| p.child("w:shd")).and_then(|s| s.attr("w:fill")).filter(|f| *f != "auto").and_then(Color::from_hex);
+                cell.shading = tcpr.and_then(|p| p.child("w:shd")).and_then(shd_color);
                 cell.v_align = match tcpr.and_then(|p| p.val("w:vAlign")) { Some("center") => CellVAlign::Center, Some("bottom") => CellVAlign::Bottom, _ => CellVAlign::Top };
                 if let Some(b) = tcpr.and_then(|p| p.child("w:tcBorders")) {
                     let side = |names: &[&str]| names.iter().find_map(|n| b.child(n)).map(read_border);
@@ -2097,6 +2107,15 @@ mod tests {
         }
         let d = read(&out.into_inner()).unwrap();
         assert_eq!(d.paragraphs[0].text(), "A✓☺α≥B");
+    }
+
+    #[test]
+    fn patterned_shading_blends_pattern_over_fill() {
+        let e = |x: &str| crate::xml::parse(x).unwrap();
+        assert_eq!(shd_color(&e(r#"<w:shd w:val="pct80" w:color="auto" w:fill="FFFFFF"/>"#)), Some(Color(51, 51, 51)));
+        assert_eq!(shd_color(&e(r#"<w:shd w:val="solid" w:color="FF0000" w:fill="FFFFFF"/>"#)), Some(Color(255, 0, 0)));
+        assert_eq!(shd_color(&e(r#"<w:shd w:val="clear" w:color="auto" w:fill="00FF00"/>"#)), Some(Color(0, 255, 0)));
+        assert_eq!(shd_color(&e(r#"<w:shd w:val="clear" w:color="auto" w:fill="auto"/>"#)), None);
     }
 
     #[test]
