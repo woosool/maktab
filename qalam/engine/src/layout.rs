@@ -459,6 +459,8 @@ impl<'a> Ctx<'a> {
                     _ => 0.0,
                 } };
                 atoms.push(Atom { ch: shown, pos: Some(pos), width, fmt: afi, kind, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None });
+                // Capitals of ß are two letters (SS, as Word shows); the extra one has no document position.
+                if shown != c { for e in c.to_uppercase().skip(1) { let width = if af.hidden { 0.0 } else { fonts::advance(af.key, e, af.size) + af.spacing }; atoms.push(Atom { ch: e, pos: None, width, fmt: afi, kind, image: None, leader: Leader::None, note: None, field: None, key: None, level: 0, glyphs: (0, 0), object: None }); } }
                 pos += 1;
             }
         }
@@ -2159,6 +2161,17 @@ mod tests {
         // A left stop past the margin still wraps.
         d.paragraphs[0].props.tabs = Some(vec![TabStop { pos: 11610, kind: TabKind::Left, leader: Leader::None }]);
         assert!(layout_document(&d).lines.len() > 1);
+    }
+
+    #[test]
+    fn all_caps_sharp_s_shows_two_letters() {
+        let mut d = doc("Straße");
+        d.select(0, 6);
+        d.set_run_props(crate::format::RunProps { caps: Some(Caps::AllCaps), ..Default::default() });
+        let l = layout_document(&d);
+        let shown: String = l.pages[0].items.iter().filter_map(|i| match i { DrawItem::Glyphs { glyphs, .. } => Some(glyphs.iter().map(|g| g.ch).collect::<String>()), _ => None }).collect();
+        assert_eq!(shown, "STRASSE");
+        assert!(l.caret_rect(6).is_some());
     }
 
     #[test]

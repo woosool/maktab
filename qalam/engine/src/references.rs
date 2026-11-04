@@ -224,7 +224,11 @@ impl Document {
     /// Paragraphs (excluding field blocks) that a TOC lists: (index, level 0-based, text).
     fn toc_sources(&self, levels: u8) -> Vec<(usize, u8, String)> {
         let inside: Vec<(usize, usize)> = blocks(self).into_iter().map(|b| (b.0, b.1)).collect();
-        self.outline().into_iter().filter(|(i, l, _)| *l < levels && !inside.iter().any(|(a, b)| i >= a && i <= b) && self.paragraphs[*i].style.as_deref() != Some("TOCHeading")).collect()
+        // Headings numbered by a list keep their number in the entry (Word: "1.2 Title"); bullets don't.
+        let mut counter = crate::numbering::MarkerCounter::default();
+        let labels: Vec<Option<String>> = self.paragraphs.iter().map(|p| self.para_format(p).numbering.and_then(|(n, l)| counter.next(&self.numbering, n, l))).collect();
+        self.outline().into_iter().filter(|(i, l, _)| *l < levels && !inside.iter().any(|(a, b)| i >= a && i <= b) && self.paragraphs[*i].style.as_deref() != Some("TOCHeading"))
+            .map(|(i, l, t)| match labels[i].as_deref().filter(|m| m.chars().any(char::is_alphanumeric)) { Some(m) => (i, l, format!("{m} {t}")), None => (i, l, t) }).collect()
     }
 
     /// Entry paragraphs for a TOC or table of figures: text, leader tab, page number field,
@@ -689,6 +693,20 @@ mod tests {
     use crate::model::Paragraph;
 
     fn para(text: &str, style: Option<&str>) -> Paragraph { Paragraph { runs: vec![Run::text(text)], style: style.map(String::from), ..Default::default() } }
+
+    #[test]
+    fn toc_keeps_list_numbers_of_headings() {
+        let mut d = Document::new(vec![para("Intro", Some("Heading1")), para("Scope", Some("Heading1")), para("End", None)]);
+        let n = d.len();
+        d.select(0, n);
+        d.apply_numbering(crate::numbering::NumFmt::Decimal, "%1.");
+        let n = d.len();
+        d.select(n, n);
+        d.insert_toc(TocOptions::default());
+        let bl = blocks(&d);
+        let toc: Vec<String> = (bl[0].0..=bl[0].1).map(|i| d.paragraphs[i].text()).collect();
+        assert!(toc[0].starts_with("1. Intro") && toc[1].starts_with("2. Scope"), "{toc:?}");
+    }
 
     #[test]
     fn toc_captions_citations_index_and_authorities() {

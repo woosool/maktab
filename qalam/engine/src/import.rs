@@ -106,8 +106,9 @@ fn inline(text: &str, base: RunProps) -> Vec<Run> {
         }
         if c == '[' {
             let rest: String = chars[i..].iter().collect();
-            if let (Some(close), Some(open)) = (rest.find("]("), rest.find(')')) {
-                if open > close {
+            // The link text is up to the first `]` (an unclosed `[` stays text); its URL ends at the first `)` after it.
+            if let Some(close) = rest[1..].find(['[', ']']).map(|k| k + 1).filter(|&k| rest[k..].starts_with("](")) {
+                if let Some(open) = rest[close..].find(')').map(|k| k + close) {
                     flush(&mut buf, &mut runs, bold, italic, false, None);
                     buf = rest[1..close].to_string();
                     let url = rest[close + 2..open].to_string();
@@ -221,5 +222,13 @@ mod tests {
         for ok in ["[safe](https://x.y)", "[mail](mailto:a@b.c)", "[bm](#top)", "[rel](notes/a.md)", "[رابط](https://example.com/مرحبا%20بك)"] { assert!(md.contains(ok), "{ok} in {md}"); }
         assert!(!md.contains("javascript") && !md.contains("DATA:"), "{md}");
         assert!(md.contains("evil") && md.contains("data"), "the text stays");
+    }
+
+    #[test]
+    fn markdown_unclosed_bracket_keeps_later_links() {
+        let d = from_markdown("a [b (c) see [x](u1) and [y](u2)\n");
+        let links: Vec<_> = d.paragraphs[0].runs.iter().filter_map(|r| r.link.clone().map(|l| (r.text.clone(), l))).collect();
+        assert_eq!(links, vec![("x".to_string(), "u1".to_string()), ("y".to_string(), "u2".to_string())]);
+        assert!(d.paragraphs[0].text().starts_with("a [b (c) see x"));
     }
 }
