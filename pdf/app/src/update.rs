@@ -157,6 +157,9 @@ pub fn check(ctx: &egui::Context, manual: bool, skipped: Option<String>) {
             Ok(r) if newer(&r.version, CURRENT) => {
                 if !manual && skipped.as_deref() == Some(r.version.as_str()) {
                     State::Idle
+                } else if !manual && r.url.is_some() && self_updatable() {
+                    // Found by the automatic check: download and install it quietly, then offer a restart.
+                    auto_install(r)
                 } else {
                     SHOW.store(true, Ordering::Relaxed);
                     State::Available(r)
@@ -361,6 +364,18 @@ pub fn clean_old() {
             let _ = std::fs::remove_file(exe.with_extension("old"));
         }
     }
+}
+
+/// Download and install on the checking thread; the dialog appears only once it's ready
+/// (or, if it fails, offering the manual download instead).
+fn auto_install(r: Release) -> State {
+    set(State::Downloading(r.clone()));
+    let s = match download(&r).and_then(|z| install(&z)) {
+        Ok(p) => State::Ready(r, p),
+        Err(_) => State::Available(r),
+    };
+    SHOW.store(true, Ordering::Relaxed);
+    s
 }
 
 fn start_download(ctx: &egui::Context, r: Release) {
